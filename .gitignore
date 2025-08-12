@@ -22,3 +22,4 @@ workers/registraciq/gmail_kod/.env
 *.zip
 desktop.ini
 .env
+.env
