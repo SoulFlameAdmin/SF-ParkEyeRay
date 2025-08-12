@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <title>QR Скенер</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #111;
+      color: white;
+      text-align: center;
+    }
+    #reader {
+      width: 100%;
+      max-width: 600px;
+      margin: 50px auto;
+    }
+    h1 {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📷 QR Скенер</h1>
+  <div id="reader"></div>
+
+  <script>
+    function onScanSuccess(decodedText, decodedResult) {
+      console.log(`✅ QR Code: ${decodedText}`);
+      if (decodedText.startsWith("http")) {
+        window.open(decodedText, "_blank");
+      } else {
+        alert("QR кодът не съдържа линк:\n" + decodedText);
+      }
+    }
+
+    function onScanFailure(error) {
+      console.warn(`⚠️ Грешка при сканиране: ${error}`);
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+
+    Html5Qrcode.getCameras().then(devices => {
+      if (devices && devices.length) {
+        html5QrCode.start(
+          { facingMode: "environment" }, // задна камера по подразбиране
+          {
+            fps: 10,
+            qrbox: 250
+          },
+          onScanSuccess,
+          onScanFailure
+        ).catch(err => {
+          alert("⚠️ Грешка при стартиране на скенера: " + err);
+        });
+      } else {
+        alert("❌ Не е открита камера на устройството.");
+      }
+    }).catch(err => {
+      alert("❌ Грешка при достъп до камерата: " + err);
+    });
+  </script>
+</body>
+</html>

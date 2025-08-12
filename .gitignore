@@ -1,0 +1,23 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+
+# Node / build
+node_modules/
+dist/
+build/
+.cache/
+.next/
+.vercel/
+
+# Env / secrets
+.env
+.env.local
+.env.development
+.env.production
+workers/registraciq/sms_kod/.env
+workers/registraciq/gmail_kod/.env
+
+# Misc
+*.zip
+desktop.ini

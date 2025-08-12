@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="utf-8" />
+<title>Каталог: Градове → Квартали</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{ --text:#0f172a; --muted:#6b7280; --line:#e5e7eb; --pill:#eef2ff; --pillb:#dbe2ff; }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,Arial;color:var(--text);background:#fff}
+  .wrap{padding:12px}
+  .toolbar{display:flex;gap:8px;margin-bottom:10px}
+  .toolbar input{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+  .grid{display:grid;grid-template-columns:minmax(260px,1fr) minmax(260px,1fr);gap:12px}
+  .panel{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+  .panel header{background:#f9fafb;border-bottom:1px solid var(--line);color:#111}
+  .panel header .ttl{padding:10px 12px;font-weight:700}
+  .list{max-height:70vh;overflow:auto}
+  .row{padding:10px 12px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;gap:10px;cursor:pointer}
+  .row:hover{background:#f8fafc}
+  .name{font-weight:700}
+  .pill{font-size:12px;background:var(--pill);border:1px solid var(--pillb);color:#2332a2;border-radius:999px;padding:2px 8px;white-space:nowrap}
+  .empty{padding:12px;color:var(--muted)}
+  .hint{margin-top:8px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="toolbar">
+    <input id="q" placeholder="Търси град…" />
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <header><div class="ttl" id="citiesTitle">Градове (—)</div></header>
+      <div id="cities" class="list"><div class="empty">Зареждам списък с градове…</div></div>
+    </section>
+
+    <section class="panel">
+      <header><div class="ttl" id="districtsTitle">Квартали — избери град</div></header>
+      <div id="districts" class="list"><div class="empty">Няма данни — кликни град вляво.</div></div>
+    </section>
+  </div>
+
+  <div class="hint" id="hint"></div>
+</div>
+
+<script>
+/* Пътища към файла */
+const ABS_FILE_URL = "file:///E:/Parking_app/257_cities_bulgaria_corrected.txt";
+const REL_FILE_URL = "257_cities_bulgaria_corrected.txt";
+
+/* Състояние */
+let CITY_INDEX = [];        // [{name, districts: string[]}]
+let CITY_TO_DISTRICTS = {}; // name -> string[]
+
+/* Утилити */
+const $ = (id)=>document.getElementById(id);
+const byBg = (a,b)=>a.localeCompare(b,'bg');
+function setHint(t){ $('hint').textContent = t || ''; }
+
+/* Четене на текста с UTF-8 / win-1251 fallback */
+async function fetchText(url){
+  const r = await fetch(url, {cache:'no-cache'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const buf = await r.arrayBuffer();
+  try { return new TextDecoder('utf-8',{fatal:true}).decode(buf); }
+  catch { return new TextDecoder('windows-1251').decode(buf); }
+}
+
+/* Парсване на формата от твоя файл */
+function parseCitiesTxt(text){
+  const lines = text.split(/\r?\n/);
+  const dict = {};
+  const cities = [];
+  let currentCity = null;
+
+  const pushCity = (name)=>{
+    name = (name||'').trim();
+    if(!name) return;
+    if(!dict[name]) dict[name] = [];
+    if(!cities.find(c=>c.name===name)) cities.push({name, districts: dict[name]});
+    currentCity = name;
+  };
+
+  for(const raw of lines){
+    if(raw==null) continue;
+    let line = String(raw).replace(/^[\uFEFF]+/,'').trim();
+    if(!line) continue;
+    if(/^_{3,}$/.test(line)) continue;
+
+    // "Град: кв1, кв2" (поддържа : — - | ; ,)
+    if(/[：:—\-|]/.test(line) && !/^\s/.test(raw)){
+      const m = line.split(/[:—\-|]/);
+      const city = (m.shift()||'').trim();
+      pushCity(city);
+      const rest = m.join(' ').trim();
+      if(rest){
+        rest.split(/[;,|]/).map(s=>s.trim()).filter(Boolean).forEach(d=>{
+          if(!dict[currentCity].includes(d)) dict[currentCity].push(d);
+        });
+      }
+      continue;
+    }
+
+    // Име на град (ред без отстъп/маркер)
+    if(!/^\s/.test(raw) && !/^[•·\-–—]/.test(line)){
+      pushCity(line);
+      continue;
+    }
+
+    // Квартал (ред с отстъп или маркер)
+    const district = line.replace(/^[-–—•·]+/,'').trim();
+    if(district && currentCity){
+      if(!dict[currentCity].includes(district)) dict[currentCity].push(district);
+    }
+  }
+
+  cities.sort((a,b)=>byBg(a.name,b.name));
+  cities.forEach(c=>c.districts = [...new Set(c.districts)].sort(byBg));
+  return {cities, dict};
+}
+
+/* Рендер */
+function renderCities(list){
+  const root = $('cities');
+  root.innerHTML = '';
+  if(!list.length){ root.innerHTML = `<div class="empty">Няма градове.</div>`; return; }
+  list.forEach(item=>{
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.innerHTML = `<div class="name">${item.name}</div>
+                     <div class="pill">${item.districts.length} кв.</div>`;
+    div.addEventListener('click',()=>openCity(item.name));
+    root.appendChild(div);
+  });
+  $('citiesTitle').textContent = `Градове (${list.length})`;
+}
+
+function renderDistricts(city){
+  const root = $('districts');
+  root.innerHTML = '';
+  $('districtsTitle').textContent = `Квартали — ${city}`;
+  const districts = CITY_TO_DISTRICTS[city] || [];
+  if(!districts.length){ root.innerHTML = `<div class="empty">Няма въведени квартали.</div>`; return; }
+  districts.forEach(d=>{
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.innerHTML = `<div class="name">${d}</div>`;
+    root.appendChild(div);
+  });
+}
+
+function openCity(name){ renderDistricts(name); }
+
+/* Търсене */
+$('q')?.addEventListener('input', ()=>{
+  const s = $('q').value.trim().toLowerCase();
+  const list = !s ? CITY_INDEX : CITY_INDEX.filter(x=>x.name.toLowerCase().includes(s));
+  renderCities(list);
+});
+
+/* Старт */
+(async function start(){
+  try{
+    let txt;
+    try {
+      txt = await fetchText(ABS_FILE_URL);       // директно от E:\
+      setHint('Заредено директно от E:\\Parking_app');
+    } catch {
+      txt = await fetchText(REL_FILE_URL);       // ако има локален сървър
+      setHint('Заредено през локален сървър в същата папка.');
+    }
+    const {cities, dict} = parseCitiesTxt(txt);
+    CITY_INDEX = cities; CITY_TO_DISTRICTS = dict;
+    renderCities(CITY_INDEX);
+  }catch(e){
+    document.getElementById('cities').innerHTML =
+      `<div class="empty">Не успях да прочета файла. Стартирай браузъра с флаг <code>--allow-file-access-from-files</code>
+        или пусни локален сървър в папката (<code>npx serve -p 5500</code>), после отвори <code>http://localhost:5500/</code>.</div>`;
+    setHint(' ');
+  }
+})();
+</script>
+</body>
+</html>

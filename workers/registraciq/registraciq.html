@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Soulsflame · ParkEyeRay Регистрация</title>
+  <link rel="stylesheet" href="registraciq.css" />
+</head>
+<body>
+  <div class="wrap">
+    <form id="registerForm" class="card" novalidate>
+      <h1 class="logo">ParkEyeRay</h1>
+      <p class="subtitle">Futuristic Parking System · Soulsflame</p>
+
+      <label for="fullname">Три имена</label>
+      <input id="fullname" type="text" placeholder="Въведи пълното си име" autocomplete="name" />
+      <small id="err-fullname" class="err"></small>
+
+      <label for="password">Парола</label>
+      <input id="password" type="password" placeholder="Въведи парола" autocomplete="new-password" />
+      <small id="err-password" class="err"></small>
+
+      <div class="verify-group" role="radiogroup" aria-label="Метод за потвърждение">
+        <button type="button" id="blockSMS" class="method" aria-pressed="false">📲 SMS</button>
+        <button type="button" id="blockGMAIL" class="method" aria-pressed="false">📧 Gmail</button>
+      </div>
+
+      <div id="dynamicField" class="hidden slideDown">
+        <label id="dynLabel" for="dynInput"></label>
+        <input id="dynInput" type="text" placeholder="" />
+        <small id="err-dyn" class="err"></small>
+      </div>
+
+      <div id="codeSection" class="hidden slideUp">
+        <label id="codeLabel" for="codeInput">Код</label>
+        <input id="codeInput" type="text" inputmode="numeric" maxlength="6" placeholder="" />
+        <small id="err-code" class="err"></small>
+
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button type="button" id="confirmCodeBtn" class="secondary">Потвърди кода</button>
+          <button type="button" id="resendBtn" class="secondary">Изпрати отново</button>
+        </div>
+
+        <small id="codeHint" class="hint"></small>
+      </div>
+
+      <button id="registerBtn" class="primary" type="submit" disabled>✅ Регистрация</button>
+
+      <div style="margin-top:12px; text-align:center;">
+        <a href="vhod.html" style="color:#9feaff;">Вече имаш акаунт? Вход</a>
+      </div>
+    </form>
+  </div>
+
+  <script src="registraciq.js"></script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+:root{
+  --glass:rgba(6,19,36,.82);
+  --line:rgba(0,255,255,.28);
+  --accent:#00eaff; --accent2:#00aaff;
+  --muted:#7fdfff; --text:#e9ffff; --danger:#ff6b6b;
+}
+*{box-sizing:border-box} html,body{height:100%}
+body{
+  margin:0; font-family:'Orbitron',system-ui,Segoe UI,Roboto,Arial;
+  background:
+    radial-gradient(1200px 700px at 85% 0%, rgba(0,234,255,.18), transparent 40%),
+    linear-gradient(120deg,#001123 0%,#001e34 40%,#00384f 100%);
+  color:var(--text); display:grid; place-items:center; padding:16px;
+  overflow-x:hidden;
+}
+.wrap{width:100%; max-width:520px}
+
+.card{
+  background:var(--glass); border:2px solid var(--line); backdrop-filter:blur(10px);
+  border-radius:20px; padding:28px 24px; box-shadow:0 20px 60px rgba(0,0,0,.45);
+  animation: cardEnter 1.2s ease both;
+}
+
+.logo{
+  margin:0 0 6px; text-align:center; color:var(--accent);
+  letter-spacing:.5px; font-weight:700; font-size:28px;
+  animation: glowIn 2s ease both;
+}
+.subtitle{margin:0 0 18px; text-align:center; color:var(--muted); font-size:12px}
+
+label{display:block; font-size:13px; margin:12px 0 6px}
+input{
+  width:100%; border:1px solid var(--line); border-radius:12px;
+  padding:12px 14px; background:rgba(0,255,255,.06); color:var(--text);
+  outline:none; transition:border .2s, box-shadow .2s, transform .2s;
+  transform:translateZ(0);
+}
+input:focus{border-color:var(--accent); box-shadow:0 0 0 5px rgba(0,234,255,.12); transform:translateY(-1px)}
+input.is-invalid{border-color:var(--danger)!important; box-shadow:0 0 0 4px rgba(255,107,107,.2); animation: shake .4s ease}
+
+.err{display:block; min-height:16px; margin-top:4px; color:var(--danger); font-size:11px}
+
+.verify-group{display:flex; gap:12px; margin:16px 0 6px}
+.method{
+  flex:1; border:1.5px solid var(--line); border-radius:14px;
+  padding:12px 10px; background:rgba(0,255,255,.07); color:var(--text);
+  cursor:pointer; transition:transform .15s, border .2s, background .2s, box-shadow .2s;
+}
+.method:hover{transform:translateY(-1px)}
+.method.active{border-color:var(--accent); background:rgba(0,234,255,.18); box-shadow:0 0 22px rgba(0,234,255,.22)}
+
+.primary{
+  width:100%; margin-top:16px; padding:14px; font-weight:800; letter-spacing:.3px;
+  border:none; border-radius:14px; background:linear-gradient(90deg,#00ffd1,#00b3ff);
+  color:#00121f; cursor:pointer; transition:filter .15s, transform .12s, box-shadow .2s;
+}
+.primary:disabled{filter:grayscale(.6); opacity:.6; cursor:not-allowed}
+.primary:not(:disabled):hover{transform:translateY(-1px); box-shadow:0 10px 22px rgba(0,234,255,.18)}
+
+.secondary{
+  margin-top:10px; width:100%; padding:12px 14px;
+  border:1px solid var(--accent); background:linear-gradient(90deg,#00eaff,#00aaff);
+  color:#002; font-weight:700; border-radius:12px; cursor:pointer;
+  transition:transform .12s, box-shadow .2s;
+}
+.secondary:hover{transform:translateY(-1px); box-shadow:0 10px 20px rgba(0,234,255,.18)}
+
+.hidden{display:none}
+.slideDown{animation:slideDown .45s cubic-bezier(.22,1,.36,1) both}
+.slideUp{animation:slideUp .45s cubic-bezier(.22,1,.36,1) both}
+
+.hint{display:block; margin-top:6px; color:#9feaff; opacity:.9; font-size:11px}
+
+/* Animations */
+@keyframes glowIn{
+  0%{opacity:0; transform:translateY(-18px) scale(.98)}
+  60%{opacity:1; transform:translateY(0) scale(1)}
+  100%{text-shadow:0 0 10px #00eaff, 0 0 30px #00aaff}
+}
+@keyframes cardEnter{
+  from{opacity:0; transform:translateY(22px) scale(.98)}
+  to{opacity:1; transform:translateY(0) scale(1)}
+}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-6px)}
+  50%{transform:translateX(6px)}
+  75%{transform:translateX(-4px)}
+}
+@keyframes slideDown{
+  from{opacity:0; transform:translateY(-8px)}
+  to{opacity:1; transform:translateY(0)}
+}
+@keyframes slideUp{
+  from{opacity:0; transform:translateY(8px)}
+  to{opacity:1; transform:translateY(0)}
+}
+
+@media (max-width:460px){ .card{padding:22px 16px} .logo{font-size:24px} }

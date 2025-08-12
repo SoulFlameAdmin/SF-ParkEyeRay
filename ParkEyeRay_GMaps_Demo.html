@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI ParkEyeRay · GMaps DEMO (Q-GRID™)</title>
+  <style>
+    :root{
+      --bg:#050715;
+      --card:#0b0f2a;
+      --accent:#7cf7ff;
+      --accent2:#69ffb7;
+      --danger:#ff487a;
+      --warn:#f9c84a;
+      --ok:#22e07a;
+      --text:#e9efff;
+      --muted:#9fb0d9;
+      --line:rgba(255,255,255,.06);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 800px at 90% -10%, rgba(124,247,255,.15), transparent 40%),
+        radial-gradient(1000px 600px at -10% -20%, rgba(105,255,183,.12), transparent 40%),
+        var(--bg);
+      color:var(--text); font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      overflow:hidden;
+    }
+    header{
+      height:64px; display:flex; align-items:center; gap:14px; padding:0 16px;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(10,14,40,.75), rgba(5,7,21,.9));
+      backdrop-filter: blur(6px);
+      position:relative; z-index:2;
+    }
+    .logo{width:36px; height:36px; border-radius:12px; background:
+      conic-gradient(from 0deg, var(--accent), var(--accent2), var(--accent), var(--accent2));
+      box-shadow:0 0 24px rgba(124,247,255,.35), inset 0 0 30px rgba(255,255,255,.15);
+    }
+    .brand-title{font-weight:800; letter-spacing:.2px}
+    .tagline{font-size:12px; color:var(--muted); margin-top:-4px}
+    .kpi{margin-left:auto; display:flex; gap:18px; font-size:12px; color:#d7e4ff}
+    .kpi b{display:block; font-size:16px; color:#fff}
+
+    .layout{display:grid; grid-template-columns: 360px 1fr; height: calc(100% - 64px);}
+    aside{
+      background:linear-gradient(180deg, rgba(14,20,56,.85), rgba(6,10,30,.92));
+      border-right:1px solid var(--line); overflow:auto; padding:16px
+    }
+    main{position:relative}
+    #map{position:absolute; inset:0}
+    .panel{position:absolute; right:16px; top:16px; width:420px; max-height:80%;
+      background:linear-gradient(180deg, rgba(13,19,48,.95), rgba(10,14,40,.98));
+      border:1px solid var(--line); border-radius:16px; overflow:auto; z-index:1; box-shadow:0 12px 60px rgba(0,0,0,.5)}
+    .panel header{position:sticky; top:0; background:rgba(12,16,44,.9); border-bottom:1px solid var(--line); padding:12px 14px}
+    .panel .content{padding:14px 16px; font-size:14px}
+    .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; margin:10px 0}
+    .muted{color:var(--muted)}
+    h3{margin:8px 0 6px}
+    .row{display:flex; gap:8px; flex-wrap:wrap}
+    .btn{
+      appearance:none; border:1px solid var(--line); background:#121737; color:#fff; font-weight:700; letter-spacing:.2px;
+      padding:10px 12px; border-radius:10px; cursor:pointer; font-size:13px
+    }
+    .btn:hover{filter:brightness(1.08)}
+    .btn.primary{background:#0c1b63; border-color:#2846ff}
+    .btn.ok{background:#09291b; border-color:#1d915f}
+    .btn.bad{background:#2a0b17; border-color:#8f1d43}
+    .btn.warn{background:#2b2409; border-color:#8f7a1d}
+    .chips{display:flex; gap:8px; flex-wrap:wrap}
+    .chip{padding:8px 10px; background:#0e1538; border:1px solid var(--line); border-radius:999px; font-size:12px}
+    .legend{display:flex; align-items:center; gap:10px; font-size:12px}
+    .dot{width:10px; height:10px; border-radius:50%}
+    .dot.ok{background:var(--ok)} .dot.bad{background:var(--danger)} .dot.warn{background:var(--warn)}
+
+    .title-xxs{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.9px}
+    .title-sm{font-weight:800; font-size:13px}
+
+    .floating{position:absolute; left:16px; top:16px; display:flex; gap:8px; z-index:2}
+    .floating .btn{backdrop-filter: blur(4px)}
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo"></div>
+  <div>
+    <div class="brand-title">AI ParkEyeRay · DAVID ASI Skin</div>
+    <div class="tagline">Smart Parking with QR + Geo-Fences + Q-GRID™ Inference</div>
+  </div>
+  <div class="kpi">
+    <div><b id="kpi-free">—</b>Свободни</div>
+    <div><b id="kpi-busy">—</b>Заети</div>
+    <div><b id="kpi-amb">—</b>AI непотвърдени</div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="title-xxs">Резюме за община Хасково</div>
+    <div class="card">
+      <p><b>Какво внедряваме:</b> софтуерен слой за <i>жив статус</i> на паркиране без задължителен хардуер.</p>
+      <ul>
+        <li>Гео-огради на зони и индивидуални места</li>
+        <li>QR вход + анонимни AI доклади</li>
+        <li>Q-GRID™ — спатио-темпорална мрежа с <b>времеви разпад</b> на сигнали</li>
+      </ul>
+      <p class="muted">* Хардуерни сензори могат да се добавят поетапно. Q-GRID™ работи и без тях.</p>
+    </div>
+
+    <div class="title-xxs">Ползи</div>
+    <div class="card">
+      <div class="chips">
+        <div class="chip">По-малко обикаляне</div>
+        <div class="chip">По-малко нарушения</div>
+        <div class="chip">Heatmap натоварване</div>
+        <div class="chip">Аналитики в реално време</div>
+      </div>
+    </div>
+
+    <div class="title-xxs">Демо сценарий (30сек)</div>
+    <div class="card">
+      <ol class="muted">
+        <li>Натисни <b>Сканер</b> → симулирай <b>PZ-001</b>.</li>
+        <li>Маркерът става <b>Зает</b>, KPI се обновяват.</li>
+        <li>Активирай <b>Q-GRID</b> → виж анимирана вероятност.</li>
+      </ol>
+      <div class="row" style="margin-top:8px">
+        <button class="btn primary" id="openScan">Сканер</button>
+        <button class="btn" id="toggleQGrid">Q-GRID ON</button>
+        <button class="btn" id="resetDemo">Рестарт</button>
+      </div>
+    </div>
+
+    <div class="title-xxs">Технология (човешки език)</div>
+    <div class="card">
+      <p><b>Q-GRID™</b> = гео-огради + време + вероятност. Всеки сигнал (QR, локация, доклад) влиза като „частица“ с <b>времеви полуразпад</b>. 
+      Мрежата комбинира множество източници и дава <b>вероятност</b> дадено място да е заето. Аномалии се маркират за проверка.</p>
+    </div>
+
+    <div class="title-xxs">Филтри</div>
+    <div class="row">
+      <button class="btn" data-filter="all">Всички</button>
+      <button class="btn ok" data-filter="free">Свободни</button>
+      <button class="btn bad" data-filter="busy">Заети</button>
+      <button class="btn warn" data-filter="amb">AI непотвърдени</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="floating">
+      <button class="btn" id="fitHaskovo">Център Хасково</button>
+      <button class="btn" id="simulatePZ1">PZ-001</button>
+      <button class="btn" id="simulatePZ2">PZ-002</button>
+      <button class="btn" id="simulatePZ3">PZ-003</button>
+    </div>
+    <div id="map"></div>
+
+    <div class="panel" id="infoPanel">
+      <header><b>Инфо панел</b></header>
+      <div class="content" id="panelContent">
+        <div class="card">
+          <h3>Изберете маркер</h3>
+          <p class="muted">Ще видите ID, статус и вероятност от Q-GRID™.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- QR modal (lightweight; manual simulation for localhost) -->
+<div class="panel" id="qrPanel" style="left:16px; right:auto; display:none; width:360px;">
+  <header><b>QR Скенер</b></header>
+  <div class="content">
+    <p class="muted">За онлайн протокол ползвай https/localhost. За демо — ръчно въведи ID.</p>
+    <div class="row">
+      <input id="qrInput" placeholder="напр. PZ-001" style="flex:1; background:#0d143a; border:1px solid var(--line); color:#fff; padding:10px 12px; border-radius:10px"/>
+      <button class="btn primary" id="qrSubmit">OK</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="qrPZ1">Симулирай PZ-001</button>
+      <button class="btn" id="qrPZ2">PZ-002</button>
+      <button class="btn" id="qrPZ3">PZ-003</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ------- DATA (Haskovo demo) -------
+  const places = {
+    "PZ-001": { name:"Пл. Свобода – Зона A", lat:41.932698, lng:25.557340, status:"free", updated:null, prob:0.15 },
+    "PZ-002": { name:"Бул. България – Зона B", lat:41.932050, lng:25.559200, status:"amb",  updated:null, prob:0.55 },
+    "PZ-003": { name:"Ул. Дунав – Зона C",     lat:41.931200, lng:25.555900, status:"busy", updated:null, prob:0.92 }
+  };
+  const COLORS = { free:"#22e07a", busy:"#ff487a", amb:"#f9c84a" };
+
+  let map, markers={}, heatmap, qgridOn=false, qgridTimer=null;
+
+  // Custom dark neon style
+  const neonStyle = [
+    { elementType: "geometry", stylers: [{ color: "#081031" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#9fb0d9" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#081031" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#0f1a4a" }] },
+    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#b0c4ff" }] },
+    { featureType: "poi", elementType: "geometry", stylers: [{ color: "#0a123a" }] },
+    { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#0b1f2a" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#081a3a" }] },
+    { featureType: "transit", stylers: [{ visibility: "off" }] }
+  ];
+
+  // Geo-fences (polygons) for zones
+  const zones = {
+    A: [
+      {lat:41.93310,lng:25.55680},
+      {lat:41.93255,lng:25.55795},
+      {lat:41.93210,lng:25.55730},
+      {lat:41.93260,lng:25.55630}
+    ],
+    B: [
+      {lat:41.93240,lng:25.55860},
+      {lat:41.93185,lng:25.55970},
+      {lat:41.93130,lng:25.55890},
+      {lat:41.93185,lng:25.55810}
+    ],
+    C: [
+      {lat:41.93135,lng:25.55520},
+      {lat:41.93090,lng:25.55640},
+      {lat:41.93040,lng:25.55575},
+      {lat:41.93090,lng:25.55495}
+    ]
+  };
+
+  function initMap(){
+    map = new google.maps.Map(document.getElementById("map"), {
+      center:{lat:41.932698, lng:25.557340},
+      zoom:15,
+      styles: neonStyle,
+      mapTypeControl:false,
+      streetViewControl:false,
+      fullscreenControl:true
+    });
+
+    // Draw geo-fences
+    Object.entries(zones).forEach(([zone, path], idx)=>{
+      new google.maps.Polygon({
+        paths: path,
+        map,
+        strokeColor: idx===0 ? "#69ffb7" : (idx===1 ? "#7cf7ff" : "#f9c84a"),
+        strokeOpacity:.8, strokeWeight:1.5,
+        fillColor: idx===0 ? "#69ffb7" : (idx===1 ? "#7cf7ff" : "#f9c84a"),
+        fillOpacity:.08
+      });
+    });
+
+    // Markers
+    for(const id in places){
+      const p = places[id];
+      const marker = new google.maps.Marker({
+        position:{lat:p.lat, lng:p.lng},
+        map,
+        title: `${id} · ${p.name}`,
+        icon: markerIcon(COLORS[p.status])
+      });
+      marker.addListener("click", ()=>showInfo(id));
+      markers[id] = marker;
+    }
+
+    // Heatmap layer (visualization)
+    heatmap = new google.maps.visualization.HeatmapLayer({
+      data: [
+        new google.maps.LatLng(41.93290, 25.55760),
+        new google.maps.LatLng(41.93210, 25.55910),
+        new google.maps.LatLng(41.93140, 25.55600),
+        new google.maps.LatLng(41.93240, 25.55800),
+        new google.maps.LatLng(41.93110, 25.55550)
+      ],
+      map: map,
+      radius: 28
+    });
+
+    // Controls
+    document.getElementById('fitHaskovo').onclick = ()=> map.setCenter({lat:41.932698, lng:25.557340});
+    document.getElementById('simulatePZ1').onclick = ()=> handleQR("PZ-001");
+    document.getElementById('simulatePZ2').onclick = ()=> handleQR("PZ-002");
+    document.getElementById('simulatePZ3').onclick = ()=> handleQR("PZ-003");
+    document.getElementById('openScan').onclick = ()=> toggleQR(true);
+    document.getElementById('qrSubmit').onclick = ()=> handleQR(document.getElementById('qrInput').value);
+    document.getElementById('qrPZ1').onclick = ()=> handleQR("PZ-001");
+    document.getElementById('qrPZ2').onclick = ()=> handleQR("PZ-002");
+    document.getElementById('qrPZ3').onclick = ()=> handleQR("PZ-003");
+    document.getElementById('toggleQGrid').onclick = toggleQGrid;
+    document.getElementById('resetDemo').onclick = resetDemo;
+
+    // Filters
+    document.querySelectorAll('[data-filter]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const f = btn.getAttribute('data-filter');
+        for(const id in places){
+          const st = places[id].status;
+          const visible = (f==='all') || (f===st);
+          markers[id].setVisible(visible);
+        }
+      });
+    });
+
+    // Initial info
+    showInfo("PZ-001");
+    updateKPI();
+  }
+
+  function markerIcon(color){
+    const svg = encodeURIComponent(`
+      <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='34' height='34'>
+        <defs>
+          <radialGradient id='g' cx='50%' cy='30%' r='70%'>
+            <stop offset='0%' stop-color='${color}' stop-opacity='1'/>
+            <stop offset='100%' stop-color='${color}' stop-opacity='.25'/>
+          </radialGradient>
+        </defs>
+        <path fill='url(#g)' d='M12 2c-4 0-7 3-7 7 0 5.5 7 13 7 13s7-7.5 7-13c0-4-3-7-7-7zm0 10a3 3 0 110-6 3 3 0 010 6z'/>
+      </svg>`);
+    return {
+      url: `data:image/svg+xml;charset=UTF-8,${svg}`,
+      scaledSize: new google.maps.Size(34,34),
+      anchor: new google.maps.Point(17,30)
+    };
+  }
+
+  function updateKPI(){
+    const vals = Object.values(places);
+    const free = vals.filter(p=>p.status==='free').length;
+    const busy = vals.filter(p=>p.status==='busy').length;
+    const amb  = vals.filter(p=>p.status==='amb').length;
+    document.getElementById('kpi-free').textContent = free;
+    document.getElementById('kpi-busy').textContent = busy;
+    document.getElementById('kpi-amb').textContent  = amb;
+  }
+
+  function showInfo(id){
+    const p = places[id];
+    const probTxt = `${Math.round((p.prob||0)*100)}%`;
+    const content = `
+      <div class="card">
+        <h3>${p.name}</h3>
+        <div class="muted">ID: <b>${id}</b></div>
+        <p>Статус: <b>${p.status==='free'?'🟢 Свободно':p.status==='busy'?'🔴 Заето':'🟡 AI непотвърдено'}</b></p>
+        <p>Q-GRID вероятност за заето: <b>${probTxt}</b></p>
+        <div class="row">
+          <button class="btn ok"  onclick="setStatus('${id}','free')">Маркирай свободно</button>
+          <button class="btn bad" onclick="setStatus('${id}','busy')">Маркирай заето</button>
+          <button class="btn warn" onclick="setStatus('${id}','amb')">Маркирай AI непотвърдено</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="title-sm">Как работи Q-GRID™</div>
+        <p class="muted">Смесва сигнали (QR, гео-позиция, доклади). Всеки сигнал „избледнява“ с времето (полуразпад), така картата остава актуална без ръчно опресняване.</p>
+      </div>
+    `;
+    document.getElementById('panelContent').innerHTML = content;
+  }
+
+  function setStatus(id, status){
+    places[id].status = status;
+    places[id].updated = new Date();
+    // demo probability
+    places[id].prob = status==='busy' ? 0.95 : status==='free' ? 0.12 : 0.55;
+    markers[id].setIcon(markerIcon(COLORS[status]));
+    showInfo(id);
+    updateKPI();
+    pulseMarker(markers[id]);
+  }
+
+  function pulseMarker(marker){
+    const icon = marker.getIcon();
+    marker.setIcon({...icon, scaledSize:new google.maps.Size(40,40)});
+    setTimeout(()=> marker.setIcon(icon), 180);
+  }
+
+  // Q-GRID simulation (animated probability decay)
+  function toggleQGrid(){
+    qgridOn = !qgridOn;
+    document.getElementById('toggleQGrid').textContent = qgridOn ? "Q-GRID OFF" : "Q-GRID ON";
+    if(qgridOn){
+      if(qgridTimer) clearInterval(qgridTimer);
+      qgridTimer = setInterval(()=>{
+        for(const id in places){
+          const p = places[id];
+          const target = p.status==='busy' ? 0.85 : p.status==='free' ? 0.15 : 0.5;
+          p.prob = p.prob + (target - p.prob)*0.06;
+        }
+        // heatmap pulse
+        const r = heatmap.get('radius');
+        heatmap.set('radius', r===28 ? 24 : 28);
+      }, 600);
+    } else {
+      if(qgridTimer) clearInterval(qgridTimer);
+      qgridTimer = null;
+      heatmap.set('radius', 28);
+    }
+  }
+
+  function resetDemo(){
+    places["PZ-001"].status="free"; places["PZ-001"].prob=0.15;
+    places["PZ-002"].status="amb";  places["PZ-002"].prob=0.55;
+    places["PZ-003"].status="busy"; places["PZ-003"].prob=0.92;
+    for(const id in places){
+      markers[id].setIcon(markerIcon(COLORS[places[id].status]));
+    }
+    updateKPI();
+    document.getElementById('panelContent').innerHTML =
+      '<div class="card"><h3>Изберете маркер</h3><p class="muted">Ще видите ID, статус и вероятност от Q-GRID™.</p></div>';
+  }
+
+  function handleQR(value){
+    const code = String(value||"").trim().toUpperCase();
+    if(!places[code]) { alert("Непознат QR/ID. Пробвай PZ-001/2/3."); return; }
+    setStatus(code, 'busy');
+    map.panTo({lat:places[code].lat, lng:places[code].lng});
+    map.setZoom(18);
+    toggleQR(false);
+  }
+
+  function toggleQR(show){
+    document.getElementById('qrPanel').style.display = show ? 'block' : 'none';
+  }
+</script>
+
+<!-- Google Maps JS API (с heatmap библиотека) -->
+<script async
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBnqcxQTJgW-BLqrX2OqUZYV_QuJ4AHzGQ&libraries=visualization&callback=initMap">
+</script>
+
+</body>
+</html>

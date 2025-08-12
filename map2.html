@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Паркинг Карта</title>
+    <style>
+      html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
+      #map { height:100%; width:100%; }
+
+      /* ☰ Бутон */
+      #menu-button {
+        position: absolute; top: 15px; left: 15px; z-index: 1000;
+        background-color: #333; color: white; border: none;
+        padding: 10px 15px; font-size: 20px; cursor: pointer; border-radius: 5px;
+      }
+      /* Панел под бутона */
+      #panel-container {
+        position: absolute; top: 60px; left: 15px; width: 250px;
+        max-height: 0; overflow: hidden; transition: max-height .3s ease;
+        z-index: 999; box-shadow: 0 0 10px rgba(0,0,0,.2);
+      }
+      #panel-container.active { max-height: 500px; }
+      #panel-container iframe { width: 100%; height: 300px; border: none; background:#f4f4f4; }
+
+      /* по желание: изместване на control-и */
+      .gm-style > div > div > div > div > div[controlwidth] { margin-left: 100px !important; }
+
+      /* мини статус */
+      #status {
+        position:absolute; right:12px; top:12px; z-index:1000;
+        background:rgba(17,24,39,.85); color:#fff; padding:6px 10px; border-radius:8px; font-size:12px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <button id="menu-button">☰</button>
+    <div id="panel-container"><iframe src="panel.html"></iframe></div>
+    <div id="map"></div>
+    <div id="status">Готово</div>
+
+    <!-- СКРИТ worker: parkomesta.html прави Overpass заявките -->
+    <iframe id="worker" src="parkomesta.html" style="display:none"></iframe>
+
+    <script>
+      // ===== Slide панел =====
+      document.getElementById("menu-button").addEventListener("click", () => {
+        document.getElementById("panel-container").classList.toggle("active");
+      });
+
+      // ===== Карта (Google Maps) =====
+      let map, info, pinMarker;
+      let overlays = []; // всички нарисувани обекти (за изчистване)
+
+      function setStatus(t){ document.getElementById('status').textContent = t; }
+
+      function initMap() {
+        map = new google.maps.Map(document.getElementById("map"), {
+          zoom: 15,
+          center: { lat: 42.6977, lng: 23.3219 },
+          mapTypeControl: true,
+          mapTypeControlOptions: { style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR, position: google.maps.ControlPosition.TOP_RIGHT }
+        });
+        info = new google.maps.InfoWindow();
+
+        // клик по картата → пин + търсене
+        map.addListener('click', (e)=>{
+          setPinAndQuery(e.latLng.lat(), e.latLng.lng(), true);
+        });
+
+        // геолокация
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const userLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
+              setPinAndQuery(userLocation.lat, userLocation.lng, true);
+            },
+            () => alert("Моля, разрешете достъп до вашето местоположение.")
+          );
+        } else {
+          alert("Вашият браузър не поддържа геолокация.");
+        }
+      }
+
+      function setPinAndQuery(lat, lon, doQuery){
+        const pos = {lat, lng:lon};
+        if(!pinMarker){
+          pinMarker = new google.maps.Marker({position:pos, map, draggable:true, title:'Търсене от тук'});
+          pinMarker.addListener('dragend', ()=>{
+            const p = pinMarker.getPosition();
+            requestParkings(p.lat(), p.lng());
+          });
+        } else {
+          pinMarker.setPosition(pos);
+        }
+        map.setCenter(pos);
+        map.setZoom(14);
+        if(doQuery) requestParkings(lat, lon);
+      }
+
+      // ===== Връзка с worker-а (parkomesta.html) =====
+      function requestParkings(lat, lon){
+        setStatus(`Търся паркинги… ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+        const w = document.getElementById('worker').contentWindow;
+        w.postMessage({type:'SEARCH_PARKINGS', payload:{lat,lon}}, '*');
+      }
+
+      window.addEventListener('message', (e)=>{
+        const msg = e.data || {};
+        if(msg.type === 'PARKINGS_RESULT'){
+          setStatus(`Намерени: ${msg.count}`);
+          drawOnGoogleMap(msg.features || []);
+        }
+        if(msg.type === 'PARKINGS_ERROR'){
+          setStatus(`Грешка: ${msg.message || 'неизвестно'}`);
+          clearOverlays();
+        }
+      });
+
+      // ===== Рисуване върху Google Maps =====
+      function clearOverlays(){
+        overlays.forEach(ov => ov && typeof ov.setMap === 'function' && ov.setMap(null));
+        overlays = [];
+      }
+
+      function popupContent(el){
+        const t = el.tags || {};
+        const type = t.parking ? ` (${t.parking})` : '';
+        const op   = t.operator ? `<div style="color:#94a3b8">Оператор: ${t.operator}</div>` : '';
+        const url  = (el.type==='node') ? `https://www.openstreetmap.org/node/${el.id}`
+                   : (el.type==='way')  ? `https://www.openstreetmap.org/way/${el.id}`
+                   :                      `https://www.openstreetmap.org/relation/${el.id}`;
+        const name = t.name || 'Паркинг';
+        return `<b>${name}${type}</b><br/><a href="${url}" target="_blank" rel="noopener">OSM →</a>${op}`;
+      }
+
+      function drawOnGoogleMap(features){
+        clearOverlays();
+        const bounds = new google.maps.LatLngBounds();
+
+        const baseMarkerOpts = {
+          icon: { labelOrigin: new google.maps.Point(12,10) },
+          label: { text:"P", fontWeight:"bold" }
+        };
+
+        features.forEach(el=>{
+          // 1) multipolygon relation (members с geometry)
+          if(el.type==='relation' && Array.isArray(el.members) && el.members.length){
+            const outer = el.members
+              .filter(m => (m.role==='outer' || m.role==='outline') && Array.isArray(m.geometry))
+              .map(m => m.geometry.map(g => ({lat:g.lat, lng:g.lon})));
+            if(outer.length){
+              const poly = new google.maps.Polygon({paths: outer, map});
+              poly.addListener('click', ()=> info.setContent(popupContent(el)) || info.open({map, anchor:poly}));
+              overlays.push(poly);
+              outer.flat().forEach(ll => bounds.extend(ll));
+              return;
+            }
+          }
+
+          // 2) way/relation с geometry
+          if((el.type==='way' || el.type==='relation') && Array.isArray(el.geometry) && el.geometry.length){
+            const path = el.geometry.map(g => ({lat:g.lat, lng:g.lon}));
+            const poly = new google.maps.Polygon({paths: path, map});
+            poly.addListener('click', ()=> info.setContent(popupContent(el)) || info.open({map, anchor:poly}));
+            overlays.push(poly);
+            path.forEach(ll => bounds.extend(ll));
+            return;
+          }
+
+          // 3) node или fallback center
+          const lat = el.lat ?? el.center?.lat;
+          const lon = el.lon ?? el.center?.lon;
+          if(lat!=null && lon!=null){
+            const mk = new google.maps.Marker({...baseMarkerOpts, position:{lat, lng:lon}, map});
+            mk.addListener('click', ()=> info.setContent(popupContent(el)) || info.open({map, anchor:mk}));
+            overlays.push(mk);
+            bounds.extend({lat, lng:lon});
+          }
+        });
+
+        if(!bounds.isEmpty()){
+          if(pinMarker) bounds.extend(pinMarker.getPosition());
+          map.fitBounds(bounds, 60);
+        }
+      }
+    </script>
+
+    <!-- Google Maps JS API (остави твоя ключ) -->
+    <script async
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBnqcxQTJgW-BLqrX2OqUZYV_QuJ4AHzGQ&callback=initMap">
+    </script>
+  </body>
+</html>
