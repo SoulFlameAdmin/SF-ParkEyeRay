@@ -1,6 +1,8 @@
 {
+  "redirects": [
+    { "source": "/", "destination": "/intro.html", "permanent": false }
+  ],
   "rewrites": [
-    { "source": "/", "destination": "/intro.html" },
     { "source": "/app", "destination": "/index.html" }
   ],
   "headers": [
