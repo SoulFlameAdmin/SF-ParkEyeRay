@@ -116,7 +116,17 @@ async function openMenu(page) {
 
 async function tapMapPoint(page, testInfo, x, y) {
   if (testInfo.project.name === 'android-phone') {
-    await page.touchscreen.tap(x, y);
+    const surface = page.locator('#draw-surface');
+    await expect(surface).toBeVisible();
+    const surfaceBox = await surface.boundingBox();
+    if (!surfaceBox) throw new Error('Drawing surface has no bounding box');
+    const position = {
+      x: Math.max(1, Math.min(surfaceBox.width - 1, x - surfaceBox.x)),
+      y: Math.max(1, Math.min(surfaceBox.height - 1, y - surfaceBox.y))
+    };
+    const hitTarget = await page.evaluate(({ x: clientX, y: clientY }) => document.elementFromPoint(clientX, clientY)?.id || '', { x, y });
+    expect(hitTarget).toBe('draw-surface');
+    await surface.tap({ position, force: true });
   } else {
     await page.mouse.click(x, y);
   }
