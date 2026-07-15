@@ -92,8 +92,10 @@
   };
 
   app.clearLocalData=()=>{
-    if(!confirm('Да изтрия ли локалните запазени паркинги и предложения от това устройство?'))return;
-    s.saved=[];s.proposals=[];app.write(app.STORAGE.saved,[]);app.write(app.STORAGE.proposals,[]);
-    app.renderProposals();app.renderParkings?.();app.updateProfile();app.closeModal('profile-modal');app.setActiveAction('profile');app.setStatus('Локалните данни са изтрити.','success');
+    if(!confirm('Да изтрия ли всички локални запазени места, история и предложения от това устройство?'))return;
+    s.saved=[];s.proposals=[];s.destinationHistory=[];s.savedDestinations=[];
+    app.write(app.STORAGE.saved,[]);app.write(app.STORAGE.proposals,[]);app.write(app.STORAGE.destinationHistory,[]);app.write(app.STORAGE.savedDestinations,[]);
+    app.renderProposals();app.renderParkings?.();app.updateDestinationControls?.();app.updateProfile();
+    app.closeModal('profile-modal');app.setActiveAction('profile');app.setStatus('Локалните данни, историята и запазените места са изтрити.','success');
   };
 })();
