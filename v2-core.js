@@ -101,14 +101,16 @@
     };
     const captureDrawEvent=event=>{
       if(!s.drawing)return;
-      if(event.type==='pointerup'&&event.pointerType!=='touch'&&event.button!==0)return;
-      const blocked=event.target instanceof Element&&event.target.closest('.top-shell,.parking-sheet,.route-card,.draw-toolbar,.map-menu,.modal,.leaflet-control,.leaflet-popup,.leaflet-tooltip');
+      if(event.type==='pointerdown'&&event.pointerType!=='touch')return;
+      if(event.type==='pointerup'&&(event.pointerType==='touch'||event.button!==0))return;
+      const blocked=event.target instanceof Element&&event.target.closest('.top-shell,.parking-sheet,.route-card,.draw-toolbar,.map-menu,.modal,.leaflet-control');
       if(blocked)return;
       const mapNode=app.$('map'),rect=mapNode.getBoundingClientRect(),{x,y}=eventPoint(event),now=performance.now();
       if(!Number.isFinite(x)||!Number.isFinite(y)||x<rect.left||x>rect.right||y<rect.top||y>rect.bottom||isDuplicateDrawEvent(x,y,now))return;
       rememberDrawEvent(x,y,now);
       app.addDrawPoint?.(s.map.containerPointToLatLng(L.point(x-rect.left,y-rect.top)));
     };
+    document.addEventListener('pointerdown',captureDrawEvent,true);
     document.addEventListener('touchend',captureDrawEvent,{capture:true,passive:true});
     document.addEventListener('pointerup',captureDrawEvent,true);
     document.addEventListener('click',captureDrawEvent,true);
