@@ -4,7 +4,7 @@
   s.ui={online:navigator.onLine,busy:new Set(),activeAction:'search',lastRetry:null};
 
   app.requiredIds=[
-    'map','status','search-form','search-input','search-submit','search-results','locate-btn',
+    'map','status','search-form','search-input','search-submit','search-results','locate-btn','menu-btn','map-menu','parking-layer-btn','fuel-layer-btn',
     'parking-sheet','parking-list','parking-count','parking-filters','sheet-handle','save-destination',
     'route-card','route-close','start-route','external-route','draw-toolbar',
     'proposal-modal','proposal-form','profile-modal','proposals-modal','network-state'
@@ -14,7 +14,7 @@
     const missing=app.requiredIds.filter(id=>!app.$(id));
     if(missing.length)throw new Error(`Missing interface nodes: ${missing.join(', ')}`);
     const actions=[...document.querySelectorAll('.nav-action[data-action]')];
-    if(actions.length!==5)throw new Error(`Expected 5 primary actions, found ${actions.length}`);
+    if(actions.length!==5)throw new Error(`Expected 5 primary actions in the burger menu, found ${actions.length}`);
     return true;
   };
 
@@ -79,17 +79,19 @@
   app.setSheetCollapsed=collapsed=>{
     app.$('parking-sheet').classList.toggle('collapsed',collapsed);
     app.$('sheet-handle').setAttribute('aria-expanded',String(!collapsed));
+    document.body.classList.toggle('sheet-expanded',!collapsed);
   };
 
   app.setDrawingMode=active=>{
     document.body.classList.toggle('drawing-mode',active);
     app.$('draw-toolbar').classList.toggle('active',active);
-    document.querySelectorAll('.nav-action').forEach(button=>button.disabled=active&&button.dataset.action!=='add');
+    document.querySelectorAll('.nav-action,.layer-action').forEach(button=>button.disabled=active&&button.dataset.action!=='add');
     app.$('search-input').disabled=active;
     app.$('search-submit').disabled=active;
     app.$('locate-btn').disabled=active;
+    app.$('menu-btn').disabled=active;
     app.$('save-destination').disabled=active;
-    if(active)app.setSearchExpanded?.(false);
+    if(active){app.closeMapMenu?.();app.setSearchExpanded?.(false)}
   };
 
   app.setOnlineState=online=>{
@@ -100,8 +102,9 @@
     if(online){
       app.setStatus('Интернет връзката е възстановена.','success');
       app.setRetry(null);
+      app.refreshMapLayers?.(app.layerCenter?.(),{force:true,announce:false});
     }else{
-      app.setStatus('Няма интернет. Картата остава видима, но търсенето и маршрутите са временно спрени.','error',true);
+      app.setStatus('Няма интернет. Картата остава видима, но търсенето и слоевете са временно спрени.','error',true);
     }
   };
 
@@ -113,7 +116,7 @@
   app.initUi=()=>{
     app.assertInterface();
     app.setActiveAction('search');
-    app.setSheetCollapsed(false);
+    app.setSheetCollapsed(true);
     app.setOnlineState(navigator.onLine);
     app.$('global-retry').addEventListener('click',()=>s.ui.lastRetry?.());
     window.addEventListener('online',()=>app.setOnlineState(true));
@@ -121,6 +124,7 @@
     document.addEventListener('keydown',event=>{
       if(event.key==='Escape'){
         if(s.drawing)app.cancelDraw?.();
+        else if(app.$('map-menu').classList.contains('open'))app.closeMapMenu?.();
         else if(app.$('search-results').classList.contains('active'))app.setSearchExpanded?.(false);
         else app.closeTopModal();
       }
