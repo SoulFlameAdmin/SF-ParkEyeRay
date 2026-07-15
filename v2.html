@@ -13,6 +13,7 @@
 </head>
 <body>
   <div id="map" aria-label="Карта"></div>
+  <div id="draw-surface" aria-hidden="true"></div>
 
   <header class="top-shell">
     <button id="menu-btn" class="round-btn burger-btn" type="button" aria-label="Отвори менюто" aria-controls="map-menu" aria-expanded="false">☰</button>
@@ -64,6 +65,10 @@
   <button id="global-retry" class="global-retry" type="button" hidden>Опитай отново</button>
 
   <section id="navigation-hud" class="navigation-hud" aria-live="polite">
+    <div id="nav-maneuver" class="nav-maneuver">
+      <div id="nav-maneuver-icon" class="nav-maneuver-icon" aria-hidden="true">↑</div>
+      <div><b id="nav-maneuver-text">Следвай маршрута</b><span id="nav-maneuver-distance">—</span></div>
+    </div>
     <div id="nav-heading-arrow" class="nav-heading-arrow" aria-hidden="true">➤</div>
     <div class="nav-speed"><b id="nav-speed-value">0</b><span>km/h</span></div>
     <small id="nav-gps-accuracy">GPS активен</small>
