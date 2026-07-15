@@ -14,7 +14,7 @@ permissions:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,6 +28,7 @@ jobs:
           node --check v2-ui.js
           node --check v2-parking.js
           node --check v2-destinations.js
+          node --check v2-parking-engine.js
           node --check v2-route.js
           node --check v2-proposals.js
           node --check v2-submission-adapter.js
@@ -35,9 +36,12 @@ jobs:
           node --check api/geocode.js
           node --check api/overpass.js
           node --check api/routing.js
+          node --check api/v2/parkings.js
           node --check api/v2/_evidence-token.js
           node --check api/v2/evidence-upload-token.js
           node --check api/v2/parking-proposals.js
+          node --check scripts/import-osm-parking.cjs
+          node --check scripts/test-v2-parking-engine.cjs
           node --check scripts/test-v2-contracts.cjs
           node --check scripts/test-v2-submission-api.cjs
           node --check scripts/test-v2-evidence-api.cjs
@@ -82,15 +86,35 @@ jobs:
           grep -q 'setTimeout.*350' v2-destinations.js
           grep -q 'Изчисти историята' v2-destinations.js
 
-      - name: Verify destination parking and routing contract
+      - name: Verify Stage 3 parking data engine contract
         run: |
-          grep -q 'amenity.*parking_space' v2-parking.js
-          grep -q 'parking:(left|right|both)' v2-parking.js
-          grep -q 'parking_entrance' v2-parking.js
+          test -s contracts/parking-import.schema.json
+          test -s supabase/migrations/20260715223000_parking_data_engine.sql
+          grep -q "'/v2-parking-engine.js'" v2.js
+          grep -q '/api/v2/parkings' v2-parking-engine.js
+          grep -q 'SmartCity PostGIS база' v2-parking-engine.js
+          grep -q 'overpass-fallback' api/v2/parkings.js
+          grep -q 'liveOccupancy: false' api/v2/parkings.js
+          grep -q 'mergeParkingRecords' api/v2/parkings.js
+          grep -q 'search_parking_features' api/v2/parkings.js
+          grep -q 'create table public.parking_features' supabase/migrations/20260715223000_parking_data_engine.sql
+          grep -q 'create table public.parking_import_runs' supabase/migrations/20260715223000_parking_data_engine.sql
+          grep -q 'create or replace function public.search_parking_features' supabase/migrations/20260715223000_parking_data_engine.sql
+          grep -q 'create or replace function public.finalize_parking_import' supabase/migrations/20260715223000_parking_data_engine.sql
+          grep -q 'source_revision' scripts/import-osm-parking.cjs
+
+      - name: Verify parking engine behavior
+        run: node scripts/test-v2-parking-engine.cjs
+
+      - name: Verify destination routing contract
+        run: |
+          grep -q 'parking_space' api/v2/parkings.js
+          grep -q 'parking:(left|right|both)' api/v2/parkings.js
+          grep -q 'parking_entrance' api/v2/parkings.js
           grep -q '/api/geocode' v2-parking.js
-          grep -q '/api/overpass' v2-parking.js
           grep -q '/api/routing' v2-route.js
           grep -Eq "profile[[:space:]]*===[[:space:]]*'walking'" api/routing.js
+          grep -q 'hasMappedEntrance' v2-route.js
 
       - name: Verify proposal moderation truth labels
         run: |
