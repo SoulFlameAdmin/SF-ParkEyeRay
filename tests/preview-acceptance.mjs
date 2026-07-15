@@ -25,10 +25,16 @@ async function request(path, options = {}) {
 
 async function run() {
   const home = await request('/');
-  assert(home.response.ok, `Home failed: ${home.response.status}`);
-  assert(home.text.includes('SmartCity Mobility'), 'Home does not contain product title');
-  assert(home.text.includes('AI Mobility OS'), 'Locked AI Mobility OS entry is missing');
-  assert(home.text.includes('Няма live информация за свободни места'), 'Honest occupancy label is missing');
+  assert(home.response.ok, `Onboarding failed: ${home.response.status}`);
+  assert(home.text.includes('ParkEyeRay'), 'Onboarding does not contain product title');
+  assert(home.text.includes('Към картата'), 'Onboarding map entry is missing');
+  assert(home.text.includes("location.href='/app'"), 'Onboarding does not route to /app');
+
+  const app = await request('/app');
+  assert(app.response.ok, `Map app failed: ${app.response.status}`);
+  assert(app.text.includes('SmartCity Mobility'), 'Map app does not contain product title');
+  assert(app.text.includes('AI Mobility OS'), 'Locked AI Mobility OS entry is missing');
+  assert(app.text.includes('Няма live информация за свободни места'), 'Honest occupancy label is missing');
 
   const manifest = await request('/manifest.webmanifest');
   assert(manifest.response.ok, `Manifest failed: ${manifest.response.status}`);
