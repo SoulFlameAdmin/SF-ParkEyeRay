@@ -1,4 +1,5 @@
 const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org/search';
+const NOMINATIM_REVERSE_ENDPOINT = 'https://nominatim.openstreetmap.org/reverse';
 const PHOTON_ENDPOINT = 'https://photon.komoot.io/api/';
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -103,11 +104,63 @@ async function nominatimSearch(query, bias) {
   return Array.isArray(data) ? data : [];
 }
 
+async function nominatimAddressSearch(street, houseNumber, city, bias) {
+  if (!street || !city) return [];
+  const url = new URL(NOMINATIM_ENDPOINT);
+  url.searchParams.set('street', [houseNumber, street].filter(Boolean).join(' '));
+  url.searchParams.set('city', city);
+  url.searchParams.set('country', 'България');
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('countrycodes', 'bg');
+  url.searchParams.set('limit', '8');
+  url.searchParams.set('addressdetails', '1');
+  url.searchParams.set('accept-language', 'bg');
+  if (bias) {
+    const spread = 0.65;
+    url.searchParams.set('viewbox', `${bias.lon - spread},${bias.lat + spread},${bias.lon + spread},${bias.lat - spread}`);
+    url.searchParams.set('bounded', '0');
+  }
+
+  const response = await fetch(url, {
+    headers:{ accept:'application/json', 'user-agent':'ParkEyeRay/1.4 (https://parkeyeray.com)' }
+  });
+  if (!response.ok) throw new Error(`Nominatim address ${response.status}`);
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
+}
+
+function likelyStreetSpellings(value) {
+  const input = String(value || '').trim();
+  return [...new Set([
+    input,
+    input.replace(/янка\s+войвода/giu, 'янко войвода'),
+    input.replace(/йанко\s+войвода/giu, 'янко войвода')
+  ].filter(Boolean))];
+}
+
+async function reverseContext(bias) {
+  if (!bias) return null;
+  const url = new URL(NOMINATIM_REVERSE_ENDPOINT);
+  url.searchParams.set('lat', String(bias.lat));
+  url.searchParams.set('lon', String(bias.lon));
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('addressdetails', '1');
+  url.searchParams.set('accept-language', 'bg');
+  url.searchParams.set('zoom', '14');
+  const response = await fetch(url, {
+    headers:{ accept:'application/json', 'user-agent':'ParkEyeRay/1.4 (https://parkeyeray.com)' }
+  });
+  if (!response.ok) throw new Error(`Nominatim reverse ${response.status}`);
+  const data = await response.json();
+  const address = data?.address || {};
+  const city = address.city || address.town || address.village || address.municipality || address.county || '';
+  return city ? { city, displayName:data.display_name || city } : null;
+}
+
 async function photonSearch(query, bias) {
   const url = new URL(PHOTON_ENDPOINT);
   url.searchParams.set('q', query);
   url.searchParams.set('limit', '8');
-  url.searchParams.set('lang', 'bg');
   if (bias) {
     url.searchParams.set('lat', String(bias.lat));
     url.searchParams.set('lon', String(bias.lon));
@@ -125,7 +178,7 @@ async function callOverpass(query) {
   let lastError = null;
   for (const endpoint of OVERPASS_ENDPOINTS) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 16000);
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
       const response = await fetch(endpoint, {
         method:'POST',
@@ -161,7 +214,8 @@ async function nearbyStreetFallback(target, bias) {
 
   const clauses = stems.map((stem) => {
     const safe = stem.replace(/["\\]/g, '\\$&');
-    return `way(around:25000,${bias.lat},${bias.lon})["highway"]["name"~"${safe}",i];`;
+    const upper = safe.charAt(0).toUpperCase() + safe.slice(1);
+    return `way(around:25000,${bias.lat},${bias.lon})["highway"]["name"~"${safe}|${upper}"];`;
   }).join('\n');
 
   const elements = await callOverpass(`[out:json][timeout:20];\n(${clauses}\n);\nout center tags;`);
@@ -184,7 +238,7 @@ async function nearbyStreetFallback(target, bias) {
         matchScore
       };
     })
-    .filter((item) => item && item.matchScore >= 0.72)
+    .filter((item) => item && item.matchScore >= 0.58)
     .sort((a, b) => b.matchScore - a.matchScore || a.distance - b.distance)
     .slice(0, 6);
 }
@@ -266,13 +320,42 @@ export default async function handler(req, res) {
   const lon = Number(req.query?.lon);
   const bias = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
   const transliterated = transliterateToBulgarian(q);
+  const houseNumberMatch = transliterated.match(/(?:,|\s)\s*(\d+[а-яa-z]?)\s*$/i);
+  const houseNumber = houseNumberMatch?.[1] || '';
   const withoutHouseNumber = transliterated.replace(/(?:,|\s)\s*\d+[а-яa-z]?\s*$/i, '').trim();
-  const variants = [...new Set([q, transliterated, withoutHouseNumber].filter(Boolean))];
+  const streetSpellings = likelyStreetSpellings(withoutHouseNumber);
+  let context = null;
+  try { context = await reverseContext(bias); } catch (error) { console.warn('Reverse context failed', error?.message || error); }
+  const city = context?.city || '';
+  const fullSpellings = streetSpellings.map((street) => [street, houseNumber].filter(Boolean).join(' '));
+  const variants = [...new Set([
+    ...fullSpellings.map((value) => city && `${value}, ${city}`),
+    ...fullSpellings,
+    q,
+    transliterated,
+    ...streetSpellings.map((value) => city && `${value}, ${city}`),
+    ...streetSpellings
+  ].filter(Boolean))];
 
   try {
     let results = [];
+    let distantResults = [];
 
-    for (const variant of variants) {
+    // Structured address search is much better at house numbers than a single
+    // free-text query. Try likely street spellings before broad fallbacks.
+    if (city) {
+      for (const street of streetSpellings) {
+        try {
+          const batch = await nominatimAddressSearch(street, houseNumber, city, bias);
+          results.push(...batch.map((item) => mapNominatim(item, bias, `${street} ${houseNumber}, ${city}`.trim())));
+        } catch (error) {
+          console.warn('Nominatim address failed', error?.message || error);
+        }
+        if (results.filter(Boolean).length) break;
+      }
+    }
+
+    for (const variant of results.length ? [] : variants) {
       try {
         const batch = await nominatimSearch(variant, bias);
         results.push(...batch.map((item) => mapNominatim(item, bias, variant)));
@@ -283,6 +366,13 @@ export default async function handler(req, res) {
     }
 
     results = dedupeAndSort(results, bias);
+
+    // A weak free-text match hundreds of kilometres away is worse than a
+    // nearby fuzzy street candidate. Hold distant matches as a final fallback.
+    if (bias && results.length && !results.some((item) => item.distance <= 60000)) {
+      distantResults = results;
+      results = [];
+    }
 
     if (!results.length) {
       const photonResults = [];
@@ -296,12 +386,25 @@ export default async function handler(req, res) {
         if (photonResults.filter(Boolean).length >= 8) break;
       }
       results = dedupeAndSort(photonResults, bias);
+      if (bias && results.length && !results.some((item) => item.distance <= 60000)) {
+        distantResults = [...distantResults, ...results];
+        results = [];
+      }
     }
 
-    if (!results.length) results = await nearbyStreetFallback(withoutHouseNumber || transliterated, bias);
+    if (!results.length) {
+      const likelyStreet = streetSpellings.at(-1) || withoutHouseNumber || transliterated;
+      try {
+        results = await nearbyStreetFallback(likelyStreet, bias);
+      } catch (error) {
+        console.warn('Nearby street fallback failed', error?.message || error);
+      }
+    }
+
+    if (!results.length && distantResults.length) results = dedupeAndSort(distantResults, bias);
 
     res.setHeader('Cache-Control', 's-maxage=180, stale-while-revalidate=900');
-    return res.status(200).json({ results, normalizedQuery:transliterated, variants });
+    return res.status(200).json({ results, normalizedQuery:transliterated, variants, context });
   } catch (error) {
     return res.status(502).json({
       error:'Address search is temporarily unavailable',

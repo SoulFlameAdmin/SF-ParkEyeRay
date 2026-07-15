@@ -80,7 +80,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
+  // Accept both the public API name (`query`) and the conventional Overpass
+  // form name (`data`). Keeping both makes old clients and the new Smart City
+  // map interoperable instead of failing with a misleading upstream error.
+  const rawQuery = typeof req.body?.query === 'string'
+    ? req.body.query
+    : (typeof req.body?.data === 'string' ? req.body.data : '');
+  const query = rawQuery.trim();
   if (!query) {
     return res.status(400).json({ error: 'Missing Overpass query' });
   }
