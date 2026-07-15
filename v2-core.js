@@ -93,7 +93,8 @@
     const s=app.state;s.map=L.map('map',{zoomControl:true,minZoom:6}).setView(app.DEFAULT_CENTER,7);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(s.map);
     s.parkingLayer=L.layerGroup().addTo(s.map);s.fuelLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
-    const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<260&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<8;
+    const mapNode=app.$('map'),drawSurface=app.$('draw-surface');
+    const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<300&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<10;
     const rememberDrawEvent=(x,y,now)=>{s.lastDrawPointerAt=now;s.lastDrawClientX=x;s.lastDrawClientY=y};
     const eventPoint=event=>{
       const touch=event.changedTouches?.[0]||event.touches?.[0];
@@ -101,28 +102,20 @@
     };
     const captureDrawEvent=event=>{
       if(!s.drawing)return;
-      if(event.type==='pointerdown'&&event.pointerType!=='touch')return;
-      if(event.type==='pointerup'&&event.pointerType==='touch')return;
-      if(event.type==='pointerup'&&event.button!==0)return;
-      const blocked=event.target instanceof Element&&event.target.closest('.top-shell,.parking-sheet,.route-card,.draw-toolbar,.map-menu,.modal,.leaflet-control');
-      if(blocked)return;
-      const mapNode=app.$('map'),rect=mapNode.getBoundingClientRect(),{x,y}=eventPoint(event),now=performance.now();
+      if((event.type==='mousedown'||event.type==='click')&&event.button!==0)return;
+      if(event.type==='pointerdown'&&event.pointerType!=='touch'&&event.pointerType!=='pen'&&event.button!==0)return;
+      const rect=mapNode.getBoundingClientRect(),{x,y}=eventPoint(event),now=performance.now();
       if(!Number.isFinite(x)||!Number.isFinite(y)||x<rect.left||x>rect.right||y<rect.top||y>rect.bottom||isDuplicateDrawEvent(x,y,now))return;
+      if(event.cancelable)event.preventDefault();
+      event.stopPropagation();
       rememberDrawEvent(x,y,now);
       app.addDrawPoint?.(s.map.containerPointToLatLng(L.point(x-rect.left,y-rect.top)));
     };
-    document.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:true});
-    document.addEventListener('pointerdown',captureDrawEvent,true);
-    document.addEventListener('touchend',captureDrawEvent,{capture:true,passive:true});
-    document.addEventListener('pointerup',captureDrawEvent,true);
-    document.addEventListener('click',captureDrawEvent,true);
-    s.map.on('click',event=>{
-      if(!s.drawing)return;
-      const original=event.originalEvent,{x,y}=eventPoint(original||{}),now=performance.now();
-      if(Number.isFinite(x)&&Number.isFinite(y)&&isDuplicateDrawEvent(x,y,now))return;
-      if(Number.isFinite(x)&&Number.isFinite(y))rememberDrawEvent(x,y,now);
-      app.addDrawPoint?.(event.latlng);
-    });
+    drawSurface.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
+    drawSurface.addEventListener('pointerdown',captureDrawEvent,true);
+    drawSurface.addEventListener('mousedown',captureDrawEvent,true);
+    drawSurface.addEventListener('click',captureDrawEvent,true);
+    s.map.on('click',event=>{if(s.drawing)app.addDrawPoint?.(event.latlng)});
     return true;
   };
 })();
