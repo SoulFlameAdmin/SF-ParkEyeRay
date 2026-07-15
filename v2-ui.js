@@ -4,7 +4,8 @@
   s.ui={online:navigator.onLine,busy:new Set(),activeAction:'search',lastRetry:null};
 
   app.requiredIds=[
-    'map','status','search-form','search-input','search-submit','search-results','locate-btn','menu-btn','map-menu','parking-layer-btn','fuel-layer-btn',
+    'map','draw-surface','status','search-form','search-input','search-submit','search-results','locate-btn','menu-btn','map-menu','parking-layer-btn','fuel-layer-btn',
+    'navigation-hud','nav-maneuver','nav-maneuver-icon','nav-maneuver-text','nav-maneuver-distance','nav-speed-value','nav-remaining-distance','nav-remaining-time','nav-eta','nav-route-state',
     'parking-sheet','parking-list','parking-count','parking-filters','sheet-handle','save-destination',
     'route-card','route-close','start-route','external-route','draw-toolbar',
     'proposal-modal','proposal-form','profile-modal','proposals-modal','network-state'
@@ -84,6 +85,7 @@
 
   app.setDrawingMode=active=>{
     document.body.classList.toggle('drawing-mode',active);
+    app.$('draw-surface').setAttribute('aria-hidden',String(!active));
     app.$('draw-toolbar').classList.toggle('active',active);
     document.querySelectorAll('.nav-action,.layer-action').forEach(button=>button.disabled=active&&button.dataset.action!=='add');
     app.$('search-input').disabled=active;
