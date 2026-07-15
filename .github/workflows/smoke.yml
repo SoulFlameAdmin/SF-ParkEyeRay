@@ -37,6 +37,20 @@ jobs:
       - name: Run API contract checks
         run: node tests/api-contract.mjs
 
+      - name: Check PWA service worker syntax
+        run: node --check sw.js
+
+      - name: Validate PWA shell assets
+        shell: bash
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8'))"
+          test -s offline.html
+          test -s icons/parkeyeray.svg
+          test -s icons/parkeyeray-maskable.svg
+          grep -q "'/api/'" sw.js
+          grep -q "offline.html" sw.js
+          grep -q 'display.*standalone' manifest.webmanifest
+
       - name: Extract and check inline application JavaScript
         shell: bash
         run: |
