@@ -1,0 +1,45 @@
+name: SmartCity parking smoke
+
+on:
+  push:
+    branches:
+      - smartcity-parking-destination
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: |
+          node --check api/routing.js
+          node --check smart-city-state.js
+          node --check smart-city-data.js
+          node --check smart-city-search.js
+          node --check smart-city-route.js
+          node --check smart-city-init.js
+      - name: Required parking and mall controls
+        run: |
+          grep -q 'data-layer="parking"' smart-city.html
+          grep -q 'id="radius"' smart-city.html
+          grep -q 'id="nearest-parking"' smart-city.html
+          grep -q 'id="external-route"' smart-city.html
+          grep -q 'id="external-destination"' smart-city.html
+          grep -q 'Стара Загора мол' smart-city.html
+          grep -q 'Няма live информация' smart-city.html
+      - name: Module references exist
+        run: |
+          for file in smart-city-base.css smart-city-components.css smart-city-state.js smart-city-data.js smart-city-search.js smart-city-route.js smart-city-init.js; do
+            test -s "$file"
+            grep -q "/$file" smart-city.html
+          done
