@@ -1,0 +1,61 @@
+name: SmartCity V2 smoke
+
+on:
+  push:
+    branches:
+      - smartcity-v2-foundation
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: JavaScript syntax
+        run: |
+          node --check v2.js
+          node --check v2-core.js
+          node --check v2-parking.js
+          node --check v2-route.js
+          node --check v2-proposals.js
+          node --check v2-init.js
+          node --check api/geocode.js
+          node --check api/overpass.js
+          node --check api/routing.js
+
+      - name: Verify V2 route and five primary actions
+        run: |
+          grep -q '"source": "/v2"' vercel.json
+          grep -q 'data-action="search"' v2.html
+          grep -q 'data-action="parkings"' v2.html
+          grep -q 'data-action="navigate"' v2.html
+          grep -q 'data-action="add"' v2.html
+          grep -q 'data-action="profile"' v2.html
+          test "$(grep -o 'class="nav-action' v2.html | wc -l)" -eq 5
+
+      - name: Verify destination parking and routing contract
+        run: |
+          grep -q 'amenity.*parking_space' v2-parking.js
+          grep -q 'parking:(left|right|both)' v2-parking.js
+          grep -q 'parking_entrance' v2-parking.js
+          grep -q '/api/geocode' v2-parking.js
+          grep -q '/api/overpass' v2-parking.js
+          grep -q '/api/routing' v2-route.js
+          grep -q "profile==='walking'" api/routing.js
+
+      - name: Verify proposal moderation truth labels
+        run: |
+          grep -q 'Чака SoulFlame одобрение' v2.html
+          grep -q "status:'pending_soulflame'" v2-proposals.js
+          grep -q 'Не е публикувано като проверен обществен паркинг' v2-proposals.js
+          grep -q 'без live свободни места' v2-core.js
