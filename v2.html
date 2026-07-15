@@ -25,10 +25,12 @@
     <button id="locate-btn" class="round-btn" type="button" aria-label="Моето местоположение">◎</button>
   </header>
 
+  <div id="network-state" class="network-state" role="alert" aria-hidden="true">Няма интернет връзка</div>
   <div id="status" class="status-pill" role="status">Стартирам SmartCity V2…</div>
+  <button id="global-retry" class="global-retry" type="button" hidden>Опитай отново</button>
 
   <section id="parking-sheet" class="parking-sheet" aria-label="Паркинги">
-    <button id="sheet-handle" class="sheet-handle" type="button" aria-label="Разгъни или свий панела"><span></span></button>
+    <button id="sheet-handle" class="sheet-handle" type="button" aria-label="Разгъни или свий панела" aria-expanded="true"><span></span></button>
     <div class="sheet-head">
       <div>
         <div id="sheet-eyebrow" class="eyebrow">Около теб</div>
@@ -38,11 +40,11 @@
       <div id="parking-count" class="count-badge">0</div>
     </div>
     <div id="parking-filters" class="filter-row">
-      <button class="filter active" data-sort="recommended">Препоръчани</button>
-      <button class="filter" data-sort="nearest">Най-близки</button>
-      <button class="filter" data-sort="walking">Малко ходене</button>
-      <button class="filter" data-sort="covered">Закрити</button>
-      <button class="filter" data-sort="free">Безплатни</button>
+      <button class="filter active" data-sort="recommended" type="button">Препоръчани</button>
+      <button class="filter" data-sort="nearest" type="button">Най-близки</button>
+      <button class="filter" data-sort="walking" type="button">Малко ходене</button>
+      <button class="filter" data-sort="covered" type="button">Закрити</button>
+      <button class="filter" data-sort="free" type="button">Безплатни</button>
     </div>
     <div id="parking-list" class="parking-list">
       <div class="empty-card"><div>🅿️</div><strong>Няма избрана дестинация</strong><span>Потърси адрес, мол или обект. Паркингите се търсят около него.</span></div>
@@ -50,7 +52,7 @@
   </section>
 
   <section id="route-card" class="route-card" aria-live="polite">
-    <button id="route-close" class="route-close" type="button">✕</button>
+    <button id="route-close" class="route-close" type="button" aria-label="Затвори маршрута">✕</button>
     <div class="route-name" id="route-name">Избран паркинг</div>
     <div class="route-grid">
       <div><b id="drive-distance">—</b><span>с автомобил</span></div>
@@ -58,18 +60,18 @@
       <div><b id="walk-distance">—</b><span>пеша</span></div>
     </div>
     <div class="route-actions">
-      <button id="start-route" class="primary" type="button">Започни</button>
-      <a id="external-route" href="#" target="_blank" rel="noopener">Външна навигация</a>
+      <button id="start-route" class="primary" type="button">Обнови маршрута</button>
+      <a id="external-route" href="#" target="_blank" rel="noopener">Стартирай навигация</a>
     </div>
     <small id="route-note">Синьо: автомобил. Оранжево: пеша до дестинацията.</small>
   </section>
 
   <nav class="bottom-nav" aria-label="Основни действия">
-    <button data-action="search" class="nav-action active" type="button"><span>⌕</span><small>Търсене</small></button>
-    <button data-action="parkings" class="nav-action" type="button"><span>P</span><small>Паркинги</small></button>
-    <button data-action="navigate" class="nav-action" type="button"><span>➤</span><small>Навигация</small></button>
-    <button data-action="add" class="nav-action" type="button"><span>＋</span><small>Добави зона</small></button>
-    <button data-action="profile" class="nav-action" type="button"><span>●</span><small>Профил</small></button>
+    <button data-action="search" class="nav-action active" type="button" aria-current="page"><span>⌕</span><small>Търсене</small></button>
+    <button data-action="parkings" class="nav-action" type="button" aria-current="false"><span>P</span><small>Паркинги</small></button>
+    <button data-action="navigate" class="nav-action" type="button" aria-current="false"><span>➤</span><small>Навигация</small></button>
+    <button data-action="add" class="nav-action" type="button" aria-current="false"><span>＋</span><small>Добави зона</small></button>
+    <button data-action="profile" class="nav-action" type="button" aria-current="false"><span>●</span><small>Профил</small></button>
   </nav>
 
   <div id="draw-toolbar" class="draw-toolbar">
@@ -81,7 +83,7 @@
 
   <div id="proposal-modal" class="modal" aria-hidden="true">
     <div class="modal-card">
-      <div class="modal-head"><h2>Предложи паркинг зона</h2><button data-close="proposal-modal" type="button">✕</button></div>
+      <div class="modal-head"><h2>Предложи паркинг зона</h2><button data-close="proposal-modal" type="button" aria-label="Затвори">✕</button></div>
       <form id="proposal-form">
         <label>Име или описание<input id="proposal-name" maxlength="80" required placeholder="Паркинг пред блока"></label>
         <div class="two-col">
@@ -98,7 +100,7 @@
 
   <div id="profile-modal" class="modal" aria-hidden="true">
     <div class="modal-card">
-      <div class="modal-head"><h2>Профил</h2><button data-close="profile-modal" type="button">✕</button></div>
+      <div class="modal-head"><h2>Профил</h2><button data-close="profile-modal" type="button" aria-label="Затвори">✕</button></div>
       <div class="profile-block"><div class="avatar">SF</div><div><b>Гост профил</b><span>Данните в този V2 foundation се пазят локално на устройството.</span></div></div>
       <div class="profile-stats"><div><b id="profile-saved">0</b><span>запазени</span></div><div><b id="profile-proposals">0</b><span>предложения</span></div></div>
       <button id="show-proposals" class="secondary wide" type="button">Моите предложения</button>
@@ -108,7 +110,7 @@
 
   <div id="proposals-modal" class="modal" aria-hidden="true">
     <div class="modal-card">
-      <div class="modal-head"><h2>Моите предложения</h2><button data-close="proposals-modal" type="button">✕</button></div>
+      <div class="modal-head"><h2>Моите предложения</h2><button data-close="proposals-modal" type="button" aria-label="Затвори">✕</button></div>
       <div id="proposal-list"></div>
     </div>
   </div>
