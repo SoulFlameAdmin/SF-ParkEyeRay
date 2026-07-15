@@ -40,6 +40,9 @@ async function run() {
   assert(manifest.response.ok, `Manifest failed: ${manifest.response.status}`);
   const manifestJson = JSON.parse(manifest.text);
   assert(manifestJson.display === 'standalone', 'Manifest display must be standalone');
+  assert(manifestJson.id === '/app', 'Installed PWA identity must resolve to /app');
+  assert(manifestJson.start_url === '/app?source=pwa', 'Installed PWA must launch the map, not onboarding');
+  assert(manifestJson.shortcuts?.[0]?.url === '/app?action=parking', 'Parking shortcut must open the map app');
   assert(Array.isArray(manifestJson.icons) && manifestJson.icons.length >= 2, 'Manifest icons are incomplete');
 
   const sw = await request('/sw.js');
