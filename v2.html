@@ -18,10 +18,10 @@
     <div class="search-wrap">
       <form id="search-form" class="search-form">
         <span aria-hidden="true">⌕</span>
-        <input id="search-input" type="search" autocomplete="off" placeholder="Адрес или обект — Стара Загора мол…" aria-label="Търси дестинация">
+        <input id="search-input" type="search" autocomplete="off" placeholder="Адрес или обект — Стара Загора мол…" aria-label="Търси дестинация" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false">
         <button id="search-submit" type="submit">Търси</button>
       </form>
-      <div id="search-results" class="search-results" role="listbox"></div>
+      <div id="search-results" class="search-results" role="listbox" aria-label="Предложения за дестинация"></div>
     </div>
     <button id="locate-btn" class="round-btn" type="button" aria-label="Моето местоположение">◎</button>
   </header>
@@ -38,7 +38,10 @@
         <h1 id="sheet-title">Избери дестинация</h1>
         <p id="sheet-subtitle">След търсене ще покажем паркинги около крайната точка.</p>
       </div>
-      <div id="parking-count" class="count-badge">0</div>
+      <div class="sheet-head-actions">
+        <button id="save-destination" class="save-destination" type="button" aria-label="Запази дестинацията" aria-pressed="false" hidden>☆</button>
+        <div id="parking-count" class="count-badge">0</div>
+      </div>
     </div>
     <div id="parking-filters" class="filter-row">
       <button class="filter active" data-sort="recommended" type="button">Препоръчани</button>
