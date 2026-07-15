@@ -32,7 +32,54 @@
         along=route.cumulative[i]+t*(route.cumulative[i+1]-route.cumulative[i]);
       }
     }
-    return {distanceToRoute:nearestDistance,ratio:clamp(along/route.geometryDistance,0,1)};
+    return {distanceToRoute:nearestDistance,along,ratio:clamp(along/route.geometryDistance,0,1)};
+  };
+
+  const maneuverIcon=step=>{
+    const type=String(step?.type||'').toLowerCase(),modifier=String(step?.modifier||'').toLowerCase();
+    if(type==='arrive')return'P';
+    if(type.includes('roundabout')||type==='rotary')return'↻';
+    if(modifier==='left')return'←';
+    if(modifier==='right')return'→';
+    if(modifier==='slight left')return'↖';
+    if(modifier==='slight right')return'↗';
+    if(modifier==='sharp left'||modifier==='uturn')return'↶';
+    if(modifier==='sharp right')return'↷';
+    return'↑';
+  };
+
+  const turnPhrase=modifier=>({
+    left:'Завий наляво',right:'Завий надясно','slight left':'Дръж леко вляво','slight right':'Дръж леко вдясно',
+    'sharp left':'Завий рязко наляво','sharp right':'Завий рязко надясно',uturn:'Направи обратен завой',straight:'Продължи направо'
+  })[modifier]||'Продължи';
+
+  const maneuverText=step=>{
+    const type=String(step?.type||'').toLowerCase(),modifier=String(step?.modifier||'').toLowerCase();
+    const road=String(step?.name||'').trim(),roadSuffix=road?` по ${road}`:'';
+    if(type==='arrive')return'Пристигаш до паркинга';
+    if(type.includes('roundabout')||type==='rotary')return`Влез в кръговото${step.exit?` · изход ${step.exit}`:''}${roadSuffix}`;
+    if(type==='merge')return`Включи се в движението${roadSuffix}`;
+    if(type==='on ramp')return`Качи се по рампата${roadSuffix}`;
+    if(type==='off ramp')return`Излез по рампата${roadSuffix}`;
+    if(type==='fork')return`${modifier.includes('left')?'Дръж вляво':'Дръж вдясно'}${roadSuffix}`;
+    if(type==='end of road')return`${turnPhrase(modifier)} в края на пътя${roadSuffix}`;
+    return`${turnPhrase(modifier)}${roadSuffix}`;
+  };
+
+  const normalizeSteps=route=>{
+    const raw=(route?.legs||[]).flatMap(leg=>Array.isArray(leg.steps)?leg.steps:[]);
+    let along=0;
+    const steps=[];
+    raw.forEach(step=>{
+      const maneuver=step?.maneuver||{};
+      const type=String(maneuver.type||'').toLowerCase();
+      if(type&&type!=='depart')steps.push({
+        type,modifier:String(maneuver.modifier||'').toLowerCase(),name:String(step.name||''),exit:Number(maneuver.exit)||null,
+        atDistance:along,distance:Number(step.distance)||0
+      });
+      along+=Math.max(0,Number(step.distance)||0);
+    });
+    return steps;
   };
 
   app.prepareNavigationRoute=route=>{
@@ -45,7 +92,7 @@
     const geometryDistance=cumulative[cumulative.length-1];
     if(!geometryDistance){s.navigationRoute=null;return null}
     s.navigationRoute={
-      points,cumulative,geometryDistance,
+      points,cumulative,geometryDistance,steps:normalizeSteps(route),
       totalDistance:Number(route.distance)||geometryDistance,
       totalDuration:Number(route.duration)||0
     };
@@ -58,6 +105,21 @@
     if(speed)speed.textContent=String(Math.max(0,Math.round(user.speed||0)));
     const accuracy=app.$('nav-gps-accuracy');
     if(accuracy)accuracy.textContent=user.accuracy?`GPS ±${Math.round(user.accuracy)} м`:'GPS активен';
+  };
+
+  app.updateNextManeuver=(progressAlong,remainingDistance)=>{
+    const route=s.navigationRoute;
+    const icon=app.$('nav-maneuver-icon'),text=app.$('nav-maneuver-text'),distance=app.$('nav-maneuver-distance');
+    if(!route||!icon||!text||!distance)return;
+    const routeScale=route.geometryDistance?route.totalDistance/route.geometryDistance:1;
+    const progressOnApiDistance=progressAlong*routeScale;
+    const next=route.steps?.find(step=>step.atDistance>progressOnApiDistance+8)||route.steps?.find(step=>step.type==='arrive');
+    if(!next){
+      icon.textContent='↑';text.textContent='Следвай маршрута';distance.textContent=app.formatDistance(remainingDistance);return;
+    }
+    icon.textContent=maneuverIcon(next);text.textContent=maneuverText(next);
+    const until=Math.max(0,next.atDistance-progressOnApiDistance);
+    distance.textContent=next.type==='arrive'&&until<20?'Сега':app.formatDistance(until);
   };
 
   app.updateNavigationProgress=user=>{
@@ -73,12 +135,18 @@
     if(etaNode)etaNode.textContent=formatEta(remainingDuration);
     app.$('drive-distance').textContent=app.formatDistance(remainingDistance);
     app.$('drive-time').textContent=app.formatDuration(remainingDuration);
+    app.updateNextManeuver(progress.along,remainingDistance);
 
     const threshold=Math.max(55,Number(user.accuracy||0)*1.5);
-    if(progress.distanceToRoute>threshold&&(user.speed||0)>5)s.offRouteSamples=(s.offRouteSamples||0)+1;else s.offRouteSamples=0;
+    const offRoute=progress.distanceToRoute>threshold&&(user.speed||0)>5;
+    if(offRoute)s.offRouteSamples=(s.offRouteSamples||0)+1;else s.offRouteSamples=0;
+    if(!s.rerouting)app.$('nav-route-state').textContent=offRoute?'Проверявам отклонение…':'По маршрута';
     if(s.offRouteSamples>=3)app.requestNavigationReroute?.(progress.distanceToRoute);
     if(remainingDistance<25&&progress.distanceToRoute<35&&!s.arrivalAnnounced){
       s.arrivalAnnounced=true;
+      app.$('nav-maneuver-icon').textContent='P';
+      app.$('nav-maneuver-text').textContent='Пристигаш до паркинга';
+      app.$('nav-maneuver-distance').textContent='Сега';
       app.setStatus('Пристигаш до избрания паркинг.','success',true);
     }
   };
@@ -129,10 +197,14 @@
     if(!s.selected)return app.setStatus('Избери паркинг преди старт.','error');
     if(!s.user){app.locate();return app.setStatus('Изчаквам GPS позиция. Натисни Старт отново след намирането ѝ.','info')}
     s.navigationActive=true;s.followUser=true;s.arrivalAnnounced=false;s.offRouteSamples=0;
+    app.closeMapMenu?.();app.setSearchExpanded?.(false);app.setSheetCollapsed?.(true);
     document.body.classList.add('navigation-active');
     app.$('navigation-hud')?.classList.add('active');
     app.$('start-route').textContent='Спри навигацията';
     app.$('nav-route-state').textContent='По маршрута';
+    app.$('nav-maneuver-icon').textContent='↑';
+    app.$('nav-maneuver-text').textContent='Следвай маршрута';
+    app.$('nav-maneuver-distance').textContent='—';
     app.startLocationWatch();
     await app.buildRoute(s.selected,true);
     app.updateNavigationProgress(s.user);
@@ -147,6 +219,9 @@
     app.$('navigation-hud')?.classList.remove('active');
     app.$('start-route').textContent='Старт';
     app.updateNavigationHud({speed:0,accuracy:s.user?.accuracy||0});
+    app.$('nav-maneuver-icon').textContent='↑';
+    app.$('nav-maneuver-text').textContent='Следвай маршрута';
+    app.$('nav-maneuver-distance').textContent='—';
     app.setStatus('Навигацията е спряна.','info');
   };
 
