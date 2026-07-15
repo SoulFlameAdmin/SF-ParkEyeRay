@@ -25,6 +25,7 @@ jobs:
         run: |
           node --check v2.js
           node --check v2-core.js
+          node --check v2-ui.js
           node --check v2-parking.js
           node --check v2-route.js
           node --check v2-proposals.js
@@ -46,6 +47,20 @@ jobs:
           grep -q 'data-action="add"' v2.html
           grep -q 'data-action="profile"' v2.html
           test "$(grep -o 'class="nav-action' v2.html | wc -l)" -eq 5
+          grep -q 'aria-current="page"' v2.html
+
+      - name: Verify interface stability states
+        run: |
+          test -s v2-stability.css
+          grep -q '/v2-stability.css' v2.html
+          grep -q 'id="network-state"' v2.html
+          grep -q 'id="global-retry"' v2.html
+          grep -q "'/v2-ui.js'" v2.js
+          grep -q 'app.setBusy' v2-ui.js
+          grep -q 'app.newRequest' v2-ui.js
+          grep -q 'app.renderParkingMessage' v2-ui.js
+          grep -q 'AbortError' v2-parking.js
+          grep -q 'AbortError' v2-route.js
 
       - name: Verify destination parking and routing contract
         run: |
