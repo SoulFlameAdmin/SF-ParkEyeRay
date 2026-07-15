@@ -40,6 +40,7 @@ jobs:
           node --check api/v2/_evidence-token.js
           node --check api/v2/evidence-upload-token.js
           node --check api/v2/parking-proposals.js
+          node --check scripts/build-osm-parking-batch.cjs
           node --check scripts/import-osm-parking.cjs
           node --check scripts/test-v2-parking-engine.cjs
           node --check scripts/test-v2-contracts.cjs
@@ -90,6 +91,8 @@ jobs:
         run: |
           test -s contracts/parking-import.schema.json
           test -s supabase/migrations/20260715223000_parking_data_engine.sql
+          test -s supabase/migrations/20260715224000_parking_search_hardening.sql
+          test -s supabase/migrations/20260715230000_parking_engine_security_hardening.sql
           grep -q "'/v2-parking-engine.js'" v2.js
           grep -q '/api/v2/parkings' v2-parking-engine.js
           grep -q 'SmartCity PostGIS база' v2-parking-engine.js
@@ -101,7 +104,19 @@ jobs:
           grep -q 'create table public.parking_import_runs' supabase/migrations/20260715223000_parking_data_engine.sql
           grep -q 'create or replace function public.search_parking_features' supabase/migrations/20260715223000_parking_data_engine.sql
           grep -q 'create or replace function public.finalize_parking_import' supabase/migrations/20260715223000_parking_data_engine.sql
+          grep -q "feature_type <> 'entrance'" supabase/migrations/20260715224000_parking_search_hardening.sql
           grep -q 'source_revision' scripts/import-osm-parking.cjs
+          grep -q 'parking_space' scripts/build-osm-parking-batch.cjs
+          grep -q 'parking_entrance' scripts/build-osm-parking-batch.cjs
+          grep -q 'parking:(left|right|both)' scripts/build-osm-parking-batch.cjs
+
+      - name: Verify parking engine security contract
+        run: |
+          grep -q 'finalize_parking_import' supabase/migrations/20260715230000_parking_engine_security_hardening.sql
+          grep -q 'from public, anon, authenticated' supabase/migrations/20260715230000_parking_engine_security_hardening.sql
+          grep -q 'to service_role' supabase/migrations/20260715230000_parking_engine_security_hardening.sql
+          grep -q 'search_path = public, pg_temp' supabase/migrations/20260715230000_parking_engine_security_hardening.sql
+          ! grep -q 'SUPABASE_SERVICE_ROLE_KEY' vercel.json
 
       - name: Verify parking engine behavior
         run: node scripts/test-v2-parking-engine.cjs
