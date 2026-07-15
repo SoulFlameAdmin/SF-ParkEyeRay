@@ -47,8 +47,11 @@ async function run() {
 
   const sw = await request('/sw.js');
   assert(sw.response.ok, `Service worker failed: ${sw.response.status}`);
+  assert(sw.text.includes("'/app'"), 'Service worker app route shell entry is missing');
   assert(sw.text.includes('offline.html'), 'Service worker offline fallback is missing');
   assert(sw.text.includes("'/api/'"), 'Service worker API bypass is missing');
+  assert(sw.text.includes("error: 'offline'"), 'Service worker honest offline API response is missing');
+  assert(sw.text.includes("'Cache-Control': 'no-store'"), 'Offline API responses must never be cached');
 
   const offline = await request('/offline.html');
   assert(offline.response.ok, `Offline page failed: ${offline.response.status}`);
