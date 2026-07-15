@@ -43,6 +43,10 @@ jobs:
           node --check api/v2/_evidence-token.js
           node --check api/v2/evidence-upload-token.js
           node --check api/v2/parking-proposals.js
+          node --check api/v2/_moderation-auth.js
+          node --check api/v2/moderation-proposals.js
+          node --check api/v2/moderate-parking-proposal.js
+          node --check api/v2/moderation-evidence-url.js
           node --check scripts/build-osm-parking-batch.cjs
           node --check scripts/import-osm-parking.cjs
           node --check scripts/test-v2-parking-engine.cjs
@@ -50,6 +54,7 @@ jobs:
           node --check scripts/test-v2-contracts.cjs
           node --check scripts/test-v2-submission-api.cjs
           node --check scripts/test-v2-evidence-api.cjs
+          node --check scripts/test-v2-moderation-api.cjs
 
       - name: Verify Waze-style burger menu and five actions
         run: |
@@ -99,6 +104,8 @@ jobs:
           grep -q 'app.renderParkingMessage' v2-ui.js
           grep -q 'AbortError' v2-parking.js
           grep -q 'AbortError' v2-route.js
+          grep -q 'pointerup' v2-core.js
+          grep -q 'mouseEventToLatLng' v2-core.js
 
       - name: Verify Stage 2 destination intelligence
         run: |
@@ -176,6 +183,9 @@ jobs:
       - name: Verify evidence upload contract
         run: node scripts/test-v2-evidence-api.cjs
 
+      - name: Verify SoulFlame moderation contract
+        run: node scripts/test-v2-moderation-api.cjs
+
       - name: Verify PostGIS moderation and storage guards
         run: |
           grep -q "status = 'approved'" supabase/migrations/20260715190000_smartcity_parking_foundation.sql
@@ -184,3 +194,4 @@ jobs:
           grep -q "const STATUS = 'pending_soulflame'" api/v2/parking-proposals.js
           grep -q '^  false,$' supabase/migrations/20260715211500_parking_evidence_storage.sql
           grep -q "storage.foldername(name)" supabase/migrations/20260715211500_parking_evidence_storage.sql
+          grep -q 'object/sign/parking-evidence' api/v2/moderation-evidence-url.js
