@@ -17,7 +17,7 @@
   const savedLayers=app.read(app.STORAGE.layers,{parking:true,fuel:false});
   app.state={
     map:null,user:null,destination:null,parkings:[],entrances:[],selected:null,sort:'recommended',parkingContext:'nearby',parkingOrigin:null,
-    userMarker:null,destinationMarker:null,accuracyCircle:null,
+    userMarker:null,destinationMarker:null,accuracyCircle:null,lastHeading:0,
     parkingLayer:null,fuelLayer:null,routeLayer:null,proposalLayer:null,drawingLayer:null,
     fuelStations:[],layers:{parking:savedLayers.parking!==false,fuel:savedLayers.fuel===true},
     proposals:app.read(app.STORAGE.proposals,[]),
@@ -44,7 +44,7 @@
   app.isYes=value=>['yes','designated','customers','private'].includes(String(value||'').toLowerCase());
   app.parkingKind=tags=>tags.amenity==='parking_space'?'Паркинг места':tags.parking==='underground'?'Подземен':tags.parking==='multi-storey'?'Многоетажен':(tags.parking==='street_side'||tags.parking==='lane'||tags['parking:left']||tags['parking:right']||tags['parking:both'])?'Улично паркиране':tags.parking==='surface'?'Открит':'Паркинг';
   app.sourceLabel=()=> 'OSM картографиран · без live свободни места';
-  app.userIcon=L.divIcon({className:'',html:'<div class="user-dot"></div>',iconSize:[23,23],iconAnchor:[11,11]});
+  app.userIcon=L.divIcon({className:'',html:'<div class="user-position-marker"><span>▲</span></div>',iconSize:[34,34],iconAnchor:[17,17]});
   app.destinationIcon=L.divIcon({className:'',html:'<div class="dest-dot"></div>',iconSize:[29,29],iconAnchor:[8,28]});
   app.parkingIcon=selected=>L.divIcon({className:'',html:`<div class="parking-pin${selected?' selected':''}">P</div>`,iconSize:selected?[37,37]:[31,31],iconAnchor:selected?[18,18]:[15,15]});
   app.fuelIcon=L.divIcon({className:'',html:'<div class="fuel-pin">⛽</div>',iconSize:[32,32],iconAnchor:[16,16]});
@@ -62,14 +62,31 @@
     if(saved)saved.textContent=app.state.saved.length+app.state.savedDestinations.length;
     if(proposals)proposals.textContent=app.state.proposals.length;
   };
+  app.updateSpeedometer=user=>{
+    const root=app.$('speedometer'),value=app.$('speedometer-value');
+    if(!root||!value)return;
+    const speed=Math.max(0,Math.round(Number(user?.speed)||0));
+    value.textContent=String(speed);
+    root.classList.add('ready');
+    root.setAttribute('aria-label',`Текуща скорост ${speed} километра в час`);
+  };
   app.applyUserPosition=(user,options={})=>{
-    const s=app.state;
+    const s=app.state,previous=s.user;
     if(!app.inBulgaria(user.lat,user.lon))return false;
-    s.user=user;
-    if(!s.userMarker)s.userMarker=L.marker([user.lat,user.lon],{icon:app.userIcon,zIndexOffset:2000}).bindPopup('Твоето местоположение').addTo(s.map);else s.userMarker.setLatLng([user.lat,user.lon]);
-    if(s.accuracyCircle)s.accuracyCircle.setLatLng([user.lat,user.lon]).setRadius(Math.min(user.accuracy||0,2000));else s.accuracyCircle=L.circle([user.lat,user.lon],{radius:Math.min(user.accuracy||0,2000),color:'#2563eb',weight:1,fillOpacity:.08}).addTo(s.map);
-    if(options.center===true&&!s.destination){s.followUser=true;s.map.setView([user.lat,user.lon],user.accuracy<120?16:14)}
-    app.onUserPosition?.(user,options);
+    const normalized={
+      ...user,
+      speed:Number.isFinite(user.speed)?Number(user.speed):Number(previous?.speed||0),
+      heading:Number.isFinite(user.heading)?Number(user.heading):(Number.isFinite(previous?.heading)?Number(previous.heading):null)
+    };
+    if(Number.isFinite(normalized.heading))s.lastHeading=normalized.heading;
+    s.user=normalized;
+    if(!s.userMarker)s.userMarker=L.marker([normalized.lat,normalized.lon],{icon:app.userIcon,zIndexOffset:2000,keyboard:false}).bindPopup('Твоето местоположение').addTo(s.map);else s.userMarker.setLatLng([normalized.lat,normalized.lon]);
+    const markerNode=s.userMarker.getElement()?.querySelector('.user-position-marker');
+    if(markerNode)markerNode.style.setProperty('--heading',`${s.lastHeading||0}deg`);
+    if(s.accuracyCircle)s.accuracyCircle.setLatLng([normalized.lat,normalized.lon]).setRadius(Math.min(normalized.accuracy||0,2000));else s.accuracyCircle=L.circle([normalized.lat,normalized.lon],{radius:Math.min(normalized.accuracy||0,2000),color:'#2563eb',weight:1,fillOpacity:.08,interactive:false}).addTo(s.map);
+    app.updateSpeedometer(normalized);
+    if(options.center===true&&!s.destination){s.followUser=true;s.map.setView([normalized.lat,normalized.lon],normalized.accuracy<120?16:14)}
+    app.onUserPosition?.(normalized,options);
     if(s.selected&&!s.navigationActive&&options.reason!=='watch')app.buildRoute?.(s.selected,false);
     return true;
   };
@@ -94,6 +111,7 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(s.map);
     s.parkingLayer=L.layerGroup().addTo(s.map);s.fuelLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
     const mapNode=app.$('map'),drawSurface=app.$('draw-surface');
+    if(drawSurface&&drawSurface.parentElement!==mapNode)mapNode.appendChild(drawSurface);
     const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<320&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<10;
     const rememberDrawEvent=(x,y,now)=>{s.lastDrawPointerAt=now;s.lastDrawClientX=x;s.lastDrawClientY=y};
     const eventPoint=event=>{
@@ -114,7 +132,7 @@
     const captureDrawEvent=event=>{
       if(!s.drawing)return;
       if((event.type==='mousedown'||event.type==='click')&&event.button!==0)return;
-      if(event.type==='pointerdown'&&event.pointerType!=='touch'&&event.pointerType!=='pen'&&event.button!==0)return;
+      if((event.type==='pointerdown'||event.type==='pointerup')&&event.pointerType!=='touch'&&event.pointerType!=='pen'&&event.button!==0)return;
       const rect=mapNode.getBoundingClientRect(),{x,y}=eventPoint(event),now=performance.now();
       if(!Number.isFinite(x)||!Number.isFinite(y)||x<rect.left||x>rect.right||y<rect.top||y>rect.bottom||isDuplicateDrawEvent(x,y,now))return;
       if(event.cancelable)event.preventDefault();
@@ -123,11 +141,12 @@
       appendDrawLatLng(s.map.containerPointToLatLng(L.point(x-rect.left,y-rect.top)));
     };
     drawSurface.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
-    mapNode.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
     drawSurface.addEventListener('touchend',captureDrawEvent,{capture:true,passive:false});
+    mapNode.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
     mapNode.addEventListener('touchend',captureDrawEvent,{capture:true,passive:false});
     [drawSurface,mapNode].forEach(target=>{
       target.addEventListener('pointerdown',captureDrawEvent,true);
+      target.addEventListener('pointerup',captureDrawEvent,true);
       target.addEventListener('mousedown',captureDrawEvent,true);
       target.addEventListener('click',captureDrawEvent,true);
     });
