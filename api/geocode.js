@@ -104,6 +104,40 @@ async function nominatimSearch(query, bias) {
   return Array.isArray(data) ? data : [];
 }
 
+async function nominatimAddressSearch(street, houseNumber, city, bias) {
+  if (!street || !city) return [];
+  const url = new URL(NOMINATIM_ENDPOINT);
+  url.searchParams.set('street', [houseNumber, street].filter(Boolean).join(' '));
+  url.searchParams.set('city', city);
+  url.searchParams.set('country', 'България');
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('countrycodes', 'bg');
+  url.searchParams.set('limit', '8');
+  url.searchParams.set('addressdetails', '1');
+  url.searchParams.set('accept-language', 'bg');
+  if (bias) {
+    const spread = 0.65;
+    url.searchParams.set('viewbox', `${bias.lon - spread},${bias.lat + spread},${bias.lon + spread},${bias.lat - spread}`);
+    url.searchParams.set('bounded', '0');
+  }
+
+  const response = await fetch(url, {
+    headers:{ accept:'application/json', 'user-agent':'ParkEyeRay/1.4 (https://parkeyeray.com)' }
+  });
+  if (!response.ok) throw new Error(`Nominatim address ${response.status}`);
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
+}
+
+function likelyStreetSpellings(value) {
+  const input = String(value || '').trim();
+  return [...new Set([
+    input,
+    input.replace(/янка\s+войвода/giu, 'янко войвода'),
+    input.replace(/йанко\s+войвода/giu, 'янко войвода')
+  ].filter(Boolean))];
+}
+
 async function reverseContext(bias) {
   if (!bias) return null;
   const url = new URL(NOMINATIM_REVERSE_ENDPOINT);
@@ -286,22 +320,41 @@ export default async function handler(req, res) {
   const lon = Number(req.query?.lon);
   const bias = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
   const transliterated = transliterateToBulgarian(q);
+  const houseNumberMatch = transliterated.match(/(?:,|\s)\s*(\d+[а-яa-z]?)\s*$/i);
+  const houseNumber = houseNumberMatch?.[1] || '';
   const withoutHouseNumber = transliterated.replace(/(?:,|\s)\s*\d+[а-яa-z]?\s*$/i, '').trim();
+  const streetSpellings = likelyStreetSpellings(withoutHouseNumber);
   let context = null;
   try { context = await reverseContext(bias); } catch (error) { console.warn('Reverse context failed', error?.message || error); }
   const city = context?.city || '';
+  const fullSpellings = streetSpellings.map((street) => [street, houseNumber].filter(Boolean).join(' '));
   const variants = [...new Set([
+    ...fullSpellings.map((value) => city && `${value}, ${city}`),
+    ...fullSpellings,
     q,
     transliterated,
-    city && `${transliterated}, ${city}`,
-    withoutHouseNumber,
-    city && `${withoutHouseNumber}, ${city}`
+    ...streetSpellings.map((value) => city && `${value}, ${city}`),
+    ...streetSpellings
   ].filter(Boolean))];
 
   try {
     let results = [];
 
-    for (const variant of variants) {
+    // Structured address search is much better at house numbers than a single
+    // free-text query. Try likely street spellings before broad fallbacks.
+    if (city) {
+      for (const street of streetSpellings) {
+        try {
+          const batch = await nominatimAddressSearch(street, houseNumber, city, bias);
+          results.push(...batch.map((item) => mapNominatim(item, bias, `${street} ${houseNumber}, ${city}`.trim())));
+        } catch (error) {
+          console.warn('Nominatim address failed', error?.message || error);
+        }
+        if (results.filter(Boolean).length) break;
+      }
+    }
+
+    for (const variant of results.length ? [] : variants) {
       try {
         const batch = await nominatimSearch(variant, bias);
         results.push(...batch.map((item) => mapNominatim(item, bias, variant)));
@@ -327,7 +380,12 @@ export default async function handler(req, res) {
       results = dedupeAndSort(photonResults, bias);
     }
 
-    if (!results.length) results = await nearbyStreetFallback(withoutHouseNumber || transliterated, bias);
+    if (!results.length) {
+      for (const spelling of streetSpellings) {
+        results = await nearbyStreetFallback(spelling || transliterated, bias);
+        if (results.length) break;
+      }
+    }
 
     res.setHeader('Cache-Control', 's-maxage=180, stale-while-revalidate=900');
     return res.status(200).json({ results, normalizedQuery:transliterated, variants, context });
