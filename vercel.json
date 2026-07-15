@@ -4,11 +4,18 @@
   ],
   "rewrites": [
     { "source": "/app", "destination": "/smart-city.html" },
+    { "source": "/v2", "destination": "/v2.html" },
     { "source": "/map-classic", "destination": "/index.html" }
   ],
   "headers": [
     {
       "source": "/intro.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/v2.html",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
