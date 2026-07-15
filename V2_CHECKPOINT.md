@@ -48,6 +48,13 @@
 - The five primary phone actions remain unchanged; Start/Stop is contextual.
 - This batch does not claim road rotation, lane guidance, live traffic, police reports or speed-limit data.
 
+## Phone drawing stability hotfix
+- Browser acceptance showed that Android synthetic taps could leave polygon drawing at only one point.
+- Drawing mode now temporarily disables Leaflet pan, zoom, keyboard and gesture interactions so touches are treated as polygon points.
+- Temporary point, line and polygon layers are non-interactive and cannot capture later touches.
+- Normal map interactions are restored on cancel or finish.
+- The product rule remains unchanged: every submitted user polygon is `pending_soulflame` until moderation.
+
 ## SoulFlame moderation backend batch
 - Added server-only moderator authentication requiring both a dedicated moderator key and moderator UUID.
 - Added protected `GET /api/v2/moderation-proposals` list and detail reads.
@@ -81,10 +88,14 @@ Imported from live OSM data into PostGIS:
 Occupancy remains unknown and is labelled as non-live.
 
 ## Runtime preview verification
-Vercel previously reached the free-plan deployment limit. The branch alias must be rechecked before presenting this navigation head as current Preview.
+- The latest navigation deployments are currently blocked by Vercel's build-rate limit.
+- The branch alias still points to the last READY build and must not be described as containing the newest GPS/navigation or drawing hotfixes.
+- Branch alias: `sf-parkeyeray-git-smartcity-v2-57e0ea-dimitar-lambovs-projects.vercel.app`.
 
 ## Current CI state
-For head `80a1b672ba5e63d15c8a7df77366dd3997592b4c`, SmartCity V2 smoke, browser acceptance and parking smoke started and are still in progress. Acceptance is not claimed yet.
+- Head `37ad02fe368477fe332e07cb3b60d3cb0a4f39f3`: parking smoke and V2 smoke passed; browser acceptance failed in Android polygon drawing.
+- Hotfix head `2a183af78a7926c94f3d24af9457b36a805c54e6` disables conflicting map gestures during drawing.
+- New GitHub Actions runs had not appeared at checkpoint update time, so acceptance is not claimed yet.
 
 ## Production safety
 - Production `/app` remains unchanged.
@@ -101,7 +112,8 @@ For head `80a1b672ba5e63d15c8a7df77366dd3997592b4c`, SmartCity V2 smoke, browser
 - A physical Android road test remains required before replacing production.
 
 ## Next safe batch
-1. Add route-progress projection and remaining distance/time updates without rebuilding the route every second.
-2. Add off-route detection and throttled rerouting.
-3. Add next-maneuver banner from routing instructions.
-4. Re-run Preview, CI, phone and desktop checks.
+1. Wait for and inspect the hotfix CI result; do not advance while browser acceptance is red.
+2. Confirm a READY Vercel deployment and test the branch alias on phone and desktop.
+3. Add route-progress projection and remaining distance/time updates without rebuilding the route every second.
+4. Add off-route detection and throttled rerouting.
+5. Add next-maneuver banner from routing instructions.
