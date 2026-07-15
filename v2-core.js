@@ -94,11 +94,22 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(s.map);
     s.parkingLayer=L.layerGroup().addTo(s.map);s.fuelLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
     const mapNode=app.$('map'),drawSurface=app.$('draw-surface');
-    const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<300&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<10;
+    const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<320&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<10;
     const rememberDrawEvent=(x,y,now)=>{s.lastDrawPointerAt=now;s.lastDrawClientX=x;s.lastDrawClientY=y};
     const eventPoint=event=>{
       const touch=event.changedTouches?.[0]||event.touches?.[0];
       return {x:Number(touch?.clientX??event.clientX),y:Number(touch?.clientY??event.clientY)};
+    };
+    const appendDrawLatLng=latlng=>{
+      if(!s.drawing||!latlng)return;
+      const before=Array.isArray(s.drawPoints)?s.drawPoints.length:0;
+      app.addDrawPoint?.(latlng);
+      if(s.drawPoints.length!==before||before>=80||!app.inBulgaria(latlng.lat,latlng.lng))return;
+      s.drawPoints.push([latlng.lat,latlng.lng]);
+      app.renderDrawing?.();
+      const finish=app.$('draw-finish'),help=app.$('draw-help');
+      if(finish)finish.disabled=s.drawPoints.length<3;
+      if(help)help.textContent=`Добавени точки: ${s.drawPoints.length}. ${s.drawPoints.length<3?'Нужни са поне 3.':'Можеш да завършиш.'}`;
     };
     const captureDrawEvent=event=>{
       if(!s.drawing)return;
@@ -109,13 +120,16 @@
       if(event.cancelable)event.preventDefault();
       event.stopPropagation();
       rememberDrawEvent(x,y,now);
-      app.addDrawPoint?.(s.map.containerPointToLatLng(L.point(x-rect.left,y-rect.top)));
+      appendDrawLatLng(s.map.containerPointToLatLng(L.point(x-rect.left,y-rect.top)));
     };
-    drawSurface.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
-    drawSurface.addEventListener('pointerdown',captureDrawEvent,true);
-    drawSurface.addEventListener('mousedown',captureDrawEvent,true);
-    drawSurface.addEventListener('click',captureDrawEvent,true);
-    s.map.on('click',event=>{if(s.drawing)app.addDrawPoint?.(event.latlng)});
+    [drawSurface,mapNode].forEach(target=>{
+      target.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
+      target.addEventListener('touchend',captureDrawEvent,{capture:true,passive:false});
+      target.addEventListener('pointerdown',captureDrawEvent,true);
+      target.addEventListener('mousedown',captureDrawEvent,true);
+      target.addEventListener('click',captureDrawEvent,true);
+    });
+    s.map.on('click',event=>appendDrawLatLng(event.latlng));
     return true;
   };
 })();
