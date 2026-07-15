@@ -92,21 +92,24 @@
     const s=app.state;s.map=L.map('map',{zoomControl:true,minZoom:6}).setView(app.DEFAULT_CENTER,7);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(s.map);
     s.parkingLayer=L.layerGroup().addTo(s.map);s.fuelLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
-    s.map.on('click',event=>{
-      if(!s.drawing||performance.now()-s.lastDrawPointerAt<220)return;
-      app.addDrawPoint?.(event.latlng);
-    });
-    document.addEventListener('pointerup',event=>{
+    const captureDrawEvent=event=>{
       if(!s.drawing)return;
-      if(event.pointerType!=='touch'&&event.button!==0)return;
+      if(event.type==='pointerup'&&event.pointerType!=='touch'&&event.button!==0)return;
+      const now=performance.now();if(now-s.lastDrawPointerAt<180)return;
       const blocked=event.target instanceof Element&&event.target.closest('.top-shell,.parking-sheet,.route-card,.draw-toolbar,.map-menu,.modal,.leaflet-control,.leaflet-popup,.leaflet-tooltip');
       if(blocked)return;
       const mapNode=app.$('map'),rect=mapNode.getBoundingClientRect();
       if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)return;
-      s.lastDrawPointerAt=performance.now();
+      s.lastDrawPointerAt=now;
       const point=L.point(event.clientX-rect.left,event.clientY-rect.top);
       app.addDrawPoint?.(s.map.containerPointToLatLng(point));
-    },true);
+    };
+    document.addEventListener('pointerup',captureDrawEvent,true);
+    document.addEventListener('click',captureDrawEvent,true);
+    s.map.on('click',event=>{
+      if(!s.drawing||performance.now()-s.lastDrawPointerAt<220)return;
+      app.addDrawPoint?.(event.latlng);
+    });
     return true;
   };
 })();
