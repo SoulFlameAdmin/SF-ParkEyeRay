@@ -24,7 +24,7 @@
     saved:app.read(app.STORAGE.saved,[]),
     destinationHistory:app.read(app.STORAGE.destinationHistory,[]),
     savedDestinations:app.read(app.STORAGE.savedDestinations,[]),
-    drawing:false,drawPoints:[],drawLine:null,drawPolygon:null,pendingGeometry:null,lastDrawPointerAt:0,
+    drawing:false,drawPoints:[],drawLine:null,drawPolygon:null,pendingGeometry:null,lastDrawPointerAt:0,lastDrawClientX:null,lastDrawClientY:null,
     locating:false,locationWatchId:null,followUser:true,lastLayerCenter:null,searchVersion:0,requests:{},ui:null,searchTimer:null,layerTimer:null
   };
   app.safe=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
@@ -92,22 +92,25 @@
     const s=app.state;s.map=L.map('map',{zoomControl:true,minZoom:6}).setView(app.DEFAULT_CENTER,7);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(s.map);
     s.parkingLayer=L.layerGroup().addTo(s.map);s.fuelLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
+    const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<180&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<4;
+    const rememberDrawEvent=(x,y,now)=>{s.lastDrawPointerAt=now;s.lastDrawClientX=x;s.lastDrawClientY=y};
     const captureDrawEvent=event=>{
       if(!s.drawing)return;
       if(event.type==='pointerup'&&event.pointerType!=='touch'&&event.button!==0)return;
-      const now=performance.now();if(now-s.lastDrawPointerAt<180)return;
       const blocked=event.target instanceof Element&&event.target.closest('.top-shell,.parking-sheet,.route-card,.draw-toolbar,.map-menu,.modal,.leaflet-control,.leaflet-popup,.leaflet-tooltip');
       if(blocked)return;
-      const mapNode=app.$('map'),rect=mapNode.getBoundingClientRect();
-      if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)return;
-      s.lastDrawPointerAt=now;
-      const point=L.point(event.clientX-rect.left,event.clientY-rect.top);
-      app.addDrawPoint?.(s.map.containerPointToLatLng(point));
+      const mapNode=app.$('map'),rect=mapNode.getBoundingClientRect(),x=Number(event.clientX),y=Number(event.clientY),now=performance.now();
+      if(!Number.isFinite(x)||!Number.isFinite(y)||x<rect.left||x>rect.right||y<rect.top||y>rect.bottom||isDuplicateDrawEvent(x,y,now))return;
+      rememberDrawEvent(x,y,now);
+      app.addDrawPoint?.(s.map.containerPointToLatLng(L.point(x-rect.left,y-rect.top)));
     };
     document.addEventListener('pointerup',captureDrawEvent,true);
     document.addEventListener('click',captureDrawEvent,true);
     s.map.on('click',event=>{
-      if(!s.drawing||performance.now()-s.lastDrawPointerAt<220)return;
+      if(!s.drawing)return;
+      const original=event.originalEvent,x=Number(original?.clientX),y=Number(original?.clientY),now=performance.now();
+      if(Number.isFinite(x)&&Number.isFinite(y)&&isDuplicateDrawEvent(x,y,now))return;
+      if(Number.isFinite(x)&&Number.isFinite(y))rememberDrawEvent(x,y,now);
       app.addDrawPoint?.(event.latlng);
     });
     return true;
