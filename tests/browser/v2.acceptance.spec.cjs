@@ -3,7 +3,29 @@ const { test, expect } = require('@playwright/test');
 const destination = {
   name: 'Мол Галерия Стара Загора, улица Хан Аспарух, Стара Загора',
   lat: 42.4381235,
-  lon: 25.6315901
+  lon: 25.6315901,
+  type: 'mall',
+  source: 'nominatim'
+};
+
+const yambolMall = {
+  name: 'Мол Ямбол, Александър Стамболийски, Ямбол, България',
+  lat: 42.4848947,
+  lon: 26.5099727,
+  type: 'mall',
+  source: 'nominatim',
+  importance: 0.01,
+  distance: 26711
+};
+
+const yambolParking = {
+  name: 'Паркинг към Мол Ямбол, Александър Стамболийски, Ямбол, България',
+  lat: 42.4847108,
+  lon: 26.510374,
+  type: 'parking',
+  source: 'nominatim',
+  importance: 0.5,
+  distance: 26746
 };
 
 const parkingElements = [
@@ -55,13 +77,14 @@ function routePayload(profile) {
   };
 }
 
-async function mockApplicationApis(page) {
+async function mockApplicationApis(page, options = {}) {
+  const geocodePayload = options.geocodePayload || { results: [destination], normalizedQuery: 'стара загора мол' };
   await page.route('https://*.tile.openstreetmap.org/**', route => route.abort());
 
   await page.route('**/api/geocode?**', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ results: [destination] })
+    body: JSON.stringify(geocodePayload)
   }));
 
   await page.route('**/api/overpass', route => route.fulfill({
@@ -81,8 +104,8 @@ async function mockApplicationApis(page) {
   });
 }
 
-async function openV2(page) {
-  await mockApplicationApis(page);
+async function openV2(page, options = {}) {
+  await mockApplicationApis(page, options);
   await page.goto('/v2.html');
   await expect(page.locator('#map')).toBeVisible();
   await expect(page.locator('.nav-action')).toHaveCount(5);
@@ -111,6 +134,61 @@ test('search → parking selection → driving and walking route', async ({ page
   await expect(page.locator('[data-action="navigate"]')).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('#external-route')).toHaveAttribute('href', /google\.com\/maps\/dir/);
   await expect(page.locator('#route-note')).toContainText('OSM вход');
+});
+
+test('Stage 2 ranks a mall above its parking and persists saved/recent destinations', async ({ page }) => {
+  await openV2(page, {
+    geocodePayload: {
+      results: [yambolParking, yambolMall],
+      normalizedQuery: 'ямбол мол'
+    }
+  });
+
+  await page.locator('#search-input').fill('qmbol mol');
+  await expect(page.locator('.destination-result')).toHaveCount(2);
+  await expect(page.locator('.destination-result').first()).toContainText('Мол Ямбол');
+  await expect(page.locator('.destination-result').first()).not.toContainText('Паркинг към');
+  await expect(page.locator('.destination-result').first()).toContainText('Най-подходящ');
+
+  await page.locator('.destination-result').first().click();
+  await expect(page.locator('#sheet-title')).toContainText('Мол Ямбол');
+  await expect(page.locator('#save-destination')).toBeVisible();
+
+  let history = await page.evaluate(() => JSON.parse(localStorage.getItem('sf_v2_destination_history') || '[]'));
+  expect(history).toHaveLength(1);
+  expect(history[0].name).toContain('Мол Ямбол');
+
+  await page.locator('#save-destination').click();
+  await expect(page.locator('#save-destination')).toHaveAttribute('aria-pressed', 'true');
+
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('sf_v2_saved_destinations') || '[]'));
+  expect(saved).toHaveLength(1);
+  expect(saved[0].name).toContain('Мол Ямбол');
+
+  await page.evaluate(() => {
+    const existing = JSON.parse(localStorage.getItem('sf_v2_destination_history') || '[]');
+    existing.push({
+      id: '42.438124,25.631590',
+      name: 'Мол Галерия Стара Загора, Стара Загора',
+      lat: 42.4381235,
+      lon: 25.6315901,
+      type: 'mall',
+      source: 'local',
+      savedAt: new Date().toISOString()
+    });
+    localStorage.setItem('sf_v2_destination_history', JSON.stringify(existing));
+  });
+
+  await page.reload();
+  await expect(page.locator('#search-input')).toBeEnabled();
+  await page.locator('#search-input').fill('');
+  await page.locator('#search-input').focus();
+
+  await expect(page.locator('#search-results')).toHaveClass(/active/);
+  await expect(page.locator('#search-results')).toContainText('Запазени места');
+  await expect(page.locator('#search-results')).toContainText('Последни търсения');
+  await expect(page.locator('#search-results')).toContainText('Мол Ямбол');
+  await expect(page.locator('#search-results')).toContainText('Мол Галерия Стара Загора');
 });
 
 test('drawing mode locks unrelated actions and saves pending proposal', async ({ page }) => {
