@@ -1,0 +1,15 @@
+(()=>{
+  'use strict';
+  const modules=['/v2-core.js','/v2-parking.js','/v2-route.js','/v2-proposals.js','/v2-init.js'];
+  async function load(){
+    for(const src of modules){
+      await new Promise((resolve,reject)=>{
+        const script=document.createElement('script');script.src=src;script.async=false;script.onload=resolve;script.onerror=()=>reject(new Error(`Failed to load ${src}`));document.body.appendChild(script);
+      });
+    }
+  }
+  load().catch(error=>{
+    console.error(error);
+    const status=document.getElementById('status');if(status){status.textContent='SmartCity V2 не можа да се стартира. Презареди страницата.';status.className='status-pill error'}
+  });
+})();
