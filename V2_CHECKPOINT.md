@@ -5,8 +5,8 @@
 - Draft PR: `#6`
 - Preview route: `/v2`
 - Master plan: issue `#5`
-- Completed technical roadmap stages: **Stage 1 and Stage 2**
-- Next active roadmap stage: **Stage 3 — parking data engine**
+- Completed technical roadmap stages: **Stage 1, Stage 2 and Stage 3 parking-data foundation**
+- Next active roadmap stage: **SoulFlame moderation workflow and authenticated UI submission**
 
 ## Completed in foundation batch
 - Phone-first application shell with exactly five primary actions.
@@ -33,7 +33,7 @@
 - Clarified internal route refresh versus external turn-by-turn navigation.
 - Drawing mode disables unrelated controls and safely clears incomplete geometry.
 - Interface assertions fail loudly if critical controls or the five-action contract are broken.
-- Playwright acceptance passes on Pixel 7 emulation and desktop Chromium.
+- Playwright acceptance covers Pixel 7 emulation and desktop Chromium.
 
 ## Stage 2 — search and destinations
 - Added debounced live destination suggestions.
@@ -76,15 +76,30 @@
 - Produces a short-lived HMAC upload token binding user ID, storage path, MIME type, maximum size and expiry.
 - Proposal submission verifies token signature, expiry and ownership before persisting `storage_path`.
 
+## Stage 3 — normalized parking data engine
+- Added `parking_features` and `parking_import_runs` PostGIS tables for OSM, municipality and operator imports.
+- Added source revision, source timestamps, import-run ownership and active/inactive state tracking.
+- Added a versioned JSON Schema import contract for parking areas, individual spaces, street segments, entrances and points.
+- Added revision-safe import CLI with `(source, external_id)` upsert semantics and explicit scope finalization.
+- Added `search_parking_features` spatial RPC for destination-centered searches.
+- The spatial result combines imported parking data with **only approved** SoulFlame zones.
+- Added server-side deduplication by source identity, distance and normalized names.
+- Approved SoulFlame records win over overlapping OSM records while preserving all source references.
+- Added `/api/v2/parkings` as the normalized V2 parking endpoint.
+- PostGIS is the primary path when configured; Overpass is retained only as a temporary fallback.
+- Every result carries source, verification status, origin, revision/freshness and entrance/representative-point data.
+- The API and UI explicitly report `liveOccupancy: false` and never imply a complete list of physical parking places.
+- Added browser acceptance fixtures for approved SoulFlame + imported OSM data, five actions, route-to-entrance and walking-to-destination.
+- Added deterministic engine tests for validation, import normalization, PostGIS results, Overpass fallback and deduplication.
+
 ## Current verification
 - PR #6 remains open, draft, mergeable and unmerged.
 - Existing `/app` production route has not been replaced.
-- Latest SmartCity V2 browser acceptance: **success**.
-- Latest SmartCity V2 smoke: **success**.
-- Latest existing SmartCity parking smoke: **success**.
-- Vercel branch Preview containing Stage 2 application files: **READY**.
-- Preview directly serves `v2-destinations.js` with ranking, history and saved-place implementation.
-- Production geocoder returns Yambol mall candidates for Latin input.
+- Latest completed existing SmartCity parking smoke: **success**.
+- SmartCity V2 smoke for the current Stage 3 head: **running**.
+- SmartCity V2 browser acceptance for the current Stage 3 head: **running**.
+- Vercel branch Preview alias is recorded by Vercel as **READY** at `sf-parkeyeray-git-smartcity-v2-57e0ea-dimitar-lambovs-projects.vercel.app`.
+- Direct Preview runtime probing from the current execution environment was blocked by DNS resolution, so no false runtime-success claim is recorded for this batch.
 
 ## Required environment before shared persistence
 - `SUPABASE_URL`
@@ -94,21 +109,21 @@
 - Supabase migrations applied in order.
 
 ## Known limitations
-- Supabase migrations are committed but not yet applied in a configured project.
-- Submission and evidence endpoints cannot persist until the required environment is configured.
-- Current destination history and saved destinations are local to one device.
+- Supabase migrations are committed but not yet confirmed as applied in a configured project.
+- Submission, evidence and PostGIS-primary parking endpoints cannot use shared persistence until the required environment is configured.
 - The local proposal adapter is not yet wired into authenticated UI submission.
 - The evidence endpoint creates a protected upload contract, but the V2 UI does not upload photo bytes yet.
 - The current in-memory rate limit is per serverless instance; a durable shared limiter is required before public scale.
 - OSM coverage is incomplete and cannot represent live vacancy.
-- A parking entrance is used only when a mapped `parking_entrance` is within 180 m; otherwise routing ends at the representative parking point.
-- A physical test by the user on their actual Android device is still useful before replacing production.
+- Overpass remains a temporary runtime fallback when PostGIS is unconfigured, empty or unavailable.
+- A parking entrance is used only when a mapped entrance is sufficiently close; otherwise routing ends at the representative parking point.
+- A physical test on an actual Android device is still required before replacing production.
 
-## Next stage — Stage 3 parking data engine
-1. Define the normalized PostGIS model for OSM areas, parking spaces, street-parking segments and entrances.
-2. Build import/upsert contracts and source revision tracking.
-3. Add a spatial parking-search API around the destination.
-4. Combine only approved SoulFlame zones with imported OSM data.
-5. Deduplicate overlapping OSM and SoulFlame features.
-6. Keep source, verification status and freshness in every result.
-7. Preserve Overpass only as a temporary fallback, not as the primary request path.
+## Next safe batch — moderation and authenticated submission UI
+1. Add service-role-only moderation list/detail endpoints for `pending_soulflame` proposals.
+2. Add approve, reject and changes-requested transitions with immutable moderator audit history.
+3. Add signed evidence viewing for moderators without making the storage bucket public.
+4. Build the SoulFlame moderation dashboard without adding a sixth primary phone action.
+5. Wire authenticated V2 proposal submission and protected photo upload with local outbox fallback.
+6. Confirm that only `approved` polygons enter the public parking engine and that rejection never publishes data.
+7. Re-run Preview, phone and desktop acceptance before considering PR readiness.
