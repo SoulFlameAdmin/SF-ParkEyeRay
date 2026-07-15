@@ -93,23 +93,28 @@
     const s=app.state;s.map=L.map('map',{zoomControl:true,minZoom:6}).setView(app.DEFAULT_CENTER,7);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(s.map);
     s.parkingLayer=L.layerGroup().addTo(s.map);s.fuelLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
-    const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<180&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<4;
+    const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<220&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<6;
     const rememberDrawEvent=(x,y,now)=>{s.lastDrawPointerAt=now;s.lastDrawClientX=x;s.lastDrawClientY=y};
+    const eventPoint=event=>{
+      const touch=event.changedTouches?.[0]||event.touches?.[0];
+      return {x:Number(touch?.clientX??event.clientX),y:Number(touch?.clientY??event.clientY)};
+    };
     const captureDrawEvent=event=>{
       if(!s.drawing)return;
       if(event.type==='pointerup'&&event.pointerType!=='touch'&&event.button!==0)return;
       const blocked=event.target instanceof Element&&event.target.closest('.top-shell,.parking-sheet,.route-card,.draw-toolbar,.map-menu,.modal,.leaflet-control,.leaflet-popup,.leaflet-tooltip');
       if(blocked)return;
-      const mapNode=app.$('map'),rect=mapNode.getBoundingClientRect(),x=Number(event.clientX),y=Number(event.clientY),now=performance.now();
+      const mapNode=app.$('map'),rect=mapNode.getBoundingClientRect(),{x,y}=eventPoint(event),now=performance.now();
       if(!Number.isFinite(x)||!Number.isFinite(y)||x<rect.left||x>rect.right||y<rect.top||y>rect.bottom||isDuplicateDrawEvent(x,y,now))return;
       rememberDrawEvent(x,y,now);
       app.addDrawPoint?.(s.map.containerPointToLatLng(L.point(x-rect.left,y-rect.top)));
     };
+    document.addEventListener('touchend',captureDrawEvent,{capture:true,passive:true});
     document.addEventListener('pointerup',captureDrawEvent,true);
     document.addEventListener('click',captureDrawEvent,true);
     s.map.on('click',event=>{
       if(!s.drawing)return;
-      const original=event.originalEvent,x=Number(original?.clientX),y=Number(original?.clientY),now=performance.now();
+      const original=event.originalEvent,{x,y}=eventPoint(original||{}),now=performance.now();
       if(Number.isFinite(x)&&Number.isFinite(y)&&isDuplicateDrawEvent(x,y,now))return;
       if(Number.isFinite(x)&&Number.isFinite(y))rememberDrawEvent(x,y,now);
       app.addDrawPoint?.(event.latlng);
