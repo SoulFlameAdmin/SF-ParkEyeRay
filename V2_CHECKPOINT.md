@@ -19,10 +19,9 @@
 - Deterministic phone sheet and accessible parking selection.
 - Search → destination → parking list/marker → selected parking → driving route → walking route flow.
 - Polygon drawing → details → pending submission flow.
-- Polygon drawing uses a dedicated transparent `draw-surface` above Leaflet while drawing.
+- Polygon drawing uses a dedicated transparent `draw-surface` inside the Leaflet map container and above Leaflet panes.
 - Touch, pointer, mouse and synthesized Playwright taps are captured directly on that surface with deduplication.
 - Conflicting map gestures remain disabled only while drawing.
-- Critical draw-surface layout is now in statically loaded `v2-stability.css`, eliminating the Android race where dynamic map-first CSS could arrive after drawing began.
 
 ## Stage 2 — search and destinations
 - Debounced Bulgarian and transliterated destination suggestions.
@@ -48,7 +47,7 @@
 - Start/Stop remains contextual and does not add a sixth primary action.
 
 ## Waze navigation HUD batch 2
-- Routing requests now ask OSRM-compatible providers for maneuver steps.
+- Routing requests ask OSRM-compatible providers for maneuver steps.
 - A phone-first next-maneuver banner shows direction icon, Bulgarian instruction and distance to the maneuver.
 - Supported guidance includes left/right/slight/sharp turns, U-turns, forks, ramps, merges, roundabouts and arrival.
 - The maneuver updates from the same route-progress projection used by remaining distance and ETA.
@@ -56,13 +55,22 @@
 - Navigation focus mode hides the top search shell and keeps the map, maneuver HUD and contextual Stop control visible.
 - This batch does not claim lane guidance, speed limits, live traffic, police reports or true bearing-based road-map rotation.
 
+## Waze map HUD batch 3
+- The large collapsed `Паркинги наблизо` card is removed from the resting map view.
+- A small pull handle remains so the parking list can still be opened without a dead control.
+- A compact Waze-style speedometer appears after a valid GPS fix and updates from the same location stream.
+- The current location is marked with a larger directional map marker and GPS accuracy circle.
+- The directional marker preserves the last valid heading when a GPS sample has no heading.
+- The compact speedometer hides while the parking list, polygon drawing or full navigation HUD is active.
+- A dedicated Playwright test verifies the speedometer, hidden collapsed card content and GPS marker.
+
 ## Preview deployment recovery
 - Vercel deployment errors were traced to `exceeded_serverless_functions_per_deployment`, not a generic build-rate limit.
 - Hobby permits at most 12 Serverless Functions; helper files under `/api` were being counted as deployable functions.
 - Evidence-token and moderator-auth helpers were moved to `server/v2`.
 - Three moderation endpoints were consolidated into one protected `api/v2/moderation.js` dispatcher.
 - Existing public moderation URLs remain stable through Vercel rewrites.
-- A CI guard now requires the repository to stay within the 12-function Hobby budget.
+- A CI guard requires the repository to stay within the 12-function Hobby budget.
 - No moderation rule changed: only approval can publish a SoulFlame verified polygon.
 
 ## SoulFlame moderation foundation
@@ -81,12 +89,11 @@ Scope: `bg:sliven-core`
 - Occupancy remains unknown and non-live.
 
 ## Runtime and CI verification
-- Runtime error clusters for `/v2`, `/api/geocode`, `/api/overpass` and `/api/routing` showed no errors in the previously checked 24-hour window.
-- Head `7c233aa9faaeb670b9bfc0414f1848da7038c666`: SmartCity parking smoke and V2 smoke passed; Android browser acceptance failed because polygon taps were not registered and `#draw-finish` remained disabled.
-- Failure artifact and screenshots confirmed that the app entered drawing mode correctly, while the transparent capture surface was not reliably active before the taps.
-- Fix commit `0c9afbf4a23272b50d7a734ca3d695c34010b9e8` makes the capture surface deterministic through the statically loaded stability stylesheet.
-- The latest observed Vercel Preview deployment was still an ERROR deployment for an older commit, so it is not accepted as a valid exact-head preview.
-- Exact-head browser acceptance, READY Preview and endpoint runtime checks remain required.
+- Runtime error clusters for `/v2`, `/api/geocode`, `/api/overpass` and `/api/routing` previously showed no errors in the checked window.
+- Before map HUD batch 3, SmartCity parking smoke and V2 smoke were green.
+- Browser acceptance was red because `document.elementFromPoint` still reached a Leaflet child instead of the fixed-position drawing surface on Android.
+- The drawing surface is now moved inside `#map` with a z-index above Leaflet panes; exact-head Android and desktop acceptance must confirm the fix.
+- The newest known READY Preview was for an earlier head; an exact-head READY deployment and endpoint runtime checks remain required.
 
 ## Production safety
 - `/app` is unchanged.
@@ -94,15 +101,15 @@ Scope: `bg:sliven-core`
 - Acceptance is not claimed until CI, exact-head Preview, phone and desktop checks are green.
 
 ## Remaining limitations
-- Leaflet does not currently rotate the road map by bearing; only the heading arrow rotates.
+- Leaflet does not currently rotate the road map by bearing; only the heading indicators rotate.
 - GPS speed, heading, maneuver timing and rerouting need a physical Android road test outdoors.
 - Route progress is geometric projection, not advanced map matching.
 - Voice guidance and lane guidance are not implemented.
 
 ## Next safe batch
-1. Confirm green Android and desktop browser acceptance after the static draw-surface fix.
+1. Confirm green Android and desktop browser acceptance for the map-contained drawing surface and compact speedometer.
 2. Confirm a READY Vercel deployment for the exact latest head.
 3. Verify runtime `/v2`, `/api/geocode`, `/api/overpass`, driving and walking `/api/routing`.
-4. Perform a real phone navigation test of maneuver timing, ETA and rerouting.
+4. Perform a real phone navigation test of speed, location marker, maneuver timing, ETA and rerouting.
 5. Add voice prompts only after maneuver data is stable.
 6. Continue authenticated submission, evidence upload and internal moderation dashboard work without changing the five phone actions.
