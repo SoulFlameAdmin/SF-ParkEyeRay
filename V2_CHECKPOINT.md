@@ -14,7 +14,7 @@
 - Deterministic phone sheet and accessible parking selection.
 - Safe proposal drawing and cancellation.
 - Pixel 7 and desktop Chromium acceptance coverage.
-- Android polygon drawing has a native pointer fallback with Leaflet click deduplication.
+- Android polygon drawing has pointer, click and native `touchend` coordinate capture with deduplication.
 
 ## Stage 2 — search and destinations
 - Debounced Bulgarian and transliterated destination suggestions.
@@ -49,10 +49,11 @@
 - This batch does not claim road rotation, lane guidance, live traffic, police reports or speed-limit data.
 
 ## Phone drawing stability hotfix
-- Browser acceptance showed that Android synthetic taps could leave polygon drawing at only one point.
-- Drawing mode now temporarily disables Leaflet pan, zoom, keyboard and gesture interactions so touches are treated as polygon points.
-- Temporary point, line and polygon layers are non-interactive and cannot capture later touches.
-- Normal map interactions are restored on cancel or finish.
+- Browser acceptance showed that Android synthetic taps entered drawing mode but did not reach `addDrawPoint`.
+- Root cause: `touchend` exposes coordinates through `changedTouches`, while the previous fallback read only `event.clientX/clientY`.
+- Drawing now captures `touchend`, pointer and click coordinates through one normalized event helper.
+- Duplicate synthetic events are filtered with a slightly wider phone-safe threshold.
+- Drawing mode still disables conflicting Leaflet gestures and temporary drawing layers remain non-interactive.
 - The product rule remains unchanged: every submitted user polygon is `pending_soulflame` until moderation.
 
 ## SoulFlame moderation backend batch
@@ -93,9 +94,9 @@ Occupancy remains unknown and is labelled as non-live.
 - Branch alias: `sf-parkeyeray-git-smartcity-v2-57e0ea-dimitar-lambovs-projects.vercel.app`.
 
 ## Current CI state
-- Head `37ad02fe368477fe332e07cb3b60d3cb0a4f39f3`: parking smoke and V2 smoke passed; browser acceptance failed in Android polygon drawing.
-- Hotfix head `2a183af78a7926c94f3d24af9457b36a805c54e6` disables conflicting map gestures during drawing.
-- New GitHub Actions runs had not appeared at checkpoint update time, so acceptance is not claimed yet.
+- Head `975d968e6ce5eb962fa3d068d05afba4b3440430`: parking smoke and V2 smoke passed; browser acceptance failed because Android `touchend` coordinates were not read.
+- Touch fix head `b0c75f0fce57fced534cf6d1f80a45cdd04eaf57` adds native `changedTouches` support.
+- New CI must pass before acceptance is claimed.
 
 ## Production safety
 - Production `/app` remains unchanged.
@@ -112,7 +113,7 @@ Occupancy remains unknown and is labelled as non-live.
 - A physical Android road test remains required before replacing production.
 
 ## Next safe batch
-1. Wait for and inspect the hotfix CI result; do not advance while browser acceptance is red.
+1. Confirm green browser acceptance for native Android touch drawing.
 2. Confirm a READY Vercel deployment and test the branch alias on phone and desktop.
 3. Add route-progress projection and remaining distance/time updates without rebuilding the route every second.
 4. Add off-route detection and throttled rerouting.
