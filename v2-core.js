@@ -93,7 +93,7 @@
     const s=app.state;s.map=L.map('map',{zoomControl:true,minZoom:6}).setView(app.DEFAULT_CENTER,7);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(s.map);
     s.parkingLayer=L.layerGroup().addTo(s.map);s.fuelLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
-    const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<220&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<6;
+    const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<260&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<8;
     const rememberDrawEvent=(x,y,now)=>{s.lastDrawPointerAt=now;s.lastDrawClientX=x;s.lastDrawClientY=y};
     const eventPoint=event=>{
       const touch=event.changedTouches?.[0]||event.touches?.[0];
@@ -102,7 +102,8 @@
     const captureDrawEvent=event=>{
       if(!s.drawing)return;
       if(event.type==='pointerdown'&&event.pointerType!=='touch')return;
-      if(event.type==='pointerup'&&(event.pointerType==='touch'||event.button!==0))return;
+      if(event.type==='pointerup'&&event.pointerType==='touch')return;
+      if(event.type==='pointerup'&&event.button!==0)return;
       const blocked=event.target instanceof Element&&event.target.closest('.top-shell,.parking-sheet,.route-card,.draw-toolbar,.map-menu,.modal,.leaflet-control');
       if(blocked)return;
       const mapNode=app.$('map'),rect=mapNode.getBoundingClientRect(),{x,y}=eventPoint(event),now=performance.now();
@@ -110,6 +111,7 @@
       rememberDrawEvent(x,y,now);
       app.addDrawPoint?.(s.map.containerPointToLatLng(L.point(x-rect.left,y-rect.top)));
     };
+    document.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:true});
     document.addEventListener('pointerdown',captureDrawEvent,true);
     document.addEventListener('touchend',captureDrawEvent,{capture:true,passive:true});
     document.addEventListener('pointerup',captureDrawEvent,true);
