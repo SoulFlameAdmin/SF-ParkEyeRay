@@ -18,13 +18,16 @@
 - Automated serverless API contract tests for method restrictions, invalid input and routing fallback behavior.
 - PWA shell assets prepared: valid manifest, normal and maskable icons, service worker and honest offline fallback page.
 - Automated CI validation for the PWA manifest, icons, service worker syntax and offline fallback.
+- Reusable Preview acceptance runner for homepage, honest data labels, PWA assets and invalid API input behavior.
 
 ## Verification completed
 - Browser JavaScript syntax checked with `node --check` before commit.
 - Serverless JavaScript syntax is checked in GitHub Actions.
 - API contract test file: `tests/api-contract.mjs`.
-- Latest verified GitHub Actions run before the PWA batch completed successfully.
-- Vercel Preview build completed successfully for the previous application commit.
+- Preview acceptance runner: `tests/preview-acceptance.mjs`.
+- Latest verified GitHub Actions run before this batch completed successfully.
+- Vercel Preview reached READY for the previous branch head.
+- PR #2 remains open, draft and mergeable.
 - Production branch was not overwritten by these batches.
 
 ## Current development commits
@@ -36,18 +39,27 @@
 - `58f312caa3a5c28839180881d3c14615f2aa3af4` — add offline fallback page.
 - `1a29a6613dd53f77fdeba5d8f3bc16e67e2ed697` — add service worker shell.
 - `ee70c046b5f61d5138439f652d1d4a314df51260` — validate PWA assets in CI.
+- `077317851177cd4b260fa0b8bc53f589cbbbf10f` — add reusable Preview acceptance runner.
+
+## Preview acceptance command
+```bash
+BASE_URL=https://<preview-host> node tests/preview-acceptance.mjs
+```
+
+The runner verifies `/`, `/manifest.webmanifest`, `/sw.js`, `/offline.html`, invalid `/api/geocode` input and invalid `/api/route` input. It does not claim physical Android installation or human interaction testing.
 
 ## Next checks before production
-1. Confirm the new GitHub Actions run succeeds with PWA validation.
+1. Confirm the GitHub Actions run succeeds for the latest branch head.
 2. Confirm the Vercel Preview for the latest branch head reaches READY.
-3. Connect `manifest.webmanifest` and `sw.js` to the main HTML; this is not yet claimed as an active install flow.
-4. Verify browser installability and offline navigation on Android Chrome and desktop Chromium.
-5. Fetch and exercise Preview `/`, `/api/geocode`, `/api/overpass` and `/api/route`.
-6. Test phone and desktop interaction, especially the bottom sheet and route card.
-7. Merge only after Preview acceptance.
+3. Run `tests/preview-acceptance.mjs` against that exact Preview deployment.
+4. Connect `manifest.webmanifest` and `sw.js` to the main HTML; this is not yet claimed as an active install flow.
+5. Add PNG 192×192 and 512×512 icons for strict cross-browser installability.
+6. Verify browser installability and offline navigation on Android Chrome and desktop Chromium.
+7. Test phone and desktop interaction, especially the bottom sheet and route card.
+8. Merge only after Preview acceptance.
 
 ## Known external limitations
 - OpenStreetMap does not provide live parking occupancy by default.
 - Live traffic-light phases require municipal or infrastructure-provider integration.
 - Payments, native background BLE/NFC and municipal contracts are outside this browser-only batch.
-- SVG icons are present for the shell; PNG 192×192 and 512×512 icons may still be required for strict cross-browser installability.
+- SVG icons are present for the shell; PNG 192×192 and 512×512 icons are still required for strict cross-browser installability.
