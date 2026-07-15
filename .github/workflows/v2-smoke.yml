@@ -27,6 +27,7 @@ jobs:
           node --check v2-core.js
           node --check v2-ui.js
           node --check v2-parking.js
+          node --check v2-destinations.js
           node --check v2-route.js
           node --check v2-proposals.js
           node --check v2-submission-adapter.js
@@ -64,6 +65,22 @@ jobs:
           grep -q 'app.renderParkingMessage' v2-ui.js
           grep -q 'AbortError' v2-parking.js
           grep -q 'AbortError' v2-route.js
+
+      - name: Verify Stage 2 destination intelligence
+        run: |
+          test -s v2-search.css
+          test -s v2-destinations.js
+          grep -q '/v2-search.css' v2.html
+          grep -q "'/v2-destinations.js'" v2.js
+          grep -q 'id="save-destination"' v2.html
+          grep -q 'aria-autocomplete="list"' v2.html
+          grep -q 'sf_v2_destination_history' v2-core.js
+          grep -q 'sf_v2_saved_destinations' v2-core.js
+          grep -q 'app.rankSearchResults' v2-destinations.js
+          grep -q 'app.rememberDestination' v2-destinations.js
+          grep -q 'app.toggleSavedDestination' v2-destinations.js
+          grep -q 'setTimeout.*350' v2-destinations.js
+          grep -q 'Изчисти историята' v2-destinations.js
 
       - name: Verify destination parking and routing contract
         run: |
