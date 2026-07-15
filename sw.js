@@ -1,6 +1,7 @@
-const CACHE_NAME = 'parkeyeray-shell-v1';
+const CACHE_NAME = 'parkeyeray-shell-v2';
 const APP_SHELL = [
   '/',
+  '/app',
   '/index.html',
   '/offline.html',
   '/manifest.webmanifest',
@@ -32,7 +33,19 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
 
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(request));
+    event.respondWith(
+      fetch(request).catch(() => new Response(JSON.stringify({
+        ok: false,
+        error: 'offline',
+        message: 'Няма интернет връзка. Live/API данните не са достъпни офлайн.'
+      }), {
+        status: 503,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-store'
+        }
+      }))
+    );
     return;
   }
 
@@ -44,7 +57,15 @@ self.addEventListener('fetch', event => {
           caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
           return response;
         })
-        .catch(async () => (await caches.match(request)) || caches.match('/offline.html'))
+        .catch(async () => {
+          const exact = await caches.match(request);
+          if (exact) return exact;
+          if (url.pathname === '/app') {
+            const app = await caches.match('/app');
+            if (app) return app;
+          }
+          return caches.match('/offline.html');
+        })
     );
     return;
   }
