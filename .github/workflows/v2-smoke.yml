@@ -28,10 +28,12 @@ jobs:
           node --check v2-parking.js
           node --check v2-route.js
           node --check v2-proposals.js
+          node --check v2-submission-adapter.js
           node --check v2-init.js
           node --check api/geocode.js
           node --check api/overpass.js
           node --check api/routing.js
+          node --check scripts/test-v2-contracts.cjs
 
       - name: Verify V2 route and five primary actions
         run: |
@@ -59,3 +61,9 @@ jobs:
           grep -q "status:'pending_soulflame'" v2-proposals.js
           grep -q 'Не е публикувано като проверен обществен паркинг' v2-proposals.js
           grep -q 'без live свободни места' v2-core.js
+
+      - name: Verify backend foundation contracts
+        run: |
+          node scripts/test-v2-contracts.cjs
+          grep -q "status = 'approved'" supabase/migrations/20260715190000_smartcity_parking_foundation.sql
+          grep -q 'pending_soulflame' contracts/parking-submission.schema.json
