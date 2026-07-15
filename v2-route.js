@@ -57,9 +57,13 @@
       app.$('drive-distance').textContent=drive?app.formatDistance(drive.distance):'Нужен GPS';
       app.$('drive-time').textContent=drive?app.formatDuration(drive.duration):'—';
       app.$('walk-distance').textContent=app.formatDistance(walk.distance);
-      app.$('route-note').textContent=item.entrance===item.point
-        ?'Няма отделно нанесен вход. Автомобилният маршрут завършва при представителната OSM точка.'
-        :'Автомобилният маршрут завършва при най-близкия нанесен OSM вход.';
+      if(item.hasMappedEntrance){
+        app.$('route-note').textContent=item.source==='soulflame'
+          ?'Автомобилният маршрут завършва при одобрения вход на SoulFlame зоната.'
+          :'Автомобилният маршрут завършва при най-близкия нанесен вход за паркинга.';
+      }else{
+        app.$('route-note').textContent='Няма отделно нанесен вход. Автомобилният маршрут завършва при представителната точка на паркинга.';
+      }
 
       const geo=[];
       if(drive?.geometry)geo.push(L.geoJSON(drive.geometry));
