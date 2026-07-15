@@ -6,7 +6,7 @@
 - Preview route: `/v2`
 - Master plan: issue `#5`
 - Completed technical roadmap stages: **Stage 1, Stage 2 and Stage 3 parking data engine**
-- Active roadmap stage: **SoulFlame moderation workflow and authenticated UI submission**
+- Active product direction: **small safe steps toward a working Waze-like navigation experience**
 
 ## Stage 1 — stable phone-first interface
 - Exactly five primary actions.
@@ -14,7 +14,7 @@
 - Deterministic phone sheet and accessible parking selection.
 - Safe proposal drawing and cancellation.
 - Pixel 7 and desktop Chromium acceptance coverage.
-- Android polygon drawing now has a native pointer fallback with Leaflet click deduplication, after the previous browser run showed that simulated phone taps did not add points.
+- Android polygon drawing has a native pointer fallback with Leaflet click deduplication.
 
 ## Stage 2 — search and destinations
 - Debounced Bulgarian and transliterated destination suggestions.
@@ -35,6 +35,19 @@
 - UI labels PostGIS, approved SoulFlame and fallback data honestly.
 - `liveOccupancy: false` is explicit; no live vacancy is implied.
 
+## Waze navigation step 1 — GPS follow and live speed
+- Added a dedicated `v2-navigation.js` module.
+- The route button now has real Start/Stop navigation states.
+- Navigation starts a high-accuracy `watchPosition` GPS stream.
+- Current GPS speed is converted from metres per second and displayed in km/h.
+- The camera follows the current position with smooth movement.
+- Automatic zoom changes conservatively according to current speed.
+- GPS accuracy is visible in the navigation HUD.
+- Heading is reflected in the direction arrow when the browser supplies a valid heading and the vehicle is moving.
+- Continuous GPS updates no longer rebuild the complete route on every position event.
+- The five primary phone actions remain unchanged; Start/Stop is contextual.
+- This batch does not claim road rotation, lane guidance, live traffic, police reports or speed-limit data.
+
 ## SoulFlame moderation backend batch
 - Added server-only moderator authentication requiring both a dedicated moderator key and moderator UUID.
 - Added protected `GET /api/v2/moderation-proposals` list and detail reads.
@@ -44,24 +57,17 @@
 - Supported actions are approve, reject and request changes.
 - Reject and request-changes actions require a reason.
 - Added atomic service-role-only `moderate_parking_proposal` PostGIS RPC.
-- The RPC locks the proposal, verifies it is still `pending_soulflame`, changes status and writes the audit event in one transaction.
 - Approval is the only transition that sets `verified_at` and `verified_by`.
-- Moderation event update/delete/truncate access is revoked from public, anon and authenticated roles.
-- Added deterministic moderation contract tests.
 
 ## Signed moderator evidence batch
 - Added protected `POST /api/v2/moderation-evidence-url`.
-- A moderator must supply both the proposal UUID and evidence UUID.
-- The endpoint verifies that the evidence row belongs to that exact proposal before signing any object.
-- Storage paths reject absolute paths, traversal segments and backslashes.
-- Signed private-bucket URLs live for 30–120 seconds, defaulting to 60 seconds.
-- Responses are `no-store` and never expose the Supabase service-role key.
-- Added syntax and contract checks to the V2 smoke workflow.
+- Evidence ownership is verified before signing any object.
+- Signed private-bucket URLs live for 30–120 seconds and responses are `no-store`.
 
 ## Applied Supabase infrastructure
 The connected Supabase project has the parking foundation, private evidence storage, parking data engine, search hardening and parking-engine security migrations applied.
 
-The new SoulFlame moderation migration is committed but must not be described as applied until it is verified against the configured project.
+The SoulFlame moderation migration is committed but must not be described as applied until verified against the configured project.
 
 ## First real data import
 Scope: `bg:sliven-core`
@@ -72,37 +78,30 @@ Imported from live OSM data into PostGIS:
 - **68** individual parking-space features;
 - **55** street-parking segments.
 
-The spatial RPC returns real Sliven results around the requested destination. Occupancy remains unknown and is labelled as non-live.
+Occupancy remains unknown and is labelled as non-live.
 
 ## Runtime preview verification
-Vercel reached the free-plan limit of more than 100 deployments per day. The Vercel branch alias therefore still serves an older V2 build and must not be presented as the current moderation build.
-
-The temporary keyed Supabase Edge Preview remains read-only and does not expose moderation or write operations.
+Vercel previously reached the free-plan deployment limit. The branch alias must be rechecked before presenting this navigation head as current Preview.
 
 ## Current CI state
-For head `f08ab0201bd12e1962d1315bc7a1a2273c859ccb`, parking smoke and browser acceptance started, while V2 smoke entered the queue. This checkpoint does not claim acceptance until all three finish successfully.
+For head `80a1b672ba5e63d15c8a7df77366dd3997592b4c`, SmartCity V2 smoke, browser acceptance and parking smoke started and are still in progress. Acceptance is not claimed yet.
 
 ## Production safety
 - Production `/app` remains unchanged.
 - PR #6 remains draft and unmerged.
-- No service-role or moderator secret is stored in browser configuration.
-- Public search remains bounded to Bulgaria, radius 100–5000 m and limited results.
 - User proposals remain `pending_soulflame` until an explicit moderator transition.
 - Only `approved` SoulFlame zones can enter published parking results.
+- OSM is not described as a complete physical parking inventory or as live vacancy data.
 
 ## Remaining limitations
-- The moderation migration is not yet confirmed as applied.
-- Moderation endpoints require `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `SOULFLAME_MODERATOR_KEY` server environment variables.
-- The moderation dashboard UI is not implemented yet.
-- Authenticated proposal UI and photo-byte upload are not wired yet.
-- PostGIS coverage currently includes the imported central Sliven scope, not all of Bulgaria.
-- The current in-memory submission limiter must be replaced by a durable shared limiter before public scale.
-- Real live vacancy requires municipality/operator/sensor data.
-- A physical test on the user’s Android device remains required before replacing production.
+- Leaflet does not provide true bearing-based map rotation in the current implementation; the heading arrow rotates, not the road map.
+- GPS speed and heading depend on the physical device/browser and must be tested while moving outdoors.
+- No automatic rerouting or route-progress snapping yet.
+- No next-turn instruction banner or voice guidance yet.
+- A physical Android road test remains required before replacing production.
 
 ## Next safe batch
-1. Build the moderation dashboard as an internal route without adding a sixth primary phone action.
-2. Wire authenticated V2 proposal submission and protected photo upload with local outbox fallback.
-3. Apply and verify the moderation migration in the configured Supabase project.
-4. Re-run V2 smoke, browser acceptance and Preview runtime checks.
-5. Expand controlled OSM imports from Sliven to additional Bulgarian scopes.
+1. Add route-progress projection and remaining distance/time updates without rebuilding the route every second.
+2. Add off-route detection and throttled rerouting.
+3. Add next-maneuver banner from routing instructions.
+4. Re-run Preview, CI, phone and desktop checks.
