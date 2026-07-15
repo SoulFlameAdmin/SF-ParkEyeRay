@@ -34,9 +34,12 @@ jobs:
           node --check api/geocode.js
           node --check api/overpass.js
           node --check api/routing.js
+          node --check api/v2/_evidence-token.js
+          node --check api/v2/evidence-upload-token.js
           node --check api/v2/parking-proposals.js
           node --check scripts/test-v2-contracts.cjs
           node --check scripts/test-v2-submission-api.cjs
+          node --check scripts/test-v2-evidence-api.cjs
 
       - name: Verify V2 route and five primary actions
         run: |
@@ -85,9 +88,14 @@ jobs:
       - name: Verify submission API contract
         run: node scripts/test-v2-submission-api.cjs
 
-      - name: Verify PostGIS moderation guards
+      - name: Verify evidence upload contract
+        run: node scripts/test-v2-evidence-api.cjs
+
+      - name: Verify PostGIS moderation and storage guards
         run: |
           grep -q "status = 'approved'" supabase/migrations/20260715190000_smartcity_parking_foundation.sql
           grep -q 'pending_soulflame' supabase/migrations/20260715190000_smartcity_parking_foundation.sql
           grep -q "const STATUS='pending_soulflame'" v2-submission-adapter.js
           grep -q "const STATUS = 'pending_soulflame'" api/v2/parking-proposals.js
+          grep -q "public.*false" supabase/migrations/20260715211500_parking_evidence_storage.sql
+          grep -q "storage.foldername(name)" supabase/migrations/20260715211500_parking_evidence_storage.sql
