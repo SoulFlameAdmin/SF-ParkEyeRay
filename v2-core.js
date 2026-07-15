@@ -25,7 +25,7 @@
     destinationHistory:app.read(app.STORAGE.destinationHistory,[]),
     savedDestinations:app.read(app.STORAGE.savedDestinations,[]),
     drawing:false,drawPoints:[],drawLine:null,drawPolygon:null,pendingGeometry:null,lastDrawPointerAt:0,lastDrawClientX:null,lastDrawClientY:null,
-    locating:false,locationWatchId:null,followUser:true,lastLayerCenter:null,searchVersion:0,requests:{},ui:null,searchTimer:null,layerTimer:null
+    locating:false,locationWatchId:null,followUser:true,navigationActive:false,lastLayerCenter:null,searchVersion:0,requests:{},ui:null,searchTimer:null,layerTimer:null
   };
   app.safe=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
   app.setStatus=(text,type='info',sticky=false)=>{
@@ -70,7 +70,7 @@
     if(s.accuracyCircle)s.accuracyCircle.setLatLng([user.lat,user.lon]).setRadius(Math.min(user.accuracy||0,2000));else s.accuracyCircle=L.circle([user.lat,user.lon],{radius:Math.min(user.accuracy||0,2000),color:'#2563eb',weight:1,fillOpacity:.08}).addTo(s.map);
     if(options.center===true&&!s.destination){s.followUser=true;s.map.setView([user.lat,user.lon],user.accuracy<120?16:14)}
     app.onUserPosition?.(user,options);
-    if(s.selected)app.buildRoute?.(s.selected,false);
+    if(s.selected&&!s.navigationActive&&options.reason!=='watch')app.buildRoute?.(s.selected,false);
     return true;
   };
   app.locate=()=>{
@@ -79,8 +79,9 @@
     s.locating=true;app.setBusy?.('gps',true,'Определям местоположението…');
     navigator.geolocation.getCurrentPosition(position=>{
       s.locating=false;app.setBusy?.('gps',false);
-      const user={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude),accuracy:Number(position.coords.accuracy||0)};
+      const user={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude),accuracy:Number(position.coords.accuracy||0),speed:Number.isFinite(position.coords.speed)?Math.round(position.coords.speed*3.6):0,heading:Number.isFinite(position.coords.heading)?Number(position.coords.heading):null};
       if(!app.applyUserPosition(user,{center:true,reason:'manual'}))return app.setStatus('GPS позицията е извън България.','error',true);
+      app.updateNavigationHud?.(user);
       app.setStatus(`GPS е намерен · точност ±${Math.round(user.accuracy)} м`,'success');
     },error=>{
       s.locating=false;app.setBusy?.('gps',false);
