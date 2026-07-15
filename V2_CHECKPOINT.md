@@ -14,6 +14,7 @@
 - Deterministic phone sheet and accessible parking selection.
 - Safe proposal drawing and cancellation.
 - Pixel 7 and desktop Chromium acceptance coverage.
+- Android polygon drawing now has a native pointer fallback with Leaflet click deduplication, after the previous browser run showed that simulated phone taps did not add points.
 
 ## Stage 2 — search and destinations
 - Debounced Bulgarian and transliterated destination suggestions.
@@ -48,6 +49,15 @@
 - Moderation event update/delete/truncate access is revoked from public, anon and authenticated roles.
 - Added deterministic moderation contract tests.
 
+## Signed moderator evidence batch
+- Added protected `POST /api/v2/moderation-evidence-url`.
+- A moderator must supply both the proposal UUID and evidence UUID.
+- The endpoint verifies that the evidence row belongs to that exact proposal before signing any object.
+- Storage paths reject absolute paths, traversal segments and backslashes.
+- Signed private-bucket URLs live for 30–120 seconds, defaulting to 60 seconds.
+- Responses are `no-store` and never expose the Supabase service-role key.
+- Added syntax and contract checks to the V2 smoke workflow.
+
 ## Applied Supabase infrastructure
 The connected Supabase project has the parking foundation, private evidence storage, parking data engine, search hardening and parking-engine security migrations applied.
 
@@ -69,6 +79,9 @@ Vercel reached the free-plan limit of more than 100 deployments per day. The Ver
 
 The temporary keyed Supabase Edge Preview remains read-only and does not expose moderation or write operations.
 
+## Current CI state
+For head `f08ab0201bd12e1962d1315bc7a1a2273c859ccb`, parking smoke and browser acceptance started, while V2 smoke entered the queue. This checkpoint does not claim acceptance until all three finish successfully.
+
 ## Production safety
 - Production `/app` remains unchanged.
 - PR #6 remains draft and unmerged.
@@ -80,7 +93,6 @@ The temporary keyed Supabase Edge Preview remains read-only and does not expose 
 ## Remaining limitations
 - The moderation migration is not yet confirmed as applied.
 - Moderation endpoints require `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `SOULFLAME_MODERATOR_KEY` server environment variables.
-- Signed evidence viewing for moderators is not implemented yet.
 - The moderation dashboard UI is not implemented yet.
 - Authenticated proposal UI and photo-byte upload are not wired yet.
 - PostGIS coverage currently includes the imported central Sliven scope, not all of Bulgaria.
@@ -89,9 +101,8 @@ The temporary keyed Supabase Edge Preview remains read-only and does not expose 
 - A physical test on the user’s Android device remains required before replacing production.
 
 ## Next safe batch
-1. Add short-lived signed evidence viewing for authenticated moderators.
-2. Build the moderation dashboard as an internal route without adding a sixth primary phone action.
-3. Wire authenticated V2 proposal submission and protected photo upload with local outbox fallback.
-4. Apply and verify the moderation migration in the configured Supabase project.
-5. Re-run V2 smoke, browser acceptance and Preview runtime checks.
-6. Expand controlled OSM imports from Sliven to additional Bulgarian scopes.
+1. Build the moderation dashboard as an internal route without adding a sixth primary phone action.
+2. Wire authenticated V2 proposal submission and protected photo upload with local outbox fallback.
+3. Apply and verify the moderation migration in the configured Supabase project.
+4. Re-run V2 smoke, browser acceptance and Preview runtime checks.
+5. Expand controlled OSM imports from Sliven to additional Bulgarian scopes.
