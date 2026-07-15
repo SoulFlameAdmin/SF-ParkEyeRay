@@ -114,6 +114,14 @@ async function openMenu(page) {
   await expect(page.locator('#map-menu')).toHaveClass(/open/);
 }
 
+async function tapMapPoint(page, testInfo, x, y) {
+  if (testInfo.project.name === 'android-phone') {
+    await page.touchscreen.tap(x, y);
+  } else {
+    await page.mouse.click(x, y);
+  }
+}
+
 test('GPS automatically shows nearby parking and burger toggles fuel without blocking the map', async ({ page }) => {
   await openV2(page);
 
@@ -186,7 +194,7 @@ test('search ranking and saved destination persistence remain available', async 
   await expect(page.locator('#search-results')).toContainText('Мол Ямбол');
 });
 
-test('burger actions support proposal drawing, profile and offline recovery', async ({ page, context }) => {
+test('burger actions support proposal drawing, profile and offline recovery', async ({ page, context }, testInfo) => {
   await openV2(page);
   await openMenu(page);
   await page.locator('[data-action="add"]').click();
@@ -195,9 +203,10 @@ test('burger actions support proposal drawing, profile and offline recovery', as
 
   const mapBox = await page.locator('#map').boundingBox();
   if (!mapBox) throw new Error('Map has no bounding box');
-  await page.mouse.click(mapBox.x + mapBox.width * 0.35, mapBox.y + mapBox.height * 0.36);
-  await page.mouse.click(mapBox.x + mapBox.width * 0.55, mapBox.y + mapBox.height * 0.39);
-  await page.mouse.click(mapBox.x + mapBox.width * 0.48, mapBox.y + mapBox.height * 0.57);
+  await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.35, mapBox.y + mapBox.height * 0.36);
+  await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.55, mapBox.y + mapBox.height * 0.39);
+  await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.48, mapBox.y + mapBox.height * 0.57);
+  await expect(page.locator('#draw-finish')).toBeEnabled();
   await page.locator('#draw-finish').click();
   await page.locator('#proposal-name').fill('Тестова паркинг зона');
   await page.locator('#proposal-capacity').fill('12');
