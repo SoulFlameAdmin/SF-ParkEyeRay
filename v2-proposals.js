@@ -2,10 +2,19 @@
   'use strict';
   const app=window.SFV2,s=app.state;
 
+  const setDrawingMapInteraction=enabled=>{
+    if(!s.map)return;
+    const method=enabled?'enable':'disable';
+    ['dragging','touchZoom','doubleClickZoom','boxZoom','keyboard','scrollWheelZoom'].forEach(name=>s.map[name]?.[method]?.());
+    const container=s.map.getContainer?.();
+    if(container)container.style.touchAction=enabled?'':'none';
+  };
+
   app.beginDraw=()=>{
     if(s.drawing)return;
     app.abortRequest?.('search');app.abortRequest?.('parking');app.abortRequest?.('route');
     s.drawing=true;s.drawPoints=[];s.pendingGeometry=null;s.drawingLayer.clearLayers();
+    setDrawingMapInteraction(false);
     app.setActiveAction('add');app.setSheetCollapsed(true);app.setDrawingMode(true);
     app.$('draw-finish').disabled=true;
     app.$('draw-help').textContent='Докосвай картата по границата. Нужни са поне 3 точки.';
@@ -22,9 +31,9 @@
 
   app.renderDrawing=()=>{
     s.drawingLayer.clearLayers();
-    s.drawPoints.forEach((point,index)=>L.circleMarker(point,{radius:6,color:'#fff',weight:2,fillColor:'#f59e0b',fillOpacity:1}).bindTooltip(String(index+1),{permanent:true,direction:'top'}).addTo(s.drawingLayer));
-    if(s.drawPoints.length>=2)s.drawLine=L.polyline(s.drawPoints,{color:'#f59e0b',weight:4,dashArray:'7 7'}).addTo(s.drawingLayer);
-    if(s.drawPoints.length>=3)s.drawPolygon=L.polygon(s.drawPoints,{color:'#f59e0b',weight:3,fillColor:'#f59e0b',fillOpacity:.18}).addTo(s.drawingLayer);
+    s.drawPoints.forEach((point,index)=>L.circleMarker(point,{radius:6,color:'#fff',weight:2,fillColor:'#f59e0b',fillOpacity:1,interactive:false}).bindTooltip(String(index+1),{permanent:true,direction:'top',interactive:false}).addTo(s.drawingLayer));
+    if(s.drawPoints.length>=2)s.drawLine=L.polyline(s.drawPoints,{color:'#f59e0b',weight:4,dashArray:'7 7',interactive:false}).addTo(s.drawingLayer);
+    if(s.drawPoints.length>=3)s.drawPolygon=L.polygon(s.drawPoints,{color:'#f59e0b',weight:3,fillColor:'#f59e0b',fillOpacity:.18,interactive:false}).addTo(s.drawingLayer);
   };
 
   app.undoDraw=()=>{
@@ -35,6 +44,7 @@
 
   app.cancelDraw=()=>{
     s.drawing=false;s.drawPoints=[];s.pendingGeometry=null;s.drawingLayer.clearLayers();
+    setDrawingMapInteraction(true);
     app.setDrawingMode(false);app.setActiveAction(s.destination?'parkings':'search');
     app.setStatus('Очертаването е отменено.');
   };
@@ -42,6 +52,7 @@
   app.finishDraw=()=>{
     if(s.drawPoints.length<3)return app.setStatus('Нужни са поне 3 точки за зона.','error');
     s.pendingGeometry=s.drawPoints.map(([lat,lon])=>({lat,lon}));s.drawing=false;
+    setDrawingMapInteraction(true);
     app.setDrawingMode(false);app.openModal('proposal-modal');
   };
 
