@@ -5,7 +5,7 @@
 
   app.requiredIds=[
     'map','status','search-form','search-input','search-submit','search-results','locate-btn',
-    'parking-sheet','parking-list','parking-count','parking-filters','sheet-handle',
+    'parking-sheet','parking-list','parking-count','parking-filters','sheet-handle','save-destination',
     'route-card','route-close','start-route','external-route','draw-toolbar',
     'proposal-modal','proposal-form','profile-modal','proposals-modal','network-state'
   ];
@@ -88,6 +88,8 @@
     app.$('search-input').disabled=active;
     app.$('search-submit').disabled=active;
     app.$('locate-btn').disabled=active;
+    app.$('save-destination').disabled=active;
+    if(active)app.setSearchExpanded?.(false);
   };
 
   app.setOnlineState=online=>{
@@ -119,6 +121,7 @@
     document.addEventListener('keydown',event=>{
       if(event.key==='Escape'){
         if(s.drawing)app.cancelDraw?.();
+        else if(app.$('search-results').classList.contains('active'))app.setSearchExpanded?.(false);
         else app.closeTopModal();
       }
     });
