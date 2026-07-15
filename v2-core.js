@@ -14,11 +14,13 @@
     parkingLayer:null,routeLayer:null,proposalLayer:null,drawingLayer:null,
     proposals:app.read(app.STORAGE.proposals,[]),saved:app.read(app.STORAGE.saved,[]),
     drawing:false,drawPoints:[],drawLine:null,drawPolygon:null,pendingGeometry:null,
-    locating:false,searchVersion:0
+    locating:false,searchVersion:0,requests:{},ui:null
   };
   app.safe=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
   app.setStatus=(text,type='info',sticky=false)=>{
-    const node=app.$('status');node.textContent=text;node.className=`status-pill ${type}`;node.style.opacity='1';
+    const node=app.$('status');
+    if(!node)return;
+    node.textContent=text;node.className=`status-pill ${type}`;node.style.opacity='1';
     clearTimeout(app.setStatus.timer);if(!sticky)app.setStatus.timer=setTimeout(()=>node.style.opacity='.76',5000);
   };
   app.inBulgaria=(lat,lon)=>Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=app.BG.south&&lat<=app.BG.north&&lon>=app.BG.west&&lon<=app.BG.east;
@@ -34,15 +36,25 @@
   app.userIcon=L.divIcon({className:'',html:'<div class="user-dot"></div>',iconSize:[23,23],iconAnchor:[11,11]});
   app.destinationIcon=L.divIcon({className:'',html:'<div class="dest-dot"></div>',iconSize:[29,29],iconAnchor:[8,28]});
   app.parkingIcon=selected=>L.divIcon({className:'',html:`<div class="parking-pin${selected?' selected':''}">P</div>`,iconSize:selected?[37,37]:[31,31],iconAnchor:selected?[18,18]:[15,15]});
-  app.openModal=id=>{const modal=app.$(id);modal.classList.add('open');modal.setAttribute('aria-hidden','false')};
-  app.closeModal=id=>{const modal=app.$(id);modal.classList.remove('open');modal.setAttribute('aria-hidden','true')};
-  app.updateProfile=()=>{app.$('profile-saved').textContent=app.state.saved.length;app.$('profile-proposals').textContent=app.state.proposals.length};
+  app.openModal=id=>{
+    const modal=app.$(id);if(!modal)return;
+    modal.classList.add('open');modal.setAttribute('aria-hidden','false');
+    const focusable=modal.querySelector('button,input,select,textarea,a[href]');focusable?.focus({preventScroll:true});
+  };
+  app.closeModal=id=>{
+    const modal=app.$(id);if(!modal)return;
+    modal.classList.remove('open');modal.setAttribute('aria-hidden','true');
+  };
+  app.updateProfile=()=>{
+    const saved=app.$('profile-saved'),proposals=app.$('profile-proposals');
+    if(saved)saved.textContent=app.state.saved.length;if(proposals)proposals.textContent=app.state.proposals.length;
+  };
   app.locate=()=>{
     const s=app.state;if(s.locating)return;
     if(!navigator.geolocation)return app.setStatus('GPS не се поддържа. Търсенето и паркингите остават активни.','error',true);
-    s.locating=true;app.$('locate-btn').disabled=true;app.setStatus('Определям местоположението…','info',true);
+    s.locating=true;app.setBusy?.('gps',true,'Определям местоположението…');
     navigator.geolocation.getCurrentPosition(position=>{
-      s.locating=false;app.$('locate-btn').disabled=false;
+      s.locating=false;app.setBusy?.('gps',false);
       const user={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude),accuracy:Number(position.coords.accuracy||0)};
       if(!app.inBulgaria(user.lat,user.lon))return app.setStatus('GPS позицията е извън България.','error',true);
       s.user=user;
@@ -52,7 +64,7 @@
       app.setStatus(`GPS е намерен · точност ±${Math.round(user.accuracy)} м`,'success');
       if(s.selected)app.buildRoute?.(s.selected,false);
     },error=>{
-      s.locating=false;app.$('locate-btn').disabled=false;
+      s.locating=false;app.setBusy?.('gps',false);
       app.setStatus(error.code===1?'GPS е отказан. Разреши го за маршрут от текущото място.':'GPS временно не е достъпен.','error',true);
     },{enableHighAccuracy:true,timeout:15000,maximumAge:15000});
   };
