@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('assert');
-const { createEvidenceToken, verifyEvidenceToken } = require('../api/v2/_evidence-token');
+const { createEvidenceToken, verifyEvidenceToken } = require('../server/v2/evidence-token');
 const endpoint = require('../api/v2/evidence-upload-token');
 
 process.env.EVIDENCE_TOKEN_SECRET = 'test-secret-that-is-at-least-thirty-two-bytes-long';
