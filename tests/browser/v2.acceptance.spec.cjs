@@ -28,34 +28,37 @@ const yambolParking = {
   distance: 26746
 };
 
-const parkingElements = [
+const parkingRecords = [
   {
-    type: 'way', id: 101,
-    center: { lat: 42.43855, lon: 25.63095 },
-    tags: { amenity: 'parking', name: 'Паркинг Мол Галерия', parking: 'surface', fee: 'no', capacity: '120', lit: 'yes' }
+    id: 'soulflame:approved-mall-zone', source: 'soulflame', externalId: 'approved-mall-zone',
+    name: 'Одобрен паркинг Мол Галерия', kind: 'community_zone',
+    point: { lat: 42.43855, lon: 25.63095 }, entrance: { lat: 42.43848, lon: 25.63102 },
+    distance: 55, access: 'public', capacity: 120, fee: 'no', covered: false, lit: true, surveillance: true,
+    verificationStatus: 'approved', dataOrigin: 'postgis', sourceUpdatedAt: '2026-07-15T20:00:00Z', sourceRefs: ['soulflame:approved-mall-zone','osm:way/101'], tags: {}
   },
   {
-    type: 'node', id: 102, lat: 42.43848, lon: 25.63102,
-    tags: { amenity: 'parking_entrance', name: 'Главен вход' }
+    id: 'osm:way/103', source: 'osm', externalId: 'way/103', name: 'Северен паркинг', kind: 'surface',
+    point: { lat: 42.43910, lon: 25.63210 }, entrance: { lat: 42.43910, lon: 25.63210 },
+    distance: 135, access: null, capacity: null, fee: null, covered: false, lit: null, surveillance: null,
+    verificationStatus: 'mapped', dataOrigin: 'postgis', sourceUpdatedAt: '2026-07-15T19:00:00Z', sourceRevision: 'bg-2026-07-15', sourceRefs: ['osm:way/103'], tags: {}
   },
   {
-    type: 'way', id: 103,
-    center: { lat: 42.43910, lon: 25.63210 },
-    tags: { amenity: 'parking', name: 'Северен паркинг', parking: 'surface' }
+    id: 'osm:way/104', source: 'osm', externalId: 'way/104', name: 'Подземен паркинг', kind: 'underground',
+    point: { lat: 42.43750, lon: 25.63240 }, entrance: { lat: 42.43750, lon: 25.63240 },
+    distance: 160, access: null, capacity: null, fee: 'yes', covered: true, lit: null, surveillance: null,
+    verificationStatus: 'mapped', dataOrigin: 'postgis', sourceUpdatedAt: '2026-07-15T19:00:00Z', sourceRevision: 'bg-2026-07-15', sourceRefs: ['osm:way/104'], tags: {}
   },
   {
-    type: 'way', id: 104,
-    center: { lat: 42.43750, lon: 25.63240 },
-    tags: { amenity: 'parking', name: 'Подземен паркинг', parking: 'underground', fee: 'yes' }
+    id: 'osm:node/105', source: 'osm', externalId: 'node/105', name: 'Достъпни места', kind: 'parking_space',
+    point: { lat: 42.43790, lon: 25.63040 }, entrance: { lat: 42.43790, lon: 25.63040 },
+    distance: 175, access: null, capacity: 4, fee: null, covered: false, lit: null, surveillance: null,
+    verificationStatus: 'mapped', dataOrigin: 'postgis', sourceUpdatedAt: '2026-07-15T19:00:00Z', sourceRevision: 'bg-2026-07-15', sourceRefs: ['osm:node/105'], tags: { wheelchair: 'yes' }
   },
   {
-    type: 'node', id: 105, lat: 42.43790, lon: 25.63040,
-    tags: { amenity: 'parking_space', name: 'Достъпни места', wheelchair: 'yes' }
-  },
-  {
-    type: 'way', id: 106,
-    center: { lat: 42.43940, lon: 25.62990 },
-    tags: { amenity: 'parking', name: 'Западен паркинг', parking: 'surface' }
+    id: 'osm:way/106', source: 'osm', externalId: 'way/106', name: 'Западен паркинг', kind: 'surface',
+    point: { lat: 42.43940, lon: 25.62990 }, entrance: { lat: 42.43940, lon: 25.62990 },
+    distance: 220, access: null, capacity: null, fee: null, covered: false, lit: null, surveillance: null,
+    verificationStatus: 'mapped', dataOrigin: 'postgis', sourceUpdatedAt: '2026-07-15T19:00:00Z', sourceRevision: 'bg-2026-07-15', sourceRefs: ['osm:way/106'], tags: {}
   }
 ];
 
@@ -71,7 +74,7 @@ function routePayload(profile) {
         type: 'LineString',
         coordinates: walking
           ? [[25.63095, 42.43855], [25.63159, 42.43812]]
-          : [[26.3229, 42.6817], [25.95, 42.56], [25.63095, 42.43855]]
+          : [[26.3229, 42.6817], [25.95, 42.56], [25.63102, 42.43848]]
       }
     }]
   };
@@ -87,10 +90,13 @@ async function mockApplicationApis(page, options = {}) {
     body: JSON.stringify(geocodePayload)
   }));
 
-  await page.route('**/api/overpass', route => route.fulfill({
+  await page.route('**/api/v2/parkings?**', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ elements: parkingElements })
+    body: JSON.stringify({
+      parkings: parkingRecords,
+      meta: { dataSource: 'postgis', fallbackUsed: false, resultCount: parkingRecords.length, rawCount: 6, liveOccupancy: false, freshness: '2026-07-15T20:00:00Z' }
+    })
   }));
 
   await page.route('**/api/routing?**', route => {
@@ -114,7 +120,7 @@ async function openV2(page, options = {}) {
   await expect(page.locator('#parking-list')).toBeVisible();
 }
 
-test('search → parking selection → driving and walking route', async ({ page }) => {
+test('search → normalized parking engine → driving and walking route', async ({ page }) => {
   await openV2(page);
 
   await page.locator('#search-input').fill('stara zagora mol');
@@ -123,6 +129,9 @@ test('search → parking selection → driving and walking route', async ({ page
   await expect(page.locator('#sheet-title')).toContainText('Мол Галерия');
   await expect(page.locator('.parking-card')).toHaveCount(5);
   await expect(page.locator('#parking-count')).toHaveText('5');
+  await expect(page.locator('#sheet-subtitle')).toContainText('SmartCity PostGIS база');
+  await expect(page.locator('.parking-card').first()).toContainText('SoulFlame одобрен');
+  await expect(page.locator('.parking-card').first()).toContainText('Одобрен');
   await expect(page.locator('[data-action="parkings"]')).toHaveAttribute('aria-current', 'page');
 
   await page.locator('.parking-card').first().locator('[data-route]').click();
@@ -133,7 +142,7 @@ test('search → parking selection → driving and walking route', async ({ page
   await expect(page.locator('#walk-distance')).toHaveText('180 м');
   await expect(page.locator('[data-action="navigate"]')).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('#external-route')).toHaveAttribute('href', /google\.com\/maps\/dir/);
-  await expect(page.locator('#route-note')).toContainText('OSM вход');
+  await expect(page.locator('#route-note')).toContainText('одобрения вход');
 });
 
 test('Stage 2 ranks a mall above its parking and persists saved/recent destinations', async ({ page }) => {
@@ -154,7 +163,7 @@ test('Stage 2 ranks a mall above its parking and persists saved/recent destinati
   await expect(page.locator('#sheet-title')).toContainText('Мол Ямбол');
   await expect(page.locator('#save-destination')).toBeVisible();
 
-  let history = await page.evaluate(() => JSON.parse(localStorage.getItem('sf_v2_destination_history') || '[]'));
+  const history = await page.evaluate(() => JSON.parse(localStorage.getItem('sf_v2_destination_history') || '[]'));
   expect(history).toHaveLength(1);
   expect(history[0].name).toContain('Мол Ямбол');
 
@@ -168,13 +177,8 @@ test('Stage 2 ranks a mall above its parking and persists saved/recent destinati
   await page.evaluate(() => {
     const existing = JSON.parse(localStorage.getItem('sf_v2_destination_history') || '[]');
     existing.push({
-      id: '42.438124,25.631590',
-      name: 'Мол Галерия Стара Загора, Стара Загора',
-      lat: 42.4381235,
-      lon: 25.6315901,
-      type: 'mall',
-      source: 'local',
-      savedAt: new Date().toISOString()
+      id: '42.438124,25.631590', name: 'Мол Галерия Стара Загора, Стара Загора',
+      lat: 42.4381235, lon: 25.6315901, type: 'mall', source: 'local', savedAt: new Date().toISOString()
     });
     localStorage.setItem('sf_v2_destination_history', JSON.stringify(existing));
   });
