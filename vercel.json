@@ -1,4 +1,8 @@
 {
+  "env": {
+    "SUPABASE_URL": "https://frhletkiuupgksmgxoxc.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZyaGxldGtpdXVwZ2tzbWd4b3hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNjcxNzUsImV4cCI6MjA5NTc0MzE3NX0.YQLSLrBn2ckB9ZCcTayk67KbTrAmoT3Kz9faYRxeU2w"
+  },
   "redirects": [
     { "source": "/", "destination": "/intro.html", "permanent": false }
   ],
