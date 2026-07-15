@@ -20,15 +20,17 @@
 - Installed PWA identity and start route corrected to `/app`, so installation will open the map rather than the onboarding page.
 - Automated CI validation for the PWA manifest, icons, service worker syntax and offline fallback.
 - Reusable Preview acceptance runner for onboarding, map app, honest data labels, PWA assets, PWA launch routing and invalid API input behavior.
+- Automated UI action contract covering critical controls and all menu actions: map, saved places, history, vehicle, traffic signals, report, locked AI and privacy.
 
 ## Verification completed
 - Browser JavaScript syntax checked with `node --check` before commit.
 - Serverless JavaScript syntax is checked in GitHub Actions.
 - API contract test file: `tests/api-contract.mjs`.
+- UI action contract file: `tests/ui-contract.mjs`.
 - Preview acceptance runner: `tests/preview-acceptance.mjs`.
-- GitHub Actions run 32 for commit `e716df870d85b91b255c07259c609fe0681fe505` completed successfully.
-- Vercel Preview deployment `dpl_4W7JvNzhw6SsNMpxMQiSzB9Jkcwb` reached READY for the same commit.
-- Preview manifest returned HTTP 200 with `id=/app`, `start_url=/app?source=pwa` and parking shortcut `/app?action=parking`.
+- GitHub Actions run 38 for commit `23fc9153f9e204c2cbedebb8bb109833b0b2351b` completed successfully.
+- Vercel Preview deployment `dpl_HhKPorWbKmwg698UzvdrVDnnN5gE` reached READY for the same commit.
+- Preview manifest previously returned HTTP 200 with `id=/app`, `start_url=/app?source=pwa` and parking shortcut `/app?action=parking`.
 - PR #2 remains open, draft and mergeable.
 - Production branch was not overwritten by these batches.
 
@@ -45,6 +47,8 @@
 - `5da933a13c1f7ac9fcbb18b72740518ac1fb47cc` — validate onboarding and map routes separately.
 - `43055aa5e4f49f6365b4f548cde7d01efdfa6e73` — launch installed PWA directly into the map app.
 - `e716df870d85b91b255c07259c609fe0681fe505` — verify PWA identity, start route and parking shortcut in Preview acceptance.
+- `6ce99d297398738d374ca9e97e0eb52215204992` — add static UI control and menu-action contracts.
+- `23fc9153f9e204c2cbedebb8bb109833b0b2351b` — execute UI action contracts in CI.
 
 ## Preview acceptance command
 ```bash
