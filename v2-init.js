@@ -6,11 +6,11 @@
     if(s.drawing&&action!=='add')return app.setStatus('Завърши или откажи очертаването първо.','error');
 
     if(action==='search'){
-      app.setActiveAction('search');app.setSheetCollapsed(false);app.$('search-input').focus();return;
+      app.setActiveAction('search');app.setSheetCollapsed(false);app.$('search-input').focus();app.handleSearchFocus?.();return;
     }
     if(action==='parkings'){
       app.setActiveAction('parkings');app.setSheetCollapsed(false);
-      if(!s.destination){app.renderParkingMessage('⌕','Избери дестинация','Паркингите се търсят около крайната точка.',{actionLabel:'Отвори търсенето',onAction:()=>app.$('search-input').focus()});return app.setStatus('Първо потърси адрес или обект.','error')}
+      if(!s.destination){app.renderParkingMessage('⌕','Избери дестинация','Паркингите се търсят около крайната точка.',{actionLabel:'Отвори търсенето',onAction:()=>{app.$('search-input').focus();app.handleSearchFocus?.()}});return app.setStatus('Първо потърси адрес или обект.','error')}
       if(!s.parkings.length&&!s.ui.busy.has('parking'))app.findParkings();return;
     }
     if(action==='navigate'){
@@ -31,8 +31,12 @@
   };
 
   app.bind=()=>{
-    app.$('search-form').addEventListener('submit',event=>{event.preventDefault();app.search(app.$('search-input').value)});
-    app.$('search-input').addEventListener('input',()=>app.$('search-results').classList.remove('active'));
+    const searchInput=app.$('search-input'),searchResults=app.$('search-results');
+    app.$('search-form').addEventListener('submit',event=>{event.preventDefault();app.search(searchInput.value,{autoSelect:true,silent:false})});
+    searchInput.addEventListener('input',event=>app.handleSearchInput?.(event.target.value));
+    searchInput.addEventListener('focus',()=>app.handleSearchFocus?.());
+    searchResults.addEventListener('transitionend',()=>searchInput.setAttribute('aria-expanded',String(searchResults.classList.contains('active'))));
+    app.$('save-destination').addEventListener('click',app.toggleSavedDestination);
     app.$('locate-btn').addEventListener('click',app.locate);
     app.$('sheet-handle').addEventListener('click',()=>app.setSheetCollapsed(!app.$('parking-sheet').classList.contains('collapsed')));
 
@@ -52,7 +56,9 @@
     document.querySelectorAll('.nav-action').forEach(button=>button.addEventListener('click',()=>app.navAction(button.dataset.action,button)));
     document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>app.requestCloseModal(button.dataset.close)));
     document.querySelectorAll('.modal').forEach(modal=>modal.addEventListener('click',event=>{if(event.target===modal)app.requestCloseModal(modal.id)}));
-    document.addEventListener('click',event=>{if(!event.target.closest('.search-wrap'))app.$('search-results').classList.remove('active')});
+    document.addEventListener('click',event=>{
+      if(!event.target.closest('.search-wrap')){searchResults.classList.remove('active');searchInput.setAttribute('aria-expanded','false')}
+    });
 
     app.$('draw-undo').addEventListener('click',app.undoDraw);
     app.$('draw-cancel').addEventListener('click',app.cancelDraw);
@@ -66,8 +72,8 @@
     try{
       app.initUi();
       if(!app.initMap())return;
-      app.bind();app.renderProposals();app.updateProfile();
-      app.renderParkingMessage('🅿️','Избери дестинация','Потърси адрес, мол или обект. Паркингите ще се търсят около крайната точка.',{actionLabel:'Започни търсене',onAction:()=>app.$('search-input').focus()});
+      app.bind();app.renderProposals();app.updateProfile();app.updateDestinationControls?.();
+      app.renderParkingMessage('🅿️','Избери дестинация','Потърси адрес, мол или обект. Паркингите ще се търсят около крайната точка.',{actionLabel:'Започни търсене',onAction:()=>{app.$('search-input').focus();app.handleSearchFocus?.()}});
       app.locate();
       app.setStatus('SmartCity V2 е готов. Потърси дестинация.','success');
     }catch(error){
