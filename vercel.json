@@ -3,7 +3,8 @@
     { "source": "/", "destination": "/intro.html", "permanent": false }
   ],
   "rewrites": [
-    { "source": "/app", "destination": "/index.html" }
+    { "source": "/app", "destination": "/smart-city.html" },
+    { "source": "/map-classic", "destination": "/index.html" }
   ],
   "headers": [
     {

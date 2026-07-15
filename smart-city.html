@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#06121f">
+  <title>SF Smart City Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
+  <style>
+    :root{--ink:#07111f;--panel:rgba(7,17,31,.93);--line:rgba(255,255,255,.13);--text:#f8fafc;--muted:#9fb0c5;--blue:#3b82f6;--green:#22c55e}
+    *{box-sizing:border-box}html,body,#map{width:100%;height:100%;margin:0}body{overflow:hidden;background:#cbd5e1;color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}button,input{font:inherit}button{cursor:pointer}#map{position:fixed;inset:0;z-index:1}
+    .topbar{position:fixed;top:max(12px,env(safe-area-inset-top));left:12px;right:12px;z-index:1000;display:grid;grid-template-columns:auto minmax(210px,620px) auto;gap:9px;align-items:center;pointer-events:none}.topbar>*{pointer-events:auto}.brand,.icon-btn,.search{border:1px solid var(--line);background:var(--panel);box-shadow:0 10px 30px #0004}.brand{height:48px;display:flex;align-items:center;gap:9px;padding:0 14px;border-radius:15px;font-weight:950;letter-spacing:-.03em}.brand b{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:linear-gradient(145deg,#60a5fa,#1d4ed8)}.search{display:grid;grid-template-columns:1fr auto;padding:5px;border-radius:15px}.search input{min-width:0;height:36px;padding:0 10px;border:0;outline:0;background:transparent;color:#fff}.search input::placeholder{color:#9fb0c5}.search button{height:36px;padding:0 14px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-weight:850}.icon-btn{width:48px;height:48px;border-radius:15px;color:#fff;font-size:21px}
+    .layers{position:fixed;top:78px;left:12px;z-index:900;display:grid;gap:7px}.layer{width:48px;height:48px;display:grid;place-items:center;border:1px solid var(--line);border-radius:15px;background:var(--panel);color:#dbeafe;box-shadow:0 8px 22px #0003;font-size:20px}.layer.active{background:#2563eb;border-color:#93c5fd}.layer[data-state="future"]{opacity:.55}.layer small{display:none}
+    .radius-control{position:fixed;right:12px;top:82px;bottom:188px;z-index:900;width:58px;min-height:230px;display:flex;flex-direction:column;align-items:center;gap:9px;padding:10px 7px;border:1px solid var(--line);border-radius:19px;background:var(--panel);box-shadow:0 12px 30px #0004}.radius-value{width:44px;padding:6px 3px;border-radius:10px;background:#16a34a;color:#fff;font-size:11px;font-weight:900;text-align:center}.radius-range{flex:1;width:32px;min-height:120px;writing-mode:vertical-lr;direction:rtl;accent-color:#22c55e}.radius-icon{font-size:18px}
+    .status{position:fixed;top:76px;left:50%;z-index:850;transform:translateX(-50%);max-width:min(560px,calc(100vw - 150px));padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:#e2e8f0;font-size:11px;text-align:center;box-shadow:0 8px 20px #0003}
+    .sheet{position:fixed;left:50%;bottom:max(12px,env(safe-area-inset-bottom));z-index:950;transform:translateX(-50%);width:min(720px,calc(100vw - 24px));padding:14px;border:1px solid var(--line);border-radius:20px;background:var(--panel);box-shadow:0 18px 44px #0007;backdrop-filter:blur(12px)}.sheet-head{display:flex;align-items:start;justify-content:space-between;gap:12px}.eyebrow{color:#86efac;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.place{margin-top:3px;font-size:16px;font-weight:900}.meta{margin-top:4px;color:var(--muted);font-size:12px}.counts{display:flex;gap:7px;margin-top:11px;overflow:auto;scrollbar-width:none}.count{flex:0 0 auto;padding:7px 9px;border:1px solid var(--line);border-radius:11px;background:#ffffff0b;font-size:12px}.count b{color:#fff}.route-actions{display:none;gap:8px;margin-top:10px}.route-actions.active{display:flex}.route-actions a,.route-actions button{flex:1;min-height:38px;display:grid;place-items:center;border:0;border-radius:11px;text-decoration:none;font-weight:850}.route-actions a{background:#16a34a;color:#fff}.route-actions button{background:#ffffff14;color:#fff}
+    .smart-marker{width:31px;height:31px;display:grid;place-items:center;border:2px solid #fff;border-radius:10px;color:#fff;font-size:14px;font-weight:950;box-shadow:0 5px 13px #0006}.m-parking{background:#2563eb}.m-charging{background:#16a34a}.m-fuel{background:#ea580c}.m-camera{background:#7c3aed}.m-signal{background:#dc2626}.m-roadwork{background:#d97706}.user-dot{width:23px;height:23px;border:4px solid #fff;border-radius:50%;background:#2563eb;box-shadow:0 0 0 8px #3b82f633,0 4px 14px #0006}.dest-dot{width:28px;height:28px;display:grid;place-items:center;border:3px solid #fff;border-radius:50% 50% 50% 0;background:#ef4444;transform:rotate(-45deg);box-shadow:0 4px 14px #0006}.dest-dot span{transform:rotate(45deg);font-size:12px}.leaflet-control-zoom{margin-top:125px!important}.leaflet-popup-content{min-width:180px}
+    @media(max-width:720px){.topbar{grid-template-columns:48px 1fr 48px}.brand{width:48px;padding:0;justify-content:center}.brand span{display:none}.layers{top:72px;grid-template-columns:repeat(3,44px)}.layer{width:44px;height:44px}.status{top:68px;left:158px;right:78px;transform:none;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.radius-control{top:120px;bottom:202px;width:52px}.sheet{padding:12px}.place{font-size:14px}.leaflet-control-zoom{display:none}}
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <header class="topbar">
+    <div class="brand"><b>SF</b><span>Smart City</span></div>
+    <form id="search" class="search"><input id="q" type="search" autocomplete="off" placeholder="Навигация до адрес…"><button>Тръгни</button></form>
+    <button id="locate" class="icon-btn" aria-label="Следвай ме">◎</button>
+  </header>
+  <nav class="layers" aria-label="Smart City слоеве">
+    <button class="layer active" data-layer="parking" title="Паркинги">P</button>
+    <button class="layer active" data-layer="charging" title="Зарядни">⚡</button>
+    <button class="layer" data-layer="fuel" title="Гориво">⛽</button>
+    <button class="layer" data-layer="camera" title="Камери в OSM">◉</button>
+    <button class="layer" data-layer="signal" title="Светофари">🚦</button>
+    <button class="layer" data-layer="roadwork" title="Ремонти">⚠</button>
+    <button class="layer" data-layer="pothole" data-state="future" title="Дупки — очаква community данни">◌</button>
+    <button class="layer" data-layer="traffic" data-state="future" title="Live трафик — очаква доставчик">↯</button>
+  </nav>
+  <aside class="radius-control" aria-label="Радиус около мен">
+    <div class="radius-icon">＋</div><input id="radius" class="radius-range" type="range" min="0" max="15" value="6" step="1"><div class="radius-icon">−</div><div id="radius-value" class="radius-value">250 м</div>
+  </aside>
+  <div id="status" class="status">Стартирам GPS и Smart City слоевете…</div>
+  <section class="sheet">
+    <div class="sheet-head"><div><div class="eyebrow">Ти си центърът</div><div id="place" class="place">Определям местоположението…</div><div id="meta" class="meta">Радиусът и данните се движат автоматично с теб.</div></div><div id="accuracy" class="radius-value">GPS</div></div>
+    <div id="counts" class="counts"></div>
+    <div id="route-actions" class="route-actions"><a id="external-route" target="_blank" rel="noopener">Отвори навигация</a><button id="clear-route">Затвори маршрута</button></div>
+  </section>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+  <script>
+  (()=>{
+    'use strict';
+    const RADII=[1,5,10,25,50,100,250,500,1000,2500,5000,10000,25000,50000,100000,250000];
+    const BULGARIA=[42.7339,25.4858], QUERY_CAP=15000, REFRESH_MS=120000;
+    const defs={
+      parking:{label:'Паркинги',glyph:'P',cls:'m-parking',clause:'nwr["amenity"="parking"]'},
+      charging:{label:'Зарядни',glyph:'⚡',cls:'m-charging',clause:'nwr["amenity"="charging_station"]'},
+      fuel:{label:'Гориво',glyph:'⛽',cls:'m-fuel',clause:'nwr["amenity"="fuel"]'},
+      camera:{label:'Камери',glyph:'◉',cls:'m-camera',clause:'node["highway"="speed_camera"]'},
+      signal:{label:'Светофари',glyph:'●',cls:'m-signal',clause:'node["highway"="traffic_signals"]'},
+      roadwork:{label:'Ремонти',glyph:'!',cls:'m-roadwork',clause:'nwr["highway"="construction"]'}
+    };
+    const $=id=>document.getElementById(id), status=$('status'), counts=$('counts'), radiusInput=$('radius'), radiusValue=$('radius-value');
+    let map,userMarker,accuracyCircle,radiusCircle,routeLine,destinationMarker,watchId,location=null,follow=true,loading=false,loadTimer=null,lastLoadAt=0;
+    const layers=Object.fromEntries(Object.keys(defs).map(key=>[key,L.layerGroup()]));
+    const enabled=new Set(['parking','charging']);
+    const markerIcon=def=>L.divIcon({className:'',html:`<div class="smart-marker ${def.cls}">${def.glyph}</div>`,iconSize:[31,31],iconAnchor:[15,15],popupAnchor:[0,-15]});
+    const userIcon=L.divIcon({className:'',html:'<div class="user-dot"></div>',iconSize:[23,23],iconAnchor:[11,11]});
+    const destIcon=L.divIcon({className:'',html:'<div class="dest-dot"><span>◆</span></div>',iconSize:[28,28],iconAnchor:[8,27]});
+
+    function init(){
+      map=L.map('map',{zoomControl:true,minZoom:6}).setView(BULGARIA,7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+      Object.values(layers).forEach(layer=>layer.addTo(map));
+      map.on('dragstart',()=>follow=false);
+      bind(); startGps(); updateRadius(true); setInterval(()=>location&&loadSmartData(),REFRESH_MS);
+    }
+    function bind(){
+      radiusInput.oninput=()=>updateRadius(false);
+      radiusInput.onchange=()=>scheduleLoad(100);
+      $('locate').onclick=()=>{follow=true;if(location)focusUser();else startGps()};
+      document.querySelectorAll('.layer').forEach(button=>button.onclick=()=>toggleLayer(button));
+      $('search').onsubmit=e=>{e.preventDefault();searchDestination($('q').value)};
+      $('clear-route').onclick=clearRoute;
+    }
+    function radius(){return RADII[Number(radiusInput.value)]}
+    function labelRadius(value){if(value>=250000)return'България';if(value>=1000)return`${value/1000} км`;return`${value} м`}
+    function updateRadius(fit){
+      const value=radius();radiusValue.textContent=labelRadius(value);
+      if(location){if(!radiusCircle)radiusCircle=L.circle([location.lat,location.lon],{radius:value,color:'#22c55e',weight:2,fillColor:'#22c55e',fillOpacity:.08}).addTo(map);else radiusCircle.setLatLng([location.lat,location.lon]).setRadius(value);if(fit)map.fitBounds(radiusCircle.getBounds(),{padding:[55,55],maxZoom:19})}
+      scheduleLoad(450);
+    }
+    function startGps(){
+      if(!navigator.geolocation){status.textContent='GPS не се поддържа. Карта в обзорен режим.';return}
+      if(watchId)navigator.geolocation.clearWatch(watchId);
+      watchId=navigator.geolocation.watchPosition(onPosition,onGpsError,{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+    }
+    function onPosition(position){
+      const next={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude),accuracy:Number(position.coords.accuracy||0)};
+      if(next.lat<41.1||next.lat>44.3||next.lon<22.2||next.lon>28.75){status.textContent='GPS позицията е извън България.';return}
+      const moved=!location||distance(location,next)>20;location=next;
+      if(!userMarker)userMarker=L.marker([next.lat,next.lon],{icon:userIcon,zIndexOffset:2000}).addTo(map);else userMarker.setLatLng([next.lat,next.lon]);
+      if(accuracyCircle)accuracyCircle.setLatLng([next.lat,next.lon]).setRadius(Math.min(next.accuracy,2000));else accuracyCircle=L.circle([next.lat,next.lon],{radius:Math.min(next.accuracy,2000),color:'#3b82f6',weight:1,fillOpacity:.08}).addTo(map);
+      $('accuracy').textContent=`±${Math.round(next.accuracy)} м`;$('place').textContent=`${next.lat.toFixed(5)}, ${next.lon.toFixed(5)}`;
+      updateRadius(follow&&(!lastLoadAt));if(follow)focusUser();if(moved)scheduleLoad(250);
+    }
+    function onGpsError(error){status.textContent=error.code===1?'Разреши GPS, за да бъдеш центърът на картата.':'GPS временно не е достъпен.'}
+    function focusUser(){if(!location)return;const r=radius();if(r<=100)map.setView([location.lat,location.lon],18);else if(radiusCircle)map.fitBounds(radiusCircle.getBounds(),{padding:[60,60],maxZoom:17})}
+    function toggleLayer(button){
+      const key=button.dataset.layer;if(button.dataset.state==='future'){status.textContent=key==='traffic'?'Live трафикът изисква официален доставчик на данни.':'Дупките ще идват от проверени community/общински сигнали.';return}
+      if(enabled.has(key)){enabled.delete(key);button.classList.remove('active');layers[key].clearLayers()}else{enabled.add(key);button.classList.add('active')}
+      scheduleLoad(100);
+    }
+    function scheduleLoad(delay){clearTimeout(loadTimer);loadTimer=setTimeout(()=>location&&loadSmartData(),delay)}
+    function buildQuery(queryRadius){const clauses=[...enabled].map(key=>`${defs[key].clause}(around:${queryRadius},${location.lat},${location.lon});`).join('\n');return`[out:json][timeout:45];(${clauses});out center tags;`}
+    async function loadSmartData(){
+      if(loading||!location||!enabled.size)return;loading=true;const requested=radius(),queryRadius=Math.max(25,Math.min(requested,QUERY_CAP));status.textContent=requested>QUERY_CAP?`Обзор ${labelRadius(requested)} · зареждам детайлите в най-близките 15 км…`:`Зареждам Smart City обектите в ${labelRadius(requested)}…`;
+      try{
+        const response=await fetch('/api/overpass',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({data:buildQuery(queryRadius)})});
+        const data=await response.json();if(!response.ok)throw new Error(data.error||'Overpass error');renderElements(Array.isArray(data.elements)?data.elements:[],requested);lastLoadAt=Date.now();
+      }catch(error){console.error(error);status.textContent='Smart City данните временно не отговарят. GPS картата продължава да работи.'}finally{loading=false}
+    }
+    function kindOf(el){const t=el.tags||{};if(t.amenity==='parking')return'parking';if(t.amenity==='charging_station')return'charging';if(t.amenity==='fuel')return'fuel';if(t.highway==='speed_camera')return'camera';if(t.highway==='traffic_signals')return'signal';if(t.highway==='construction')return'roadwork';return null}
+    function pointOf(el){const lat=Number(el.lat??el.center?.lat),lon=Number(el.lon??el.center?.lon);return Number.isFinite(lat)&&Number.isFinite(lon)?{lat,lon}:null}
+    function renderElements(elements,requested){
+      Object.values(layers).forEach(layer=>layer.clearLayers());const totals=Object.fromEntries(Object.keys(defs).map(key=>[key,0]));
+      const visible=elements.map(el=>({el,key:kindOf(el),point:pointOf(el)})).filter(x=>x.key&&x.point&&enabled.has(x.key)&&distance(location,x.point)<=requested).sort((a,b)=>distance(location,a.point)-distance(location,b.point)).slice(0,350);
+      visible.forEach(({el,key,point})=>{totals[key]++;const def=defs[key],name=el.tags?.name||el.tags?.operator||def.label;L.marker([point.lat,point.lon],{icon:markerIcon(def)}).bindPopup(`<b>${safe(name)}</b><br>${def.label}<br><small>OSM данни · не са live потвърдени</small>`).addTo(layers[key])});
+      counts.innerHTML=[...enabled].map(key=>`<div class="count">${defs[key].glyph} ${defs[key].label}: <b>${totals[key]}</b></div>`).join('');
+      const scope=requested>QUERY_CAP?`детайлни данни до ${labelRadius(QUERY_CAP)}`:`радиус ${labelRadius(requested)}`;
+      $('meta').textContent=`${scope} · ${visible.length} видими обекта · обновяване на 2 мин.`;status.textContent=visible.length?`Smart City картата е обновена: ${visible.length} обекта · ${scope}.`:'Няма отбелязани обекти в заредения детайлен радиус.';
+    }
+    async function searchDestination(query){
+      const text=String(query||'').trim();if(text.length<2||!location)return;status.textContent=`Търся „${text}“…`;
+      try{const p=new URLSearchParams({q:text,lat:String(location.lat),lon:String(location.lon)}),response=await fetch(`/api/geocode?${p}`),data=await response.json();if(!response.ok||!data.results?.length)throw new Error('not found');setDestination(data.results[0])}catch(error){status.textContent='Адресът не е намерен. Добави град и номер.'}
+    }
+    async function setDestination(item){
+      clearRoute();const dest={lat:Number(item.lat),lon:Number(item.lon)};destinationMarker=L.marker([dest.lat,dest.lon],{icon:destIcon,zIndexOffset:1800}).bindPopup(`<b>${safe(item.name)}</b>`).addTo(map);$('q').value=item.name;
+      $('external-route').href=`https://www.google.com/maps/dir/?api=1&origin=${location.lat},${location.lon}&destination=${dest.lat},${dest.lon}&travelmode=driving`;$('route-actions').classList.add('active');status.textContent='Изчислявам автомобилния маршрут…';
+      try{const points=`${location.lat},${location.lon}|${dest.lat},${dest.lon}`,response=await fetch(`/api/routing?mode=route&points=${encodeURIComponent(points)}`),data=await response.json();if(!response.ok||!data.routes?.[0])throw new Error('route');const route=data.routes[0],line=route.geometry.coordinates.map(([lon,lat])=>[lat,lon]);routeLine=L.polyline(line,{color:'#16a34a',weight:5,opacity:.9}).addTo(map);map.fitBounds(routeLine.getBounds(),{padding:[55,55]});status.textContent=`Маршрут: ${formatDistance(route.distance)} · ${formatDuration(route.duration)}`}catch(error){map.fitBounds(L.latLngBounds([[location.lat,location.lon],[dest.lat,dest.lon]]).pad(.25));status.textContent='Вътрешният маршрут не отговори. Външната навигация е готова.'}
+    }
+    function clearRoute(){if(routeLine){routeLine.remove();routeLine=null}if(destinationMarker){destinationMarker.remove();destinationMarker=null}$('route-actions').classList.remove('active');if(location)focusUser()}
+    function safe(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}
+    function distance(a,b){const r=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180,l1=a.lat*Math.PI/180,l2=b.lat*Math.PI/180,h=Math.sin(dLat/2)**2+Math.cos(l1)*Math.cos(l2)*Math.sin(dLon/2)**2;return r*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h))}
+    function formatDistance(m){return m<1000?`${Math.round(m)} м`:`${(m/1000).toFixed(1)} км`}
+    function formatDuration(s){const m=Math.max(1,Math.round(s/60));return m<60?`${m} мин`:`${Math.floor(m/60)} ч ${m%60} мин`}
+    init();
+  })();
+  </script>
+</body>
+</html>
