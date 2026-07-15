@@ -79,10 +79,14 @@ jobs:
           grep -q 'Не е публикувано като проверен обществен паркинг' v2-proposals.js
           grep -q 'без live свободни места' v2-core.js
 
-      - name: Verify backend foundation contracts
+      - name: Verify submission adapter contract
+        run: node scripts/test-v2-contracts.cjs
+
+      - name: Verify submission API contract
+        run: node scripts/test-v2-submission-api.cjs
+
+      - name: Verify PostGIS moderation guards
         run: |
-          node scripts/test-v2-contracts.cjs
-          node scripts/test-v2-submission-api.cjs
           grep -q "status = 'approved'" supabase/migrations/20260715190000_smartcity_parking_foundation.sql
           grep -q 'pending_soulflame' contracts/parking-submission.schema.json
           grep -q "const STATUS = 'pending_soulflame'" api/v2/parking-proposals.js
