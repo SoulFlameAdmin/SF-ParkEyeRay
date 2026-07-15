@@ -1,496 +1,393 @@
 <!DOCTYPE html>
 <html lang="bg">
 <head>
-<meta charset="utf-8" />
-<title>🅿 Паркоместа — градове · квартали · OSM (P)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<style>
-  :root{
-    --text:#0f172a; --muted:#6b7280; --line:#e5e7eb; --pill:#eef2ff; --pillb:#dbe2ff; --ink:#111827;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,Arial;color:var(--text);background:#fff}
-  header{position:sticky;top:0;z-index:3;background:var(--ink);color:#fff;border-bottom:1px solid #000}
-  header .wrap{max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;gap:12px;align-items:center}
-  .brand{font-weight:800}
-  .meta{font-size:12px;opacity:.85}
-  main{max-width:1200px;margin:0 auto;padding:14px}
-  .toolbar{display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
-  .toolbar input{flex:1 1 260px;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
-  .toolbar button{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer}
-  .grid{display:grid;grid-template-columns:minmax(260px,1fr) minmax(260px,1fr) 1.4fr;gap:12px;align-items:start}
-  .panel{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
-  .panel header{background:#f9fafb;border-bottom:1px solid var(--line);color:#111}
-  .panel header .ttl{padding:10px 12px;font-weight:700}
-  .list{max-height:75vh;overflow:auto}
-  .row{padding:10px 12px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;gap:10px;cursor:pointer}
-  .row:hover{background:#f8fafc}
-  .name{font-weight:700}
-  .pill{font-size:12px;background:var(--pill);border:1px solid var(--pillb);color:#2332a2;border-radius:999px;padding:2px 8px;white-space:nowrap}
-  .empty{padding:12px;color:var(--muted)}
-  .places{max-height:75vh;overflow:auto}
-  .place{padding:10px 12px;border-bottom:1px dashed var(--line)}
-  .place a{color:#0f766e;text-decoration:none}
-  .place a:hover{text-decoration:underline}
-  #map{height:75vh;border:1px solid var(--line);border-radius:12px}
-  .hint{margin-top:8px;color:var(--muted);font-size:12px}
-  .picon{
-    width:22px;height:22px;border-radius:6px;border:1px solid #334155;background:#e2e8f0;
-    display:flex;align-items:center;justify-content:center;font:bold 13px/1 system-ui;color:#111
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ParkEyeRay — Национална карта на паркинги</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
+  <style>
+    :root { --ink:#111827; --text:#0f172a; --muted:#64748b; --line:#e2e8f0; --blue:#2563eb; }
+    * { box-sizing:border-box; }
+    html, body { margin:0; min-height:100%; font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--text); background:#f8fafc; }
+    header { position:sticky; top:0; z-index:10; background:var(--ink); color:#fff; }
+    header .wrap { max-width:1200px; margin:auto; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:14px; }
+    .brand { font-weight:850; }
+    #meta { font-size:12px; opacity:.85; text-align:right; }
+    main { max-width:1200px; margin:auto; padding:14px; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+    .toolbar input { flex:1 1 260px; min-width:0; padding:11px 13px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+    .toolbar button { padding:11px 14px; border:1px solid var(--line); border-radius:12px; background:#fff; cursor:pointer; font-weight:700; }
+    .toolbar button:disabled { opacity:.5; cursor:not-allowed; }
+    .grid { display:grid; grid-template-columns:minmax(230px,.8fr) minmax(250px,1fr) minmax(280px,1.25fr); gap:12px; align-items:start; }
+    .panel { overflow:hidden; border:1px solid var(--line); border-radius:14px; background:#fff; box-shadow:0 4px 16px rgba(15,23,42,.05); }
+    .panel-title { padding:11px 13px; border-bottom:1px solid var(--line); background:#f8fafc; font-weight:800; }
+    .list { max-height:58vh; overflow:auto; }
+    .row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-bottom:1px solid #f1f5f9; cursor:pointer; }
+    .row:hover { background:#f8fafc; }
+    .name { font-weight:750; }
+    .pill { padding:2px 8px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:12px; white-space:nowrap; }
+    .empty { padding:14px; color:var(--muted); }
+    .place { padding:10px 12px; border-bottom:1px solid #f1f5f9; }
+    .place a { color:var(--blue); text-decoration:none; font-weight:700; }
+    #map { height:62vh; min-height:420px; }
+    .parking-marker { display:grid; place-items:center; width:28px; height:28px; border:2px solid #fff; border-radius:8px; background:var(--blue); color:#fff; font-weight:900; box-shadow:0 4px 12px rgba(0,0,0,.25); }
+    .hint { margin-top:10px; color:var(--muted); font-size:12px; }
+    @media (max-width:900px) { .grid { grid-template-columns:1fr; } .list { max-height:36vh; } #map { min-height:55vh; } }
+  </style>
 </head>
 <body>
-<header>
-  <div class="wrap">
-    <div class="brand">🅿 Паркоместа — Национална карта (P=amenity=parking)</div>
-    <div class="meta" id="meta">Зареждам…</div>
-  </div>
-</header>
+  <header>
+    <div class="wrap">
+      <div class="brand">🅿 ParkEyeRay — национална карта</div>
+      <div id="meta">Готово</div>
+    </div>
+  </header>
 
-<main>
-  <div class="toolbar">
-    <input id="q" placeholder="Търси град…" />
-    <button id="btnReloadCity" title="Опреси паркингите за избрания град">Опреси</button>
-    <button id="btnOverpass" title="Отвори заявката в Overpass Turbo" disabled>Overpass</button>
-    <span class="hint" id="hint">Данни за градове/квартали: E:\Parking_app\257_cities_bulgaria_corrected.txt · Паркинги: OSM/Overpass</span>
-  </div>
+  <main id="app">
+    <div class="toolbar">
+      <input id="q" type="search" placeholder="Търси град…" autocomplete="off" />
+      <button id="btnReload" type="button" disabled>Обнови</button>
+      <button id="btnLocation" type="button">Около мен</button>
+    </div>
 
-  <div class="grid">
-    <!-- Градове -->
-    <section class="panel">
-      <header><div class="ttl" id="citiesTitle">Градове (—)</div></header>
-      <div id="cities" class="list"><div class="empty">Зареждам списък с градове…</div></div>
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-title" id="citiesTitle">Градове</div>
+        <div id="cities" class="list"><div class="empty">Зареждам градовете…</div></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title" id="districtsTitle">Квартали</div>
+        <div id="districts" class="list"><div class="empty">Избери град.</div></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title" id="placesTitle">Паркинги</div>
+        <div id="places" class="list"><div class="empty">Избери град или квартал.</div></div>
+      </section>
+    </div>
+
+    <section class="panel" style="margin-top:12px">
+      <div class="panel-title" id="mapTitle">Карта</div>
+      <div id="map"></div>
     </section>
+    <div class="hint">Източник на базовите паркинг обекти: OpenStreetMap. Данните не означават свободни места в реално време.</div>
+  </main>
 
-    <!-- Квартали -->
-    <section class="panel">
-      <header><div class="ttl" id="districtsTitle">Квартали — избери град</div></header>
-      <div id="districts" class="list"><div class="empty">Няма данни — кликни град вляво.</div></div>
-    </section>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+  <script>
+    (() => {
+      'use strict';
 
-    <!-- Паркинги (списък) -->
-    <section class="panel">
-      <header><div class="ttl" id="placesTitle">Паркинги — избери квартал</div></header>
-      <div id="places" class="places"><div class="empty">—</div></div>
-    </section>
-  </div>
+      const IS_WORKER = window.parent !== window;
+      const API_URL = '/api/overpass';
+      const CITY_FILE_URL = '/257_cities_bulgaria_corrected.txt';
+      const DEFAULT_CENTER = [42.7339, 25.4858];
 
-  <!-- Карта -->
-  <section class="panel" style="margin-top:12px">
-    <header><div class="ttl" id="mapTitle">Карта — всички паркинги (P) за избрания град</div></header>
-    <div id="map"></div>
-  </section>
-</main>
+      let map = null;
+      let parkingLayer = null;
+      let cityIndex = [];
+      let cityToDistricts = {};
+      let currentCity = null;
+      let currentFeatures = [];
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-/* ===================== Конфиг ===================== */
-const ABS_FILE_URL = "file:///E:/Parking_app/257_cities_bulgaria_corrected.txt";  // директен локален файл
-const REL_FILE_URL = "257_cities_bulgaria_corrected.txt";                         // fallback при локален сървър
-const OVERPASS     = "https://overpass-api.de/api/interpreter";
+      const $ = (id) => document.getElementById(id);
+      const byBg = (a,b) => String(a).localeCompare(String(b), 'bg');
+      const setMeta = (text) => { if ($('meta')) $('meta').textContent = text; };
+      const escapeHtml = (value) => String(value ?? '')
+        .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+        .replaceAll('"','&quot;').replaceAll("'",'&#039;');
 
-/* ===================== Състояние ===================== */
-let CITY_INDEX = [];        // [{name, districts:[]}]
-let CITY_TO_DISTRICTS = {}; // name -> string[]
-let CURRENT_CITY = null;
-let CITY_FEATURES = [];
+      async function callOverpass(query) {
+        const response = await fetch(API_URL, {
+          method:'POST',
+          headers:{ 'content-type':'application/json' },
+          body:JSON.stringify({ query })
+        });
 
-/* ===================== Утилити ===================== */
-const $ = (id)=>document.getElementById(id);
-const byBg = (a,b)=>a.localeCompare(b,'bg');
-function setMeta(txt){ $('meta').textContent = txt; }
-function setHint(txt){ $('hint').textContent = txt; }
+        let payload = null;
+        try { payload = await response.json(); } catch { payload = null; }
+        if (!response.ok) {
+          throw new Error(payload?.error || `API ${response.status}`);
+        }
+        return Array.isArray(payload?.elements) ? payload.elements : [];
+      }
 
-/* Прочит на текста (UTF-8 / windows-1251) */
-async function fetchText(url){
-  const res = await fetch(url, {cache:'no-cache'});
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  const buf = await res.arrayBuffer();
-  try { return new TextDecoder('utf-8',{fatal:true}).decode(buf); }
-  catch { return new TextDecoder('windows-1251').decode(buf); }
-}
+      function parkingQueryAround(lat, lon, radius=5000) {
+        return `[out:json][timeout:25];
+          (
+            node(around:${radius},${lat},${lon})["amenity"="parking"];
+            way(around:${radius},${lat},${lon})["amenity"="parking"];
+            relation(around:${radius},${lat},${lon})["amenity"="parking"];
+          );
+          out ids center tags geom;`;
+      }
 
-/* ===================== Парсване на TXT ===================== */
-function parseCitiesTxt(text){
-  const lines = text.split(/\r?\n/);
-  const dict = {};
-  const cities = [];
-  let currentCity = null;
+      async function getParkingsAround(lat, lon, radius=5000) {
+        return callOverpass(parkingQueryAround(lat, lon, radius));
+      }
 
-  const pushCity = (name)=>{
-    name = (name||'').trim();
-    if(!name) return;
-    if(!dict[name]) dict[name] = [];
-    if(!cities.find(c=>c.name===name)) cities.push({name, districts: dict[name]});
-    currentCity = name;
-  };
+      async function findAreaIdByName(name) {
+        const safe = String(name).replaceAll('"','\\"');
+        const query = `[out:json][timeout:25];
+          area["ISO3166-1"="BG"]->.bg;
+          (
+            relation["boundary"="administrative"]["name"="${safe}"](area.bg);
+            relation["boundary"="administrative"]["name:bg"="${safe}"](area.bg);
+            area["boundary"="administrative"]["name"="${safe}"](area.bg);
+          );
+          out ids tags qt;`;
+        const elements = await callOverpass(query);
+        if (!elements.length) return null;
+        const el = elements[0];
+        return el.type === 'area' ? el.id : 3600000000 + el.id;
+      }
 
-  for(const raw of lines){
-    if(raw==null) continue;
-    let line = String(raw).replace(/^[\uFEFF]+/,'').trim();
-    if(!line) continue;
-    if(/^_{3,}$/.test(line)) continue;
+      async function getParkingsInArea(areaId) {
+        const query = `[out:json][timeout:45];
+          area(${Number(areaId)})->.a;
+          (
+            node["amenity"="parking"](area.a);
+            way["amenity"="parking"](area.a);
+            relation["amenity"="parking"](area.a);
+          );
+          out ids center tags geom;`;
+        return callOverpass(query);
+      }
 
-    // "Град: кв1, кв2" (поддържа : — - | ; ,)
-    if(/[：:—\-|]/.test(line) && !/^\s/.test(raw)){
-      const m = line.split(/[:—\-|]/);
-      const city = (m.shift()||'').trim();
-      pushCity(city);
-      const rest = m.join(' ').trim();
-      if(rest){
-        rest.split(/[;,|]/).map(s=>s.trim()).filter(Boolean).forEach(d=>{
-          if(!dict[currentCity].includes(d)) dict[currentCity].push(d);
+      function parseCities(text) {
+        const dict = {};
+        const cities = [];
+        let current = null;
+
+        const addCity = (raw) => {
+          const name = String(raw || '').trim();
+          if (!name) return;
+          if (!dict[name]) dict[name] = [];
+          if (!cities.some((c) => c.name === name)) cities.push({ name, districts:dict[name] });
+          current = name;
+        };
+
+        for (const raw of text.split(/\r?\n/)) {
+          if (!raw || !raw.trim()) continue;
+          const line = raw.replace(/^\uFEFF/,'').trim();
+          if (/^_{3,}$/.test(line)) continue;
+
+          const isIndented = /^\s/.test(raw) || /^[•·\-–—]/.test(line);
+          if (!isIndented) {
+            addCity(line);
+          } else if (current) {
+            const district = line.replace(/^[-–—•·]+/,'').trim();
+            if (district && !dict[current].includes(district)) dict[current].push(district);
+          }
+        }
+
+        cities.sort((a,b) => byBg(a.name,b.name));
+        cities.forEach((city) => city.districts.sort(byBg));
+        return { cities, dict };
+      }
+
+      function osmUrl(element) {
+        const type = ['node','way','relation'].includes(element.type) ? element.type : 'node';
+        return `https://www.openstreetmap.org/${type}/${encodeURIComponent(element.id)}`;
+      }
+
+      function featureDistrict(element) {
+        const tags = element.tags || {};
+        return tags['addr:suburb'] || tags['addr:neighbourhood'] || tags['addr:district'] || 'Без квартал';
+      }
+
+      function initMap() {
+        if (IS_WORKER || map || typeof L === 'undefined') return;
+        map = L.map('map').setView(DEFAULT_CENTER, 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom:19,
+          attribution:'&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        parkingLayer = L.layerGroup().addTo(map);
+      }
+
+      function popupHtml(element) {
+        const tags = element.tags || {};
+        const name = escapeHtml(tags.name || 'Паркинг');
+        const type = tags.parking ? ` (${escapeHtml(tags.parking)})` : '';
+        return `<strong>${name}${type}</strong><br><a href="${osmUrl(element)}" target="_blank" rel="noopener noreferrer">Отвори в OSM</a>`;
+      }
+
+      function drawParkings(features) {
+        if (IS_WORKER) return;
+        initMap();
+        parkingLayer.clearLayers();
+        const bounds = L.latLngBounds();
+        const icon = L.divIcon({ className:'', html:'<div class="parking-marker">P</div>', iconSize:[28,28], iconAnchor:[14,14] });
+
+        features.forEach((element) => {
+          if ((element.type === 'way' || element.type === 'relation') && Array.isArray(element.geometry) && element.geometry.length) {
+            const points = element.geometry.map((p) => [p.lat,p.lon]);
+            L.polygon(points).bindPopup(popupHtml(element)).addTo(parkingLayer);
+            points.forEach((point) => bounds.extend(point));
+            return;
+          }
+
+          const lat = element.lat ?? element.center?.lat;
+          const lon = element.lon ?? element.center?.lon;
+          if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            L.marker([lat,lon], { icon }).bindPopup(popupHtml(element)).addTo(parkingLayer);
+            bounds.extend([lat,lon]);
+          }
+        });
+
+        if (bounds.isValid()) map.fitBounds(bounds.pad(.12), { maxZoom:16 });
+      }
+
+      function renderCities(list) {
+        const root = $('cities');
+        root.innerHTML = '';
+        if (!list.length) { root.innerHTML = '<div class="empty">Няма резултати.</div>'; return; }
+        list.forEach((item) => {
+          const row = document.createElement('div');
+          row.className = 'row';
+          row.innerHTML = `<div class="name">${escapeHtml(item.name)}</div><span class="pill">${item.districts.length} кв.</span>`;
+          row.addEventListener('click', () => openCity(item.name));
+          root.appendChild(row);
+        });
+        $('citiesTitle').textContent = `Градове (${list.length})`;
+      }
+
+      function renderDistricts(city, features) {
+        const counts = new Map();
+        features.forEach((feature) => {
+          const district = featureDistrict(feature);
+          counts.set(district, (counts.get(district) || 0) + 1);
+        });
+
+        const names = [...new Set([...(cityToDistricts[city] || []), ...counts.keys()])].sort(byBg);
+        const root = $('districts');
+        root.innerHTML = '';
+        $('districtsTitle').textContent = `Квартали — ${city}`;
+
+        if (!names.length) { root.innerHTML = '<div class="empty">Няма квартали.</div>'; return; }
+        names.forEach((name) => {
+          const row = document.createElement('div');
+          row.className = 'row';
+          row.innerHTML = `<div class="name">${escapeHtml(name)}</div><span class="pill">${counts.get(name) || 0}</span>`;
+          row.addEventListener('click', () => openDistrict(name));
+          root.appendChild(row);
         });
       }
-      continue;
-    }
 
-    // Име на град (ред без отстъп/маркер)
-    if(!/^\s/.test(raw) && !/^[•·\-–—]/.test(line)){
-      pushCity(line);
-      continue;
-    }
+      function renderPlaces(features, title='Паркинги') {
+        const root = $('places');
+        root.innerHTML = '';
+        $('placesTitle').textContent = `${title} (${features.length})`;
+        if (!features.length) { root.innerHTML = '<div class="empty">Няма намерени паркинги.</div>'; return; }
 
-    // Квартал (ред с отстъп или маркер)
-    const district = line.replace(/^[-–—•·]+/,'').trim();
-    if(district && currentCity){
-      if(!dict[currentCity].includes(district)) dict[currentCity].push(district);
-    }
-  }
+        features.slice().sort((a,b) => byBg(a.tags?.name || '', b.tags?.name || '')).forEach((element) => {
+          const name = escapeHtml(element.tags?.name || 'Паркинг');
+          const row = document.createElement('div');
+          row.className = 'place';
+          row.innerHTML = `<strong>${name}</strong><br><a href="${osmUrl(element)}" target="_blank" rel="noopener noreferrer">OSM →</a>`;
+          root.appendChild(row);
+        });
+      }
 
-  cities.sort((a,b)=>byBg(a.name,b.name));
-  cities.forEach(c=>c.districts = [...new Set(c.districts)].sort(byBg));
-  return {cities, dict};
-}
+      async function openCity(city) {
+        currentCity = city;
+        $('btnReload').disabled = false;
+        setMeta(`Зареждам паркингите за ${city}…`);
+        $('districts').innerHTML = '<div class="empty">Зареждам…</div>';
+        $('places').innerHTML = '<div class="empty">Зареждам…</div>';
 
-/* ===================== Overpass ===================== */
-async function findAreaIdByName(name){
-  // Търси по name, name:bg и name:en (някои релации са с латиница)
-  const q = `
-    [out:json][timeout:40];
-    area["ISO3166-1"="BG"]->.bg;
-    (
-      relation["boundary"="administrative"]["name"="${name}"](area.bg);
-      relation["boundary"="administrative"]["name:bg"="${name}"](area.bg);
-      relation["boundary"="administrative"]["name:en"="${name}"](area.bg);
-      area["boundary"="administrative"]["name"="${name}"](area.bg);
-    );
-    out ids qt;`;
-  const r = await fetch(OVERPASS,{method:'POST',body:new URLSearchParams({data:q})});
-  const j = await r.json();
-  if(!j.elements?.length) return null;
-  const el = j.elements[0];
-  return el.type==='area' ? el.id : 3600000000 + el.id;
-}
+        try {
+          const areaId = await findAreaIdByName(city);
+          if (!areaId) throw new Error('Не е намерена административна граница');
+          currentFeatures = await getParkingsInArea(areaId);
+          renderDistricts(city, currentFeatures);
+          renderPlaces(currentFeatures, `Паркинги — ${city}`);
+          drawParkings(currentFeatures);
+          $('mapTitle').textContent = `Карта — ${city}`;
+          setMeta(`Намерени паркинг обекти: ${currentFeatures.length}`);
+        } catch (error) {
+          currentFeatures = [];
+          renderDistricts(city, []);
+          renderPlaces([], `Паркинги — ${city}`);
+          drawParkings([]);
+          setMeta(`Грешка: ${error.message || 'опитай отново'}`);
+        }
+      }
 
-async function getParkingsInArea(areaId){
-  // ВСИЧКИ P паркинги (без access филтър) + геометрия
-  const q = `
-    [out:json][timeout:90];
-    area(${areaId})->.a;
-    (
-      node["amenity"="parking"](area.a);
-      way["amenity"="parking"](area.a);
-      relation["amenity"="parking"](area.a);
-    );
-    out ids center tags geom;`;
-  const r = await fetch(OVERPASS,{method:'POST',body:new URLSearchParams({data:q})});
-  const j = await r.json();
-  return j.elements || [];
-}
+      function openDistrict(name) {
+        const filtered = currentFeatures.filter((feature) => featureDistrict(feature) === name);
+        renderPlaces(filtered, `Паркинги — ${name}`);
+        drawParkings(filtered);
+        $('mapTitle').textContent = `${currentCity} · ${name}`;
+      }
 
-function osmUrlFor(el){
-  if(el.type==='node') return `https://www.openstreetmap.org/node/${el.id}`;
-  if(el.type==='way')  return `https://www.openstreetmap.org/way/${el.id}`;
-  return `https://www.openstreetmap.org/relation/${el.id}`;
-}
+      async function openAroundMe() {
+        if (!navigator.geolocation) { setMeta('GPS не се поддържа.'); return; }
+        setMeta('Определям местоположението…');
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const { latitude:lat, longitude:lon } = position.coords;
+          try {
+            currentCity = null;
+            currentFeatures = await getParkingsAround(lat, lon, 5000);
+            renderPlaces(currentFeatures, 'Паркинги около мен');
+            drawParkings(currentFeatures);
+            if (map) map.setView([lat,lon], 14);
+            setMeta(`Около теб: ${currentFeatures.length} паркинг обекта`);
+          } catch (error) {
+            setMeta(`Грешка: ${error.message || 'опитай отново'}`);
+          }
+        }, () => setMeta('GPS достъпът не е разрешен.'), { enableHighAccuracy:true, timeout:12000 });
+      }
 
-function overpassUrlForCity(city){
-  const q = `[out:json][timeout:90];
-area["ISO3166-1"="BG"]->.bg;
-area(area.bg)["boundary"="administrative"]["name"="${city}"]->.a;
-(
-  node["amenity"="parking"](area.a);
-  way["amenity"="parking"](area.a);
-  relation["amenity"="parking"](area.a);
-);
-out ids center tags geom;`;
-  return `https://overpass-turbo.eu/?Q=${encodeURIComponent(q)}`;
-}
+      async function startApp() {
+        if (IS_WORKER) return;
+        initMap();
+        try {
+          const response = await fetch(CITY_FILE_URL, { cache:'no-cache' });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const text = await response.text();
+          const parsed = parseCities(text);
+          cityIndex = parsed.cities;
+          cityToDistricts = parsed.dict;
+          renderCities(cityIndex);
+          setMeta(`Заредени градове: ${cityIndex.length}`);
+        } catch (error) {
+          $('cities').innerHTML = '<div class="empty">Списъкът с градове не можа да се зареди.</div>';
+          setMeta(`Грешка при градовете: ${error.message}`);
+        }
 
-/* ===================== Карта ===================== */
-let MAP, markersLayer, polygonsLayer, pIcon;
+        $('q').addEventListener('input', () => {
+          const term = $('q').value.trim().toLocaleLowerCase('bg');
+          renderCities(term ? cityIndex.filter((item) => item.name.toLocaleLowerCase('bg').includes(term)) : cityIndex);
+        });
+        $('btnReload').addEventListener('click', () => currentCity && openCity(currentCity));
+        $('btnLocation').addEventListener('click', openAroundMe);
+      }
 
-function initMap(){
-  if(MAP) return;
-  MAP = L.map('map').setView([42.7,25.3], 6);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(MAP);
-  polygonsLayer = L.layerGroup().addTo(MAP);
-  markersLayer  = L.layerGroup().addTo(MAP);
-  pIcon = L.divIcon({className:'picon', html:'P', iconSize:[22,22], iconAnchor:[11,11]});
-}
+      window.addEventListener('message', async (event) => {
+        if (!IS_WORKER || event.source !== window.parent || event.origin !== window.location.origin) return;
+        const message = event.data || {};
+        if (message.type !== 'SEARCH_PARKINGS') return;
 
-function popupHtml(el){
-  const t = el.tags || {};
-  const type = t.parking ? ` (${t.parking})` : '';
-  const op   = t.operator ? `<div class="muted">Оператор: ${t.operator}</div>` : '';
-  const url  = osmUrlFor(el);
-  const name = t.name || 'Паркинг';
-  return `<b>${name}${type}</b><br/><a href="${url}" target="_blank" rel="noopener">OSM →</a>${op}`;
-}
+        const lat = Number(message.payload?.lat);
+        const lon = Number(message.payload?.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          return window.parent.postMessage({ type:'PARKINGS_ERROR', message:'Невалидни координати' }, event.origin);
+        }
 
-function drawParkings(features){
-  initMap();
-  polygonsLayer.clearLayers();
-  markersLayer.clearLayers();
-  const bounds = L.latLngBounds();
+        try {
+          let features = await getParkingsAround(lat, lon, 5000);
+          if (!features.length) features = await getParkingsAround(lat, lon, 10000);
+          window.parent.postMessage({ type:'PARKINGS_RESULT', count:features.length, features }, event.origin);
+        } catch (error) {
+          window.parent.postMessage({ type:'PARKINGS_ERROR', message:error.message || 'Услугата за паркинги не отговаря' }, event.origin);
+        }
+      });
 
-  features.forEach(el=>{
-    // Полигон (way/relation)
-    if((el.type==='way' || el.type==='relation') && Array.isArray(el.geometry) && el.geometry.length){
-      const latlngs = el.geometry.map(g => [g.lat, g.lon]);
-      const poly = L.polygon(latlngs);
-      poly.bindPopup(popupHtml(el));
-      poly.addTo(polygonsLayer);
-      latlngs.forEach(ll => bounds.extend(ll));
-      return;
-    }
-    // Точка (node или center)
-    const lat = el.lat ?? el.center?.lat;
-    const lon = el.lon ?? el.center?.lon;
-    if(lat!=null && lon!=null){
-      const m = L.marker([lat,lon], {icon:pIcon});
-      m.bindPopup(popupHtml(el));
-      m.addTo(markersLayer);
-      bounds.extend([lat,lon]);
-    }
-  });
-
-  if (bounds.isValid()){
-    MAP.fitBounds(bounds.pad(0.15));
-  }
-}
-
-/* ===================== Рендери ===================== */
-function renderCities(list){
-  const root = $('cities');
-  root.innerHTML = '';
-  if(!list.length){ root.innerHTML = `<div class="empty">Няма градове.</div>`; return; }
-
-  list.forEach(item=>{
-    const div = document.createElement('div');
-    div.className = 'row';
-    div.innerHTML = `<div class="name">${item.name}</div>
-                     <div class="pill">${item.districts.length} кв.</div>`;
-    div.addEventListener('click',()=>openCity(item.name));
-    root.appendChild(div);
-  });
-  $('citiesTitle').textContent = `Градове (${list.length})`;
-}
-
-function renderDistricts(cityName, pairs){
-  $('districtsTitle').textContent = `Квартали — ${cityName}`;
-  const root = $('districts'); root.innerHTML='';
-  if(!pairs.length){ root.innerHTML = `<div class="empty">Няма въведени квартали.</div>`; return; }
-  pairs.sort((a,b)=>byBg(a.name,b.name)).forEach(d=>{
-    const div = document.createElement('div');
-    div.className='row';
-    div.innerHTML = `<div class="name">${d.name}</div>
-                     <div class="pill">${d.count ?? 0}</div>`;
-    div.addEventListener('click',()=>openDistrict(d.name));
-    root.appendChild(div);
-  });
-}
-
-function renderPlaces(city, districtName){
-  $('placesTitle').textContent = `Паркинги — ${city} · ${districtName}`;
-  const root = $('places'); root.innerHTML='';
-  const features = CITY_FEATURES.filter(el=>{
-    const t = el.tags||{};
-    const d = t['addr:suburb'] || t['addr:neighbourhood'] || t['addr:district'] || 'Без квартал';
-    return d === districtName;
-  });
-  if(!features.length){ root.innerHTML = `<div class="empty">Няма паркинги за този квартал.</div>`; return; }
-
-  features
-    .sort((a,b)=>byBg(a.tags?.name||'', b.tags?.name||''))
-    .forEach(el=>{
-      const name = el.tags?.name || 'Паркинг';
-      const type = el.tags?.parking ? ` (${el.tags.parking})` : '';
-      const row = document.createElement('div');
-      row.className = 'place';
-      row.innerHTML = `<div><b>${name}</b><span class="muted">${type}</span></div>
-                       <div class="muted"><a href="${osmUrlFor(el)}" target="_blank" rel="noopener">OSM →</a></div>`;
-      root.appendChild(row);
-    });
-}
-
-/* ===================== Действия ===================== */
-async function openCity(cityName){
-  $('districts').innerHTML = `<div class="empty">Зареждам квартали и паркинги за ${cityName}…</div>`;
-  $('places').innerHTML    = `<div class="empty">Избери квартал от средната колона.</div>`;
-  $('placesTitle').textContent = `Паркинги — избери квартал`;
-  $('mapTitle').textContent = `Карта — всички паркинги (P) за ${cityName}`;
-  CURRENT_CITY = {name: cityName};
-  $('btnOverpass').disabled = false;
-  $('btnOverpass').onclick = ()=>window.open(overpassUrlForCity(cityName),'_blank','noopener');
-
-  // 1) Кварталите от файла
-  const fileDistricts = (CITY_TO_DISTRICTS[cityName] || []).slice();
-
-  // 2) Паркингите от OSM
-  try{
-    const areaId = await findAreaIdByName(cityName);
-    if(!areaId){
-      renderDistricts(cityName, fileDistricts.map(n=>({name:n,count:0})));
-      drawParkings([]); setMeta(`Не намерих граница за ${cityName}.`); return;
-    }
-
-    const els = await getParkingsInArea(areaId);
-    CURRENT_CITY.areaId = areaId;
-    CITY_FEATURES = els;
-
-    // групиране по квартал от OSM
-    const map = new Map();
-    els.forEach(el=>{
-      const t = el.tags||{};
-      const d = t['addr:suburb'] || t['addr:neighbourhood'] || t['addr:district'] || 'Без квартал';
-      map.set(d, (map.get(d)||0)+1);
-    });
-
-    // комбиниране: първо редът от файла, после квартали само от OSM
-    const pairs = []; const seen = new Set();
-    fileDistricts.forEach(d=>{ pairs.push({name:d, count: map.get(d)||0}); seen.add(d); });
-    map.forEach((count,d)=>{ if(!seen.has(d)) pairs.push({name:d, count}); });
-
-    renderDistricts(cityName, pairs);
-    drawParkings(els);
-    setMeta(`Обновено: ${new Date().toLocaleString('bg-BG')} · Паркинги в ${cityName}: ${els.length.toLocaleString('bg-BG')}`);
-  }catch(err){
-    renderDistricts(cityName, fileDistricts.map(n=>({name:n,count:0})));
-    drawParkings([]);
-    setMeta(`Грешка от Overpass за ${cityName}. Опитай пак.`);
-  }
-}
-
-function openDistrict(name){
-  if(!CURRENT_CITY) return;
-  renderPlaces(CURRENT_CITY.name, name);
-  const filtered = CITY_FEATURES.filter(el=>{
-    const t = el.tags||{};
-    const d = t['addr:suburb'] || t['addr:neighbourhood'] || t['addr:district'] || 'Без квартал';
-    return d === name;
-  });
-  drawParkings(filtered);
-}
-
-/* Ръчен рефреш */
-$('btnReloadCity').addEventListener('click', ()=>{
-  if(CURRENT_CITY?.name){ openCity(CURRENT_CITY.name); }
-});
-
-/* ===================== Търсене ===================== */
-$('q').addEventListener('input', ()=>{
-  const s = $('q').value.trim().toLowerCase();
-  const list = !s ? CITY_INDEX : CITY_INDEX.filter(x=>x.name.toLowerCase().includes(s));
-  renderCities(list);
-});
-
-/* ===================== Старт ===================== */
-(async function start(){
-  initMap();
-  try{
-    setMeta('Чета градове/квартали от E:\\…');
-    let txt;
-    try { txt = await fetchText(ABS_FILE_URL); setHint('Файлът е зареден директно от E:\\'); }
-    catch { txt = await fetchText(REL_FILE_URL); setHint('Файлът е зареден през локален сървър.'); }
-
-    const {cities, dict} = parseCitiesTxt(txt);
-    CITY_INDEX = cities; CITY_TO_DISTRICTS = dict;
-    renderCities(CITY_INDEX);
-    setMeta(`Градове заредени: ${CITY_INDEX.length}`);
-  }catch(err){
-    $('cities').innerHTML = `<div class="empty">Не успях да прочета файла. Стартирай Edge/Chrome с флаг
-      <code>--allow-file-access-from-files</code> или пусни <code>npx serve -p 5500</code>, после отвори
-      <code>http://localhost:5500/parkomesta.html</code>.</div>`;
-    setMeta('Грешка при четене на файла.');
-  }
-})();
-
-/* ===================================================================
-   Worker API за map2.html:
-   - Приема postMessage {type:'SEARCH_PARKINGS', payload:{lat,lon}}
-   - Намира админ. област (is_in), тегли ВСИЧКИ amenity=parking (out geom)
-   - Връща към родителя: {type:'PARKINGS_RESULT', count, features}
-   =================================================================== */
-window.addEventListener('message', async (e)=>{
-  const msg = e.data || {};
-  if(msg.type !== 'SEARCH_PARKINGS') return;
-  const {lat, lon} = msg.payload || {};
-  if(!Number.isFinite(lat) || !Number.isFinite(lon)){
-    return parent.postMessage({type:'PARKINGS_ERROR', message:'Невалидни координати'}, '*');
-  }
-  try{
-    const areaId = await findAdminAreaByPoint(lat, lon);
-    let features = [];
-    if(areaId){
-      features = await getParkingsInArea(areaId);
-    }else{
-      features = await getParkingsAround(lat, lon, 5000); // fallback 5 км радиус
-    }
-    parent.postMessage({type:'PARKINGS_RESULT', count: features.length, features}, '*');
-  }catch(err){
-    parent.postMessage({type:'PARKINGS_ERROR', message: err?.message || 'Грешка при заявка'}, '*');
-  }
-});
-
-// Намери подходяща административна AREA за точката
-async function findAdminAreaByPoint(lat, lon){
-  const q = `
-    [out:json][timeout:50];
-    is_in(${lat},${lon})->.a;
-    area.a["boundary"="administrative"]->.all;
-    (.all;);
-    out ids tags;`;
-  const els = await overpass(q);
-  if(!els.length) return null;
-  // приоритизация: admin_level 6 (община) > 8 (нас. място) > 7 > 5 > други
-  const pick = els
-    .filter(e=>e.type==='area')
-    .map(e=>{
-      const al = e.tags?.admin_level;
-      let score = 10;
-      if(al==='6') score = 100;
-      else if(al==='8') score = 80;
-      else if(al==='7') score = 70;
-      else if(al==='5') score = 60;
-      return {id:e.id, score};
-    })
-    .sort((a,b)=>b.score-a.score)[0];
-  return pick?.id || null;
-}
-
-async function getParkingsAround(lat, lon, radius){
-  const q = `
-    [out:json][timeout:60];
-    (
-      node(around:${radius},${lat},${lon})["amenity"="parking"];
-      way(around:${radius},${lat},${lon})["amenity"="parking"];
-      relation(around:${radius},${lat},${lon})["amenity"="parking"];
-    );
-    out ids center tags geom;`;
-  return await overpass(q);
-}
-
-async function overpass(query){
-  const r = await fetch(OVERPASS,{method:'POST', body:new URLSearchParams({data:query})});
-  const j = await r.json();
-  return j.elements || [];
-}
-</script>
+      startApp();
+    })();
+  </script>
 </body>
 </html>
