@@ -1,5 +1,7 @@
 'use strict';
 
+const { verifyEvidenceToken } = require('./_evidence-token');
+
 const STATUS = 'pending_soulflame';
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 12;
@@ -29,11 +31,7 @@ function consumeRateLimit(key, now = Date.now()) {
     return { allowed: true, remaining: MAX_REQUESTS - 1, resetAt: now + WINDOW_MS };
   }
   current.count += 1;
-  return {
-    allowed: current.count <= MAX_REQUESTS,
-    remaining: Math.max(0, MAX_REQUESTS - current.count),
-    resetAt: current.resetAt
-  };
+  return { allowed: current.count <= MAX_REQUESTS, remaining: Math.max(0, MAX_REQUESTS - current.count), resetAt: current.resetAt };
 }
 
 function isFinitePair(value) {
@@ -59,6 +57,7 @@ function normalizePayload(body) {
   const name = String(body?.name || '').trim();
   const access = String(body?.access || 'unknown').trim();
   const evidenceNote = String(body?.evidence?.note || '').trim();
+  const uploadToken = String(body?.evidence?.uploadToken || '').trim() || null;
 
   if (!/^[a-zA-Z0-9_-]{3,120}$/.test(clientSubmissionId)) errors.push('invalid_client_submission_id');
   if (name.length < 2 || name.length > 160) errors.push('invalid_name');
@@ -66,7 +65,7 @@ function normalizePayload(body) {
   if (!validatePoint(body?.vehicleEntrance)) errors.push('invalid_vehicle_entrance');
   if (!validatePoint(body?.pedestrianExit)) errors.push('invalid_pedestrian_exit');
   if (body?.capacity != null && (!Number.isInteger(body.capacity) || body.capacity < 1 || body.capacity > 100000)) errors.push('invalid_capacity');
-  if (!evidenceNote && !body?.evidence?.uploadToken) errors.push('evidence_required');
+  if (!evidenceNote && !uploadToken) errors.push('evidence_required');
 
   return {
     errors,
@@ -80,11 +79,7 @@ function normalizePayload(body) {
       capacity: body?.capacity ?? null,
       fee: body?.fee || null,
       openingHours: body?.openingHours || null,
-      evidence: {
-        note: evidenceNote || null,
-        capturedAt: body?.evidence?.capturedAt || null,
-        uploadToken: body?.evidence?.uploadToken || null
-      }
+      evidence: { note: evidenceNote || null, capturedAt: body?.evidence?.capturedAt || null, uploadToken, upload: null }
     }
   };
 }
@@ -97,11 +92,7 @@ async function supabaseRequest(path, { token, method = 'GET', body, prefer } = {
     error.code = 'SUPABASE_NOT_CONFIGURED';
     throw error;
   }
-  const headers = {
-    apikey: anonKey,
-    authorization: `Bearer ${token}`,
-    'content-type': 'application/json'
-  };
+  const headers = { apikey: anonKey, authorization: `Bearer ${token}`, 'content-type': 'application/json' };
   if (prefer) headers.prefer = prefer;
   const response = await fetch(`${url.replace(/\/$/, '')}${path}`, {
     method,
@@ -116,8 +107,7 @@ async function supabaseRequest(path, { token, method = 'GET', body, prefer } = {
 
 async function getUser(token) {
   const { response, data } = await supabaseRequest('/auth/v1/user', { token });
-  if (!response.ok || !data?.id) return null;
-  return data;
+  return response.ok && data?.id ? data : null;
 }
 
 async function findExisting(token, clientSubmissionId) {
@@ -129,24 +119,13 @@ async function findExisting(token, clientSubmissionId) {
 
 async function insertProposal(token, userId, payload) {
   const zone = {
-    source: 'soulflame',
-    external_id: payload.clientSubmissionId,
-    name: payload.name,
-    geometry: payload.geometry,
-    vehicle_entrance: payload.vehicleEntrance,
-    pedestrian_exit: payload.pedestrianExit,
-    access: payload.access,
-    capacity: payload.capacity,
-    fee: payload.fee,
-    opening_hours: payload.openingHours,
-    status: STATUS,
-    created_by: userId
+    source: 'soulflame', external_id: payload.clientSubmissionId, name: payload.name,
+    geometry: payload.geometry, vehicle_entrance: payload.vehicleEntrance,
+    pedestrian_exit: payload.pedestrianExit, access: payload.access, capacity: payload.capacity,
+    fee: payload.fee, opening_hours: payload.openingHours, status: STATUS, created_by: userId
   };
   const result = await supabaseRequest('/rest/v1/parking_zones?select=id,status,created_at', {
-    token,
-    method: 'POST',
-    body: zone,
-    prefer: 'return=representation'
+    token, method: 'POST', body: zone, prefer: 'return=representation'
   });
   if (result.response.status === 409) return findExisting(token, payload.clientSubmissionId);
   if (!result.response.ok) {
@@ -155,19 +134,16 @@ async function insertProposal(token, userId, payload) {
     throw error;
   }
   const created = Array.isArray(result.data) ? result.data[0] : result.data;
-  if (payload.evidence.note || payload.evidence.uploadToken) {
+  if (payload.evidence.note || payload.evidence.upload) {
     const evidence = {
       parking_zone_id: created.id,
-      storage_path: null,
-      note: payload.evidence.note || `upload-token:${payload.evidence.uploadToken}`,
+      storage_path: payload.evidence.upload?.path || null,
+      note: payload.evidence.note,
       captured_at: payload.evidence.capturedAt,
       created_by: userId
     };
     const evidenceResult = await supabaseRequest('/rest/v1/parking_evidence', {
-      token,
-      method: 'POST',
-      body: evidence,
-      prefer: 'return=minimal'
+      token, method: 'POST', body: evidence, prefer: 'return=minimal'
     });
     if (!evidenceResult.response.ok) {
       const error = new Error('evidence_insert_failed');
@@ -183,7 +159,6 @@ async function handler(req, res) {
     res.setHeader('allow', 'POST');
     return send(res, 405, { error: 'method_not_allowed' });
   }
-
   const token = getBearer(req);
   if (!token) return send(res, 401, { error: 'authentication_required' });
 
@@ -201,17 +176,22 @@ async function handler(req, res) {
   try {
     const user = await getUser(token);
     if (!user) return send(res, 401, { error: 'invalid_authentication' }, rateHeaders);
+    if (parsed.value.evidence.uploadToken) {
+      const upload = verifyEvidenceToken(parsed.value.evidence.uploadToken, { userId: user.id });
+      if (!upload || !upload.path.startsWith(`${user.id}/`)) {
+        return send(res, 400, { error: 'invalid_evidence_upload_token' }, rateHeaders);
+      }
+      parsed.value.evidence.upload = upload;
+    }
 
     const existing = await findExisting(token, parsed.value.clientSubmissionId);
-    if (existing) {
-      return send(res, 200, { id: existing.id, status: existing.status, idempotent: true }, rateHeaders);
-    }
+    if (existing) return send(res, 200, { id: existing.id, status: existing.status, idempotent: true }, rateHeaders);
 
     const created = await insertProposal(token, user.id, parsed.value);
     if (!created || created.status !== STATUS) throw new Error('invalid_created_status');
     return send(res, 201, { id: created.id, status: STATUS, idempotent: false }, rateHeaders);
   } catch (error) {
-    if (error.code === 'SUPABASE_NOT_CONFIGURED') {
+    if (error.code === 'SUPABASE_NOT_CONFIGURED' || error.code === 'EVIDENCE_TOKEN_SECRET_NOT_CONFIGURED') {
       return send(res, 503, { error: 'submission_service_not_configured', retryable: true }, rateHeaders);
     }
     console.error('parking proposal submission failed', error);
