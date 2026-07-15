@@ -21,6 +21,9 @@
 - Automated CI validation for the PWA manifest, icons, service worker syntax and offline fallback.
 - Reusable Preview acceptance runner for onboarding, map app, honest data labels, PWA assets, PWA launch routing and invalid API input behavior.
 - Automated UI action contract covering critical controls and all menu actions: map, saved places, history, vehicle, traffic signals, report, locked AI and privacy.
+- Service-worker shell now includes `/app`, so the map route can be restored after a previously completed online load.
+- API calls remain network-only and return an explicit non-cached HTTP 503 JSON response when offline; no cached or invented live data is shown.
+- Preview acceptance now checks the `/app` shell entry, the honest offline API response and `Cache-Control: no-store`.
 
 ## Verification completed
 - Browser JavaScript syntax checked with `node --check` before commit.
@@ -28,11 +31,10 @@
 - API contract test file: `tests/api-contract.mjs`.
 - UI action contract file: `tests/ui-contract.mjs`.
 - Preview acceptance runner: `tests/preview-acceptance.mjs`.
-- GitHub Actions run 38 for commit `23fc9153f9e204c2cbedebb8bb109833b0b2351b` completed successfully.
-- Vercel Preview deployment `dpl_HhKPorWbKmwg698UzvdrVDnnN5gE` reached READY for the same commit.
-- Preview manifest previously returned HTTP 200 with `id=/app`, `start_url=/app?source=pwa` and parking shortcut `/app?action=parking`.
+- GitHub Actions run 40 for checkpoint commit `956d7b4915f76a5d3024e9b2c911bf61170a3f7a` completed successfully before this batch.
 - PR #2 remains open, draft and mergeable.
 - Production branch was not overwritten by these batches.
+- The new offline-resilience commits require their own CI and exact Preview verification before being counted as accepted.
 
 ## Current development commits
 - `db4ea8a80c0e285dbbbefe4282d139b4c187409c` — add API contract checks.
@@ -49,16 +51,18 @@
 - `e716df870d85b91b255c07259c609fe0681fe505` — verify PWA identity, start route and parking shortcut in Preview acceptance.
 - `6ce99d297398738d374ca9e97e0eb52215204992` — add static UI control and menu-action contracts.
 - `23fc9153f9e204c2cbedebb8bb109833b0b2351b` — execute UI action contracts in CI.
+- `09b3012e0eb50edf61addbf28818b94b2787fb54` — cache the `/app` shell and return honest offline API failures.
+- `975016be5cd981e5ce750df0ce3c8b99f2693c31` — verify offline PWA behavior in Preview acceptance.
 
 ## Preview acceptance command
 ```bash
 BASE_URL=https://<preview-host> node tests/preview-acceptance.mjs
 ```
 
-The runner verifies `/`, `/app`, `/manifest.webmanifest`, `/sw.js`, `/offline.html`, invalid `/api/geocode` input and invalid `/api/route` input. It does not claim physical Android installation or human interaction testing.
+The runner verifies `/`, `/app`, `/manifest.webmanifest`, `/sw.js`, `/offline.html`, invalid `/api/geocode` input and invalid `/api/route` input. It verifies the static service-worker offline contract but does not claim a physical browser offline session, Android installation or human interaction testing.
 
 ## Next checks before production
-1. Connect `manifest.webmanifest` and `sw.js` to the map HTML; service-worker registration is not yet claimed as active.
+1. Connect `manifest.webmanifest` and `sw.js` to the actual map HTML; service-worker registration is not yet claimed as active.
 2. Add PNG 192×192 and 512×512 icons for strict cross-browser installability.
 3. Run the complete Preview acceptance command against the exact latest deployment after HTML activation.
 4. Verify browser installability and offline navigation on Android Chrome and desktop Chromium.
