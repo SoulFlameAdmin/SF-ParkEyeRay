@@ -47,11 +47,8 @@
       app.sortParkings();app.renderParkings();
     });
 
-    app.$('route-close').addEventListener('click',app.clearRoute);
-    app.$('start-route').addEventListener('click',()=>{
-      if(!s.selected)return app.setStatus('Няма избран паркинг.','error');
-      app.buildRoute(s.selected,true);
-    });
+    app.$('route-close').addEventListener('click',()=>{app.stopNavigation?.();app.clearRoute()});
+    app.$('start-route').addEventListener('click',app.toggleNavigation);
 
     document.querySelectorAll('.nav-action').forEach(button=>{
       if(button.dataset.action!=='parkings')button.addEventListener('click',()=>app.navAction(button.dataset.action,button));
