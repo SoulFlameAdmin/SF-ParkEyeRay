@@ -3,633 +3,566 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#111827" />
-  <title>ParkEyeRay — Най-близък паркинг</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%232563eb%22/><text x=%2232%22 y=%2245%22 text-anchor=%22middle%22 font-size=%2242%22 font-family=%22Arial%22 font-weight=%22700%22 fill=%22white%22>P</text></svg>" />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="description" content="SmartCity Mobility — навигация, паркинги и градска мобилност за България" />
+  <title>SmartCity Mobility — Level 1.6</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2215%22 fill=%22%2307111f%22/><path d=%22M16 46V18h18c9 0 14 5 14 13s-5 13-14 13h-7v2z%22 fill=%22%2338bdf8%22/><path d=%22M27 27v8h7c3 0 5-1 5-4s-2-4-5-4z%22 fill=%22white%22/></svg>" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
   <style>
-    * { box-sizing: border-box; }
-    html, body, #map { width: 100%; height: 100%; margin: 0; }
-    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #e5e7eb; color: #111827; }
-    button, input { font: inherit; }
-    #map { position: fixed; inset: 0; z-index: 1; }
+    :root {
+      --bg:#07111f; --panel:#0d1b2c; --panel2:#12243a; --line:rgba(148,163,184,.18);
+      --text:#f8fafc; --muted:#9fb0c5; --blue:#38bdf8; --blue2:#0ea5e9; --green:#22c55e;
+      --amber:#f59e0b; --red:#ef4444; --white:#fff; --shadow:0 18px 45px rgba(2,8,23,.28);
+    }
+    * { box-sizing:border-box; }
+    html, body, #map { width:100%; height:100%; margin:0; }
+    body { overflow:hidden; font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--text); background:var(--bg); }
+    button,input,select { font:inherit; }
+    button { -webkit-tap-highlight-color:transparent; }
+    #map { position:fixed; inset:0; z-index:1; background:#dbeafe; }
+    body.dark-map #map .leaflet-tile-pane { filter:brightness(.68) contrast(1.2) saturate(.75) hue-rotate(175deg) invert(.87); }
 
     .topbar {
-      position: fixed;
-      top: max(12px, env(safe-area-inset-top));
-      left: 12px;
-      right: 12px;
-      z-index: 1000;
-      display: grid;
-      grid-template-columns: 46px minmax(220px, 680px) 46px;
-      justify-content: space-between;
-      gap: 10px;
-      pointer-events: none;
+      position:fixed; z-index:1100; top:max(12px,env(safe-area-inset-top)); left:12px; right:390px;
+      display:grid; grid-template-columns:48px minmax(260px,720px) auto 48px; gap:9px; pointer-events:none;
     }
-    .topbar > * { pointer-events: auto; }
+    .topbar > * { pointer-events:auto; }
+    .icon-btn,.mode-btn {
+      border:1px solid var(--line); background:rgba(7,17,31,.94); color:var(--text); box-shadow:var(--shadow); cursor:pointer;
+    }
+    .icon-btn { width:48px; height:48px; border-radius:15px; font-size:21px; display:grid; place-items:center; }
+    .icon-btn:disabled { opacity:.5; cursor:wait; }
+    .mode-btn { min-width:94px; height:48px; padding:0 14px; border-radius:15px; font-weight:800; white-space:nowrap; }
+    .search-box { position:relative; }
+    .search-form { height:48px; display:grid; grid-template-columns:1fr auto; padding:5px; border:1px solid rgba(255,255,255,.65); border-radius:16px; background:rgba(255,255,255,.98); box-shadow:var(--shadow); }
+    .search-form input { min-width:0; border:0; outline:0; padding:0 12px; color:#0f172a; background:transparent; }
+    .search-form button { border:0; border-radius:11px; padding:0 16px; background:var(--blue2); color:white; font-weight:900; cursor:pointer; }
+    .search-form button:disabled { opacity:.55; }
+    .suggestions { display:none; position:absolute; top:55px; left:0; right:0; max-height:48vh; overflow:auto; border:1px solid #dbeafe; border-radius:16px; background:#fff; color:#0f172a; box-shadow:var(--shadow); }
+    .suggestions.active { display:block; }
+    .suggestion { width:100%; padding:12px 14px; border:0; border-bottom:1px solid #eef2f7; background:#fff; text-align:left; cursor:pointer; }
+    .suggestion:hover { background:#f0f9ff; }
+    .suggestion strong { display:block; }
+    .suggestion small { display:block; margin-top:3px; color:#64748b; }
 
-    .control-button {
-      width: 46px;
-      height: 46px;
-      border: 0;
-      border-radius: 14px;
-      background: rgba(17, 24, 39, .96);
-      color: #fff;
-      font-size: 22px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, .22);
-      cursor: pointer;
-    }
-    .control-button:disabled { opacity: .55; cursor: wait; }
+    .status-pill { position:fixed; z-index:1050; top:72px; left:50%; transform:translateX(-50%); max-width:min(720px,calc(100vw - 32px)); padding:9px 14px; border:1px solid var(--line); border-radius:999px; background:rgba(7,17,31,.92); color:#e2e8f0; font-size:12px; text-align:center; box-shadow:0 10px 28px rgba(2,8,23,.23); }
+    .status-pill[data-kind="error"] { background:rgba(127,29,29,.94); }
+    .status-pill[data-kind="success"] { background:rgba(20,83,45,.94); }
 
-    .search-wrap { position: relative; min-width: 0; }
-    .search-form {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      padding: 5px;
-      border-radius: 15px;
-      background: rgba(255,255,255,.98);
-      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    .results-panel {
+      position:fixed; z-index:1000; top:0; right:0; bottom:0; width:378px; display:flex; flex-direction:column;
+      border-left:1px solid var(--line); background:linear-gradient(180deg,rgba(7,17,31,.98),rgba(13,27,44,.98)); box-shadow:-14px 0 38px rgba(2,8,23,.25);
     }
-    .search-form input {
-      min-width: 0;
-      height: 36px;
-      padding: 0 11px;
-      border: 0;
-      outline: 0;
-      background: transparent;
-      color: #111827;
-    }
-    .search-form button {
-      height: 36px;
-      padding: 0 16px;
-      border: 0;
-      border-radius: 10px;
-      background: #2563eb;
-      color: #fff;
-      font-weight: 800;
-      cursor: pointer;
-    }
-    .search-form button:disabled { opacity: .65; cursor: wait; }
+    .panel-head { padding:18px 16px 12px; border-bottom:1px solid var(--line); }
+    .brand-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .brand { font-weight:950; letter-spacing:-.03em; font-size:18px; }
+    .brand span { color:var(--blue); }
+    .level { padding:4px 8px; border:1px solid rgba(56,189,248,.35); border-radius:999px; color:#7dd3fc; background:rgba(14,165,233,.1); font-size:11px; font-weight:900; }
+    .destination-title { margin-top:12px; font-size:13px; color:var(--muted); line-height:1.35; }
+    .panel-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:12px; }
+    .metric { padding:9px 8px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.035); }
+    .metric b { display:block; font-size:14px; }
+    .metric span { display:block; margin-top:2px; color:var(--muted); font-size:10px; }
+    .filter-row { display:flex; gap:7px; overflow:auto; padding:11px 14px; border-bottom:1px solid var(--line); scrollbar-width:none; }
+    .filter-row::-webkit-scrollbar { display:none; }
+    .chip { flex:none; border:1px solid var(--line); border-radius:999px; padding:8px 11px; background:rgba(255,255,255,.04); color:#dbeafe; font-size:12px; cursor:pointer; }
+    .chip.active { border-color:var(--blue); background:rgba(14,165,233,.16); color:#7dd3fc; font-weight:850; }
+    .parking-list { flex:1; overflow:auto; padding:11px 11px calc(22px + env(safe-area-inset-bottom)); }
+    .empty-state { padding:28px 18px; text-align:center; color:var(--muted); }
+    .empty-icon { font-size:38px; margin-bottom:8px; }
+    .parking-card { margin-bottom:10px; padding:13px; border:1px solid var(--line); border-radius:17px; background:rgba(255,255,255,.045); cursor:pointer; transition:.18s ease; }
+    .parking-card:hover,.parking-card.active { transform:translateY(-1px); border-color:rgba(56,189,248,.65); background:rgba(14,165,233,.10); }
+    .parking-top { display:flex; justify-content:space-between; gap:10px; }
+    .parking-name { min-width:0; font-weight:900; line-height:1.25; }
+    .score { flex:none; min-width:48px; height:28px; display:grid; place-items:center; border-radius:999px; background:rgba(34,197,94,.14); color:#86efac; font-size:12px; font-weight:950; }
+    .parking-sub { margin-top:5px; color:var(--muted); font-size:11px; }
+    .parking-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:10px; }
+    .parking-grid div { padding:7px; border-radius:10px; background:rgba(2,8,23,.28); }
+    .parking-grid b { display:block; font-size:12px; }
+    .parking-grid span { display:block; margin-top:2px; color:var(--muted); font-size:9px; }
+    .tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
+    .tag { padding:4px 7px; border-radius:999px; background:rgba(148,163,184,.11); color:#cbd5e1; font-size:9px; }
+    .availability { color:#cbd5e1; }
+    .card-actions { display:grid; grid-template-columns:1fr 1fr 42px; gap:7px; margin-top:11px; }
+    .card-actions button,.card-actions a { min-height:38px; display:grid; place-items:center; border:0; border-radius:11px; text-decoration:none; font-weight:850; cursor:pointer; }
+    .preview-btn { background:#e2e8f0; color:#0f172a; }
+    .nav-btn { background:var(--green); color:#fff; }
+    .save-btn { background:rgba(255,255,255,.08); color:#f8fafc; }
 
-    .search-results {
-      position: absolute;
-      top: 52px;
-      left: 0;
-      right: 0;
-      display: none;
-      max-height: min(310px, 52vh);
-      overflow: auto;
-      border-radius: 14px;
-      background: #fff;
-      box-shadow: 0 16px 36px rgba(0,0,0,.25);
-    }
-    .search-results.active { display: block; }
-    .search-result {
-      display: block;
-      width: 100%;
-      padding: 11px 13px;
-      border: 0;
-      border-bottom: 1px solid #e5e7eb;
-      background: #fff;
-      color: #111827;
-      text-align: left;
-      cursor: pointer;
-    }
-    .search-result:hover { background: #f3f4f6; }
-    .search-result small { display: block; margin-top: 3px; color: #64748b; }
+    .drawer { position:fixed; z-index:1300; top:0; left:0; bottom:0; width:min(350px,92vw); padding:18px; transform:translateX(-105%); transition:transform .24s ease; border-right:1px solid var(--line); background:#081525; box-shadow:24px 0 60px rgba(2,8,23,.42); overflow:auto; }
+    .drawer.open { transform:translateX(0); }
+    .backdrop { display:none; position:fixed; z-index:1250; inset:0; background:rgba(2,8,23,.48); }
+    .backdrop.open { display:block; }
+    .drawer-header { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .drawer-title { font-size:19px; font-weight:950; }
+    .close-btn { width:38px; height:38px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.05); color:white; cursor:pointer; }
+    .profile-card { margin-top:15px; padding:13px; border:1px solid var(--line); border-radius:16px; background:linear-gradient(145deg,rgba(14,165,233,.15),rgba(124,58,237,.1)); }
+    .profile-card b { display:block; }
+    .profile-card small { color:var(--muted); }
+    .menu-section { margin-top:18px; }
+    .menu-label { margin:0 0 7px 4px; color:#64748b; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.12em; }
+    .menu-item { width:100%; min-height:46px; display:flex; align-items:center; gap:11px; margin:6px 0; padding:0 13px; border:1px solid transparent; border-radius:13px; background:transparent; color:#e2e8f0; text-align:left; cursor:pointer; }
+    .menu-item:hover { border-color:var(--line); background:rgba(255,255,255,.04); }
+    .menu-item .grow { flex:1; }
+    .locked { color:#94a3b8; }
+    .locked-badge { padding:3px 7px; border-radius:999px; background:rgba(245,158,11,.14); color:#fcd34d; font-size:9px; font-weight:900; }
 
-    #status {
-      position: fixed;
-      top: calc(max(12px, env(safe-area-inset-top)) + 58px);
-      left: 50%;
-      z-index: 900;
-      transform: translateX(-50%);
-      max-width: calc(100vw - 28px);
-      padding: 9px 13px;
-      border-radius: 999px;
-      background: rgba(17,24,39,.94);
-      color: #fff;
-      font-size: 12px;
-      line-height: 1.3;
-      text-align: center;
-      box-shadow: 0 8px 22px rgba(0,0,0,.18);
-    }
+    .route-card { display:none; position:fixed; z-index:1040; left:14px; bottom:max(14px,env(safe-area-inset-bottom)); width:min(560px,calc(100vw - 420px)); padding:14px; border:1px solid var(--line); border-radius:18px; background:rgba(7,17,31,.96); box-shadow:var(--shadow); }
+    .route-card.active { display:block; }
+    .route-title { display:flex; justify-content:space-between; gap:10px; font-weight:900; }
+    .route-close { border:0; background:transparent; color:#94a3b8; cursor:pointer; }
+    .route-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-top:11px; }
+    .route-metrics div { padding:9px 8px; border-radius:11px; background:rgba(255,255,255,.05); }
+    .route-metrics b { display:block; font-size:14px; }
+    .route-metrics span { color:var(--muted); font-size:9px; }
+    .route-note { margin-top:9px; color:var(--muted); font-size:10px; }
 
-    #panel-container {
-      position: fixed;
-      top: calc(max(12px, env(safe-area-inset-top)) + 56px);
-      left: 12px;
-      z-index: 1002;
-      width: min(310px, calc(100vw - 24px));
-      max-height: 0;
-      overflow: hidden;
-      opacity: 0;
-      transform: translateY(-8px);
-      transition: max-height .25s ease, opacity .2s ease, transform .2s ease;
-      border-radius: 16px;
-      box-shadow: 0 14px 35px rgba(0,0,0,.25);
-    }
-    #panel-container.active { max-height: 420px; opacity: 1; transform: translateY(0); }
-    #panel-container iframe { display: block; width: 100%; height: 310px; border: 0; background: #f4f4f4; }
+    .modal { display:none; position:fixed; z-index:1500; inset:0; align-items:center; justify-content:center; padding:18px; background:rgba(2,8,23,.68); }
+    .modal.open { display:flex; }
+    .modal-card { width:min(460px,100%); max-height:86vh; overflow:auto; padding:19px; border:1px solid var(--line); border-radius:20px; background:#0b1a2c; box-shadow:var(--shadow); }
+    .modal-head { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .modal-head h2 { margin:0; font-size:19px; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px; }
+    .field { display:grid; gap:5px; }
+    .field.full { grid-column:1/-1; }
+    .field label { color:var(--muted); font-size:11px; }
+    .field input,.field select { min-width:0; height:43px; padding:0 11px; border:1px solid var(--line); border-radius:11px; background:#071525; color:white; outline:0; }
+    .primary-btn { width:100%; min-height:44px; margin-top:14px; border:0; border-radius:12px; background:var(--blue2); color:white; font-weight:900; cursor:pointer; }
+    .list-item { padding:11px 0; border-bottom:1px solid var(--line); }
+    .list-item button { float:right; border:0; border-radius:9px; padding:6px 9px; background:rgba(239,68,68,.13); color:#fca5a5; cursor:pointer; }
 
-    .parking-marker, .nearest-marker {
-      display: grid;
-      place-items: center;
-      width: 30px;
-      height: 30px;
-      border: 2px solid #fff;
-      border-radius: 9px;
-      color: #fff;
-      font-weight: 900;
-      box-shadow: 0 4px 12px rgba(0,0,0,.28);
-    }
-    .parking-marker { background: #2563eb; }
-    .nearest-marker { width: 36px; height: 36px; border-radius: 11px; background: #16a34a; font-size: 17px; }
-    .user-marker {
-      width: 22px;
-      height: 22px;
-      border: 4px solid #fff;
-      border-radius: 50%;
-      background: #2563eb;
-      box-shadow: 0 3px 12px rgba(0,0,0,.4);
-    }
-    .destination-marker {
-      width: 28px;
-      height: 28px;
-      border: 4px solid #fff;
-      border-radius: 50% 50% 50% 0;
-      background: #dc2626;
-      transform: rotate(-45deg);
-      box-shadow: 0 3px 12px rgba(0,0,0,.4);
-    }
-    .destination-marker::after {
-      content: '';
-      position: absolute;
-      width: 8px;
-      height: 8px;
-      top: 6px;
-      left: 6px;
-      border-radius: 50%;
-      background: #fff;
-    }
+    .parking-marker,.signal-marker { display:grid; place-items:center; border:2px solid white; color:white; font-weight:950; box-shadow:0 5px 14px rgba(2,8,23,.35); }
+    .parking-marker { width:31px; height:31px; border-radius:10px; background:#0284c7; }
+    .parking-marker.selected { width:37px; height:37px; border-radius:12px; background:#16a34a; }
+    .signal-marker { width:24px; height:24px; border-radius:50%; background:#334155; font-size:12px; }
+    .user-marker { width:23px; height:23px; border:4px solid white; border-radius:50%; background:#2563eb; box-shadow:0 4px 14px rgba(2,8,23,.5); }
+    .destination-marker { width:29px; height:29px; border:4px solid white; border-radius:50% 50% 50% 0; background:#e11d48; transform:rotate(-45deg); box-shadow:0 4px 14px rgba(2,8,23,.5); }
+    .leaflet-control-zoom { margin-top:78px !important; }
 
-    #nearest-card {
-      position: fixed;
-      left: 50%;
-      bottom: max(16px, env(safe-area-inset-bottom));
-      z-index: 1000;
-      display: none;
-      transform: translateX(-50%);
-      width: min(560px, calc(100vw - 24px));
-      padding: 14px;
-      border-radius: 18px;
-      background: rgba(255,255,255,.98);
-      box-shadow: 0 16px 40px rgba(0,0,0,.26);
+    @media (max-width:980px) {
+      .topbar { right:12px; grid-template-columns:45px minmax(160px,1fr) 45px; }
+      .mode-btn { display:none; }
+      .icon-btn { width:45px; height:45px; }
+      .search-form { height:45px; }
+      .results-panel { top:auto; left:7px; right:7px; bottom:7px; width:auto; height:min(53vh,510px); border:1px solid var(--line); border-radius:22px; box-shadow:0 -16px 44px rgba(2,8,23,.3); }
+      .panel-head { padding:12px 14px 9px; }
+      .brand-row::before { content:''; position:absolute; left:50%; top:7px; width:42px; height:4px; transform:translateX(-50%); border-radius:999px; background:#475569; }
+      .brand { font-size:15px; margin-top:4px; }
+      .destination-title { margin-top:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .panel-summary { display:none; }
+      .filter-row { padding:8px 11px; }
+      .parking-list { padding:8px 9px calc(15px + env(safe-area-inset-bottom)); }
+      .parking-grid { grid-template-columns:repeat(3,1fr); }
+      .route-card { left:10px; right:10px; bottom:calc(min(53vh,510px) + 15px); width:auto; }
+      .status-pill { top:65px; }
     }
-    #nearest-card.active { display: block; }
-    .nearest-label { color: #16a34a; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; }
-    .nearest-title { margin-top: 3px; font-size: 17px; font-weight: 900; }
-    .nearest-meta { margin-top: 5px; color: #475569; font-size: 13px; }
-    .nearest-actions { display: flex; gap: 9px; margin-top: 12px; }
-    .nearest-actions a, .nearest-actions button {
-      flex: 1;
-      min-height: 40px;
-      display: grid;
-      place-items: center;
-      border: 0;
-      border-radius: 11px;
-      text-decoration: none;
-      font-weight: 850;
-      cursor: pointer;
-    }
-    .navigate-button { background: #16a34a; color: #fff; }
-    .show-button { background: #e2e8f0; color: #0f172a; }
-
-    .leaflet-control-zoom { margin-top: 112px !important; }
-    .leaflet-popup-content { min-width: 165px; }
-    .leaflet-popup-content a { color: #2563eb; font-weight: 800; }
-
-    @media (max-width: 700px) {
-      .topbar { grid-template-columns: 43px 1fr 43px; gap: 7px; }
-      .control-button { width: 43px; height: 43px; border-radius: 13px; }
-      .search-form { padding: 4px; }
-      .search-form input { height: 35px; font-size: 13px; }
-      .search-form button { height: 35px; padding: 0 11px; font-size: 13px; }
-      #status { top: calc(max(12px, env(safe-area-inset-top)) + 53px); font-size: 11px; }
-      .nearest-title { font-size: 15px; }
+    @media (max-width:560px) {
+      .topbar { left:7px; right:7px; gap:6px; }
+      .search-form button { padding:0 10px; font-size:12px; }
+      .search-form input { padding:0 8px; font-size:12px; }
+      .route-metrics { grid-template-columns:repeat(2,1fr); }
+      .form-grid { grid-template-columns:1fr; }
+      .field.full { grid-column:auto; }
+      .results-panel { height:47vh; }
+      .route-card { bottom:calc(47vh + 14px); }
     }
   </style>
 </head>
 <body>
-  <div id="map" aria-label="Карта с паркинги"></div>
+  <div id="map" aria-label="SmartCity карта"></div>
 
-  <div class="topbar">
-    <button id="menu-button" class="control-button" type="button" aria-label="Отвори меню">☰</button>
-    <div class="search-wrap">
-      <form id="search-form" class="search-form">
-        <input id="search-input" type="search" autocomplete="off" placeholder="Улица или адрес — напр. Янка Войвода 2" aria-label="Търси адрес" />
-        <button id="search-button" type="submit">Търси</button>
+  <header class="topbar">
+    <button id="menuBtn" class="icon-btn" aria-label="Отвори меню">☰</button>
+    <div class="search-box">
+      <form id="searchForm" class="search-form">
+        <input id="searchInput" type="search" autocomplete="off" placeholder="Адрес, улица или обект — qka voivoda 2" aria-label="Търси дестинация" />
+        <button id="searchBtn" type="submit">Търси</button>
       </form>
-      <div id="search-results" class="search-results" role="listbox"></div>
+      <div id="suggestions" class="suggestions" role="listbox"></div>
     </div>
-    <button id="locate-button" class="control-button" type="button" aria-label="Моето местоположение">⌖</button>
-  </div>
+    <button id="mapModeBtn" class="mode-btn" type="button">Стандартна</button>
+    <button id="locateBtn" class="icon-btn" aria-label="Моето местоположение">⌖</button>
+  </header>
 
-  <div id="status" role="status">Зареждам ParkEyeRay…</div>
+  <div id="status" class="status-pill" role="status">Стартирам SmartCity Mobility…</div>
 
-  <div id="panel-container">
-    <iframe src="panel.html" title="Меню ParkEyeRay"></iframe>
-  </div>
-
-  <section id="nearest-card" aria-live="polite">
-    <div class="nearest-label">Най-близък паркинг</div>
-    <div id="nearest-title" class="nearest-title">—</div>
-    <div id="nearest-meta" class="nearest-meta">—</div>
-    <div class="nearest-actions">
-      <button id="show-nearest" class="show-button" type="button">Покажи</button>
-      <a id="navigate-nearest" class="navigate-button" href="#" target="_blank" rel="noopener noreferrer">Навигирай</a>
+  <aside class="results-panel" aria-label="Намерени паркинги">
+    <div class="panel-head">
+      <div class="brand-row">
+        <div class="brand">SmartCity <span>Mobility</span></div>
+        <div class="level">LEVEL 1.6</div>
+      </div>
+      <div id="destinationTitle" class="destination-title">Избери адрес или точка на картата.</div>
+      <div class="panel-summary">
+        <div class="metric"><b id="parkingCount">0</b><span>паркинги</span></div>
+        <div class="metric"><b id="searchRadius">—</b><span>радиус</span></div>
+        <div class="metric"><b id="dataSource">OSM</b><span>източник</span></div>
+      </div>
     </div>
+    <div id="filters" class="filter-row">
+      <button class="chip active" data-sort="recommended">Препоръчани</button>
+      <button class="chip" data-sort="nearest">Най-близки</button>
+      <button class="chip" data-sort="walking">Малко ходене</button>
+      <button class="chip" data-sort="covered">Закрити</button>
+      <button class="chip" data-sort="charging">Зареждане</button>
+    </div>
+    <div id="parkingList" class="parking-list">
+      <div class="empty-state"><div class="empty-icon">🧭</div>Потърси дестинация. Паркингите ще бъдат намерени около нея, а не около текущото ти място.</div>
+    </div>
+  </aside>
+
+  <section id="routeCard" class="route-card" aria-live="polite">
+    <div class="route-title"><span id="routeTitle">Избран маршрут</span><button id="routeClose" class="route-close">✕</button></div>
+    <div class="route-metrics">
+      <div><b id="driveDistance">—</b><span>с автомобил</span></div>
+      <div><b id="driveTime">—</b><span>време</span></div>
+      <div><b id="walkDistance">—</b><span>пеша до адреса</span></div>
+      <div><b id="tripCost">—</b><span>гориво</span></div>
+    </div>
+    <div id="routeNote" class="route-note">Маршрутните данни се изчисляват.</div>
   </section>
 
-  <iframe id="worker" src="parkomesta.html" title="Parking data worker" hidden></iframe>
+  <div id="backdrop" class="backdrop"></div>
+  <nav id="drawer" class="drawer" aria-label="Главно меню">
+    <div class="drawer-header"><div class="drawer-title">SmartCity</div><button id="drawerClose" class="close-btn">✕</button></div>
+    <div class="profile-card"><b id="profileName">Гост профил</b><small id="vehicleSummary">Лек автомобил · 8.0 л/100 км</small></div>
+    <div class="menu-section">
+      <div class="menu-label">Мобилност</div>
+      <button class="menu-item" data-action="map"><span>🗺️</span><span class="grow">Карта</span></button>
+      <button class="menu-item" data-action="saved"><span>⭐</span><span class="grow">Запазени места</span><span id="savedCount">0</span></button>
+      <button class="menu-item" data-action="history"><span>🕘</span><span class="grow">История</span><span id="historyCount">0</span></button>
+      <button class="menu-item" data-action="vehicle"><span>🚗</span><span class="grow">Моето превозно средство</span></button>
+      <button class="menu-item" data-action="signals"><span>🚦</span><span class="grow">Слой „Светофари“</span><span id="signalsState">OFF</span></button>
+    </div>
+    <div class="menu-section">
+      <div class="menu-label">SmartCity</div>
+      <button class="menu-item" data-action="report"><span>⚠️</span><span class="grow">Докладвай проблем</span></button>
+      <button class="menu-item locked" data-action="ai"><span>✦</span><span class="grow">AI Mobility OS</span><span class="locked-badge">ЗАКЛЮЧЕНО</span></button>
+      <button class="menu-item" data-action="privacy"><span>🛡️</span><span class="grow">Поверителност и данни</span></button>
+    </div>
+  </nav>
+
+  <div id="vehicleModal" class="modal">
+    <div class="modal-card">
+      <div class="modal-head"><h2>Моето превозно средство</h2><button class="close-btn" data-close="vehicleModal">✕</button></div>
+      <form id="vehicleForm" class="form-grid">
+        <div class="field full"><label>Име / модел</label><input id="vehicleName" maxlength="60" placeholder="Моят автомобил" /></div>
+        <div class="field"><label>Тип</label><select id="vehicleType"><option value="car">Лек автомобил</option><option value="electric">Електромобил</option><option value="motorcycle">Мотор</option><option value="van">Бус</option><option value="truck">Камион</option></select></div>
+        <div class="field"><label>Гориво</label><select id="vehicleFuel"><option value="petrol">Бензин</option><option value="diesel">Дизел</option><option value="lpg">Газ</option><option value="electric">Електричество</option></select></div>
+        <div class="field"><label>Разход / 100 км</label><input id="vehicleConsumption" type="number" min="0" max="80" step="0.1" /></div>
+        <div class="field"><label>Цена лв./л или kWh</label><input id="fuelPrice" type="number" min="0" max="20" step="0.01" /></div>
+        <div class="field"><label>Височина (м)</label><input id="vehicleHeight" type="number" min="0" max="6" step="0.01" /></div>
+        <div class="field"><label>Предпочитание</label><select id="parkingPreference"><option value="balanced">Балансирано</option><option value="closest">Най-близко</option><option value="walking">Най-малко ходене</option><option value="covered">Закрито</option></select></div>
+        <button class="primary-btn field full" type="submit">Запази автомобила</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="listModal" class="modal">
+    <div class="modal-card">
+      <div class="modal-head"><h2 id="listTitle">Списък</h2><button class="close-btn" data-close="listModal">✕</button></div>
+      <div id="listContent"></div>
+    </div>
+  </div>
+
+  <div id="reportModal" class="modal">
+    <div class="modal-card">
+      <div class="modal-head"><h2>Докладвай проблем</h2><button class="close-btn" data-close="reportModal">✕</button></div>
+      <form id="reportForm" class="form-grid">
+        <div class="field full"><label>Вид сигнал</label><select id="reportType"><option>Дупка</option><option>Катастрофа</option><option>Повреден светофар</option><option>Затворен път</option><option>Предмет на пътя</option><option>Животно</option><option>Грешна карта</option></select></div>
+        <div class="field full"><label>Кратко описание</label><input id="reportDescription" maxlength="140" placeholder="Какво се случва?" /></div>
+        <button class="primary-btn field full" type="submit">Запази тестов сигнал</button>
+      </form>
+      <p style="color:#94a3b8;font-size:11px">На този етап сигналът се пази само локално на устройството и не се публикува като общински или live сигнал.</p>
+    </div>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
   <script>
     (() => {
       'use strict';
 
-      const BULGARIA_CENTER = [42.7339, 25.4858];
-      const BG_LIMITS = { south: 41.10, north: 44.30, west: 22.20, east: 28.75 };
-      const targetOrigin = window.location.origin;
+      const BG = { south:41.10, north:44.30, west:22.20, east:28.75 };
+      const DEFAULT_CENTER = [42.7339,25.4858];
+      const RADII = [500,1000,2000,5000];
+      const STORAGE = {
+        vehicle:'smartcity_vehicle_v1', saved:'smartcity_saved_v1', history:'smartcity_history_v1', reports:'smartcity_reports_v1'
+      };
+      const $ = (id) => document.getElementById(id);
+      const state = {
+        map:null, baseLayer:null, mapMode:'standard', parkingLayer:null, routeLayer:null, signalLayer:null,
+        userMarker:null, accuracyCircle:null, destinationMarker:null, user:null, destination:null,
+        parkings:[], selected:null, sort:'recommended', searchRadius:null, signalsEnabled:false, locating:false,
+        vehicle:readJson(STORAGE.vehicle,{ name:'Моят автомобил', type:'car', fuel:'petrol', consumption:8, price:2.80, height:1.75, preference:'balanced' }),
+        saved:readJson(STORAGE.saved,[]), history:readJson(STORAGE.history,[]), reports:readJson(STORAGE.reports,[])
+      };
 
-      const statusEl = document.getElementById('status');
-      const workerFrame = document.getElementById('worker');
-      const panel = document.getElementById('panel-container');
-      const locateButton = document.getElementById('locate-button');
-      const searchForm = document.getElementById('search-form');
-      const searchInput = document.getElementById('search-input');
-      const searchButton = document.getElementById('search-button');
-      const searchResults = document.getElementById('search-results');
-      const nearestCard = document.getElementById('nearest-card');
-      const nearestTitle = document.getElementById('nearest-title');
-      const nearestMeta = document.getElementById('nearest-meta');
-      const navigateNearest = document.getElementById('navigate-nearest');
-      const showNearestButton = document.getElementById('show-nearest');
+      function readJson(key,fallback) { try { const value=JSON.parse(localStorage.getItem(key)); return value ?? fallback; } catch { return fallback; } }
+      function writeJson(key,value) { localStorage.setItem(key,JSON.stringify(value)); }
+      function inBulgaria(lat,lon) { return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=BG.south&&lat<=BG.north&&lon>=BG.west&&lon<=BG.east; }
+      function escapeHtml(value) { return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
+      function setStatus(text,kind='info') { $('status').textContent=text; $('status').dataset.kind=kind; }
+      function rad(value) { return value*Math.PI/180; }
+      function distanceMeters(a,b) { const earth=6371000,dLat=rad(b.lat-a.lat),dLon=rad(b.lon-a.lon),lat1=rad(a.lat),lat2=rad(b.lat); const h=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2; return earth*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h)); }
+      function formatDistance(meters) { if (!Number.isFinite(meters)) return '—'; return meters<1000?`${Math.max(1,Math.round(meters))} м`:`${(meters/1000).toFixed(meters<10000?1:0)} км`; }
+      function formatDuration(seconds) { if (!Number.isFinite(seconds)) return '—'; const minutes=Math.max(1,Math.round(seconds/60)); return minutes<60?`${minutes} мин`:`${Math.floor(minutes/60)} ч ${minutes%60} мин`; }
+      function money(value) { return Number.isFinite(value)?`${value.toFixed(2)} лв.`:'—'; }
+      function elementPoint(element) {
+        const lat=Number(element.lat??element.center?.lat),lon=Number(element.lon??element.center?.lon);
+        if (Number.isFinite(lat)&&Number.isFinite(lon)) return {lat,lon};
+        const geometry=Array.isArray(element.geometry)?element.geometry:[];
+        const valid=geometry.filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)));
+        if (!valid.length) return null;
+        return { lat:valid.reduce((s,p)=>s+Number(p.lat),0)/valid.length, lon:valid.reduce((s,p)=>s+Number(p.lon),0)/valid.length };
+      }
+      function osmUrl(element) { const type=['node','way','relation'].includes(element.type)?element.type:'node'; return `https://www.openstreetmap.org/${type}/${encodeURIComponent(element.id)}`; }
+      function parkingType(tags) { const value=tags.parking||''; if (value==='underground') return 'Подземен'; if (value==='multi-storey') return 'Закрит'; if (value==='street_side'||value==='lane') return 'Уличен'; if (value==='surface') return 'Открит'; return 'Паркинг'; }
+      function tagYes(value) { return ['yes','designated','customers','private'].includes(String(value||'').toLowerCase()); }
+      function parseNumber(value) { const found=String(value??'').replace(',','.').match(/\d+(?:\.\d+)?/); return found?Number(found[0]):null; }
+      function deriveParking(element,center) {
+        const point=elementPoint(element); if (!point) return null;
+        const tags=element.tags||{}; const straight=distanceMeters(center,point);
+        const covered=['underground','multi-storey'].includes(tags.parking)||tags.covered==='yes';
+        const charging=tagYes(tags.charging_station)||tagYes(tags['amenity:charging_station'])||tagYes(tags['charging']);
+        const lit=tagYes(tags.lit); const surveillance=tagYes(tags.surveillance)||tagYes(tags['surveillance:type']);
+        const fee=String(tags.fee||'').toLowerCase(); const isFree=fee==='no';
+        const capacity=parseNumber(tags.capacity); const maxheight=parseNumber(tags.maxheight);
+        const walkEstimate=Math.round(straight*1.22); const driveEstimate=Math.round(straight*1.34);
+        const safety=(lit?8:0)+(surveillance?10:0)+(covered?4:0);
+        const baseScore=Math.max(0,100-(walkEstimate/90))+safety+(isFree?6:0)+(charging?3:0);
+        return {
+          id:`${element.type}-${element.id}`, element, point, tags,
+          name:tags.name||tags.operator||tags['addr:street']||'Паркинг', type:parkingType(tags),
+          straight, walkDistance:walkEstimate, driveDistance:driveEstimate,
+          driveDuration:Math.max(60,Math.round(driveEstimate/9.5)), score:Math.max(1,Math.min(99,Math.round(baseScore))),
+          covered, charging, lit, surveillance, isFree, capacity, maxheight,
+          opening:tags.opening_hours||'Няма данни', feeText:isFree?'Безплатен':(tags.charge||tags.fee==='yes'?'Платен / неизвестна тарифа':'Няма данни'),
+          route:null, walkingRoute:null
+        };
+      }
 
-      let map;
-      let parkingLayer;
-      let userMarker;
-      let userAccuracy;
-      let destinationMarker;
-      let connectionLine;
-      let workerReady = false;
-      let pendingSearch = null;
-      let activeSearchPoint = null;
-      let userLocation = null;
-      let destination = null;
-      let nearestParking = null;
-      let locating = false;
-
-      const setStatus = (text) => { statusEl.textContent = text; };
-      const isInBulgaria = (lat, lon) => Number.isFinite(lat) && Number.isFinite(lon)
-        && lat >= BG_LIMITS.south && lat <= BG_LIMITS.north
-        && lon >= BG_LIMITS.west && lon <= BG_LIMITS.east;
-
-      const escapeHtml = (value) => String(value ?? '')
-        .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
-
-      const parkingIcon = L.divIcon({ className:'', html:'<div class="parking-marker">P</div>', iconSize:[30,30], iconAnchor:[15,15], popupAnchor:[0,-14] });
-      const nearestIcon = L.divIcon({ className:'', html:'<div class="nearest-marker">P</div>', iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-17] });
-      const userIcon = L.divIcon({ className:'', html:'<div class="user-marker"></div>', iconSize:[22,22], iconAnchor:[11,11] });
-      const destinationIcon = L.divIcon({ className:'', html:'<div class="destination-marker"></div>', iconSize:[28,28], iconAnchor:[8,27] });
+      const parkingIcon=(selected=false)=>L.divIcon({className:'',html:`<div class="parking-marker${selected?' selected':''}">P</div>`,iconSize:selected?[37,37]:[31,31],iconAnchor:selected?[18,18]:[15,15]});
+      const userIcon=L.divIcon({className:'',html:'<div class="user-marker"></div>',iconSize:[23,23],iconAnchor:[11,11]});
+      const destinationIcon=L.divIcon({className:'',html:'<div class="destination-marker"></div>',iconSize:[29,29],iconAnchor:[8,28]});
+      const signalIcon=L.divIcon({className:'',html:'<div class="signal-marker">●</div>',iconSize:[24,24],iconAnchor:[12,12]});
 
       function initMap() {
-        if (typeof L === 'undefined') {
-          setStatus('Картата не можа да се зареди. Провери интернет връзката.');
-          return;
-        }
-
-        map = L.map('map', { zoomControl:true, minZoom:6 }).setView(BULGARIA_CENTER, 7);
-        parkingLayer = L.layerGroup().addTo(map);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom:19,
-          attribution:'&copy; OpenStreetMap contributors'
-        }).addTo(map);
-
-        map.on('click', (event) => {
-          searchResults.classList.remove('active');
-          const { lat, lng } = event.latlng;
-          if (!isInBulgaria(lat, lng)) {
-            setStatus('Избери точка в България.');
-            return;
-          }
-          setDestination({ lat, lon:lng, name:'Избрана точка на картата' });
+        if (typeof L==='undefined') { setStatus('Картата не можа да се зареди. Провери интернет връзката.','error'); return; }
+        state.map=L.map('map',{zoomControl:true,minZoom:6}).setView(DEFAULT_CENTER,7);
+        state.parkingLayer=L.layerGroup().addTo(state.map); state.routeLayer=L.layerGroup().addTo(state.map); state.signalLayer=L.layerGroup().addTo(state.map);
+        setBaseLayer('standard');
+        state.map.on('click',(event)=>{
+          closeSuggestions();
+          const lat=event.latlng.lat,lon=event.latlng.lng;
+          if (!inBulgaria(lat,lon)) return setStatus('Избери точка в България.','error');
+          setDestination({lat,lon,name:'Избрана точка на картата'});
         });
-
-        setStatus('Определям местоположението ти…');
-        locateUser();
+        locateUser(); updateProfileUi();
       }
-
+      function setBaseLayer(mode) {
+        if (state.baseLayer) state.baseLayer.remove();
+        state.mapMode=mode; document.body.classList.toggle('dark-map',mode==='dark');
+        const url=mode==='satellite'?'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}':'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        const attribution=mode==='satellite'?'Tiles &copy; Esri':'&copy; OpenStreetMap contributors';
+        state.baseLayer=L.tileLayer(url,{maxZoom:19,attribution}).addTo(state.map);
+        $('mapModeBtn').textContent=mode==='standard'?'Стандартна':mode==='dark'?'Тъмна':'Сателитна';
+      }
+      function cycleMapMode() { const modes=['standard','dark','satellite']; setBaseLayer(modes[(modes.indexOf(state.mapMode)+1)%modes.length]); }
       function locateUser() {
-        if (locating) return;
-        if (!navigator.geolocation) {
-          setStatus('GPS не се поддържа. Потърси адрес.');
-          return;
-        }
-
-        locating = true;
-        locateButton.disabled = true;
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            locating = false;
-            locateButton.disabled = false;
-            const lat = Number(position.coords.latitude);
-            const lon = Number(position.coords.longitude);
-            const accuracy = Number(position.coords.accuracy || 0);
-
-            if (!isInBulgaria(lat, lon)) {
-              map.setView(BULGARIA_CENTER, 7);
-              setStatus('Браузърът подаде грешна позиция извън България. Потърси адрес.');
-              return;
-            }
-
-            userLocation = { lat, lon, accuracy };
-            const point = [lat, lon];
-            if (!userMarker) userMarker = L.marker(point, { icon:userIcon, title:'Твоето местоположение' }).addTo(map);
-            else userMarker.setLatLng(point);
-
-            if (userAccuracy) userAccuracy.remove();
-            if (accuracy > 0) {
-              userAccuracy = L.circle(point, {
-                radius:Math.min(accuracy, 3000), color:'#2563eb', weight:1,
-                fillColor:'#3b82f6', fillOpacity:.10
-              }).addTo(map);
-            }
-
-            map.setView(point, accuracy <= 150 ? 16 : 14);
-            setStatus(`Местоположение намерено${accuracy ? ` — точност ±${Math.round(accuracy)} м` : ''}. Потърси улица или адрес.`);
-          },
-          (error) => {
-            locating = false;
-            locateButton.disabled = false;
-            const denied = error?.code === 1;
-            setStatus(denied ? 'GPS достъпът е отказан. Потърси адрес.' : 'GPS не е достъпен. Потърси адрес.');
-          },
-          { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
-        );
+        if (state.locating) return; if (!navigator.geolocation) return setStatus('GPS не се поддържа. Можеш да търсиш адрес.','error');
+        state.locating=true; $('locateBtn').disabled=true; setStatus('Определям местоположението ти…');
+        navigator.geolocation.getCurrentPosition(position=>{
+          state.locating=false; $('locateBtn').disabled=false;
+          const lat=Number(position.coords.latitude),lon=Number(position.coords.longitude),accuracy=Number(position.coords.accuracy||0);
+          if (!inBulgaria(lat,lon)) return setStatus('Получената позиция е извън България. Потърси адрес.','error');
+          state.user={lat,lon,accuracy};
+          if (!state.userMarker) state.userMarker=L.marker([lat,lon],{icon:userIcon,title:'Твоето местоположение'}).addTo(state.map); else state.userMarker.setLatLng([lat,lon]);
+          if (state.accuracyCircle) state.accuracyCircle.remove();
+          state.accuracyCircle=L.circle([lat,lon],{radius:Math.min(accuracy,3000),color:'#2563eb',weight:1,fillColor:'#3b82f6',fillOpacity:.10}).addTo(state.map);
+          state.map.setView([lat,lon],accuracy<=150?16:14);
+          setStatus(`Местоположение намерено${accuracy?` — точност ±${Math.round(accuracy)} м`:''}.`,'success');
+        },error=>{
+          state.locating=false; $('locateBtn').disabled=false;
+          setStatus(error?.code===1?'GPS достъпът е отказан. Търсенето по адрес остава активно.':'GPS временно не е достъпен.','error');
+        },{enableHighAccuracy:true,timeout:15000,maximumAge:15000});
       }
 
+      async function geocode(query,show=true) {
+        const text=String(query||'').trim(); if (text.length<2) return [];
+        const params=new URLSearchParams({q:text}); const bias=state.user||state.destination||{lat:state.map.getCenter().lat,lon:state.map.getCenter().lng};
+        params.set('lat',bias.lat); params.set('lon',bias.lon);
+        const response=await fetch(`/api/geocode?${params}`); const data=await response.json();
+        if (!response.ok) throw new Error(data?.error||'Geocoding error');
+        const results=Array.isArray(data.results)?data.results:[]; if (show) renderSuggestions(results); return results;
+      }
+      function renderSuggestions(results) {
+        const root=$('suggestions'); root.innerHTML='';
+        results.slice(0,7).forEach(item=>{
+          const button=document.createElement('button'); button.type='button'; button.className='suggestion';
+          button.innerHTML=`<strong>${escapeHtml(item.name)}</strong><small>${item.source==='nearby-street'?'Коригирано приблизително съвпадение':'Адрес в България'}</small>`;
+          button.addEventListener('click',()=>{ closeSuggestions(); setDestination(item); }); root.appendChild(button);
+        }); root.classList.toggle('active',results.length>0);
+      }
+      function closeSuggestions() { $('suggestions').classList.remove('active'); }
+      async function submitSearch() {
+        const text=$('searchInput').value.trim(); if (text.length<2) return;
+        $('searchBtn').disabled=true; setStatus(`Търся „${text}“…`);
+        try { const results=await geocode(text,false); if (!results.length) return setStatus('Не намерих адреса. Добави град, например „qka voivoda 2, Sliven“.','error'); setDestination(results[0]); if (results.length>1) renderSuggestions(results.slice(1)); }
+        catch(error) { console.error(error); setStatus('Търсенето временно не работи. Избери точка на картата.','error'); }
+        finally { $('searchBtn').disabled=false; }
+      }
       function setDestination(item) {
-        const lat = Number(item.lat);
-        const lon = Number(item.lon);
-        if (!isInBulgaria(lat, lon)) {
-          setStatus('Адресът не е в България.');
-          return;
-        }
-
-        destination = { lat, lon, name:item.name || 'Търсен адрес' };
-        const point = [lat, lon];
-        if (!destinationMarker) destinationMarker = L.marker(point, { icon:destinationIcon, title:'Търсен адрес' }).addTo(map);
-        else destinationMarker.setLatLng(point);
-        destinationMarker.bindPopup(`<strong>Дестинация</strong><br>${escapeHtml(destination.name)}`).openPopup();
-
-        nearestCard.classList.remove('active');
-        nearestParking = null;
-        searchInput.value = destination.name;
-        map.setView(point, 16);
-        setStatus('Адресът е намерен. Търся най-близкия паркинг…');
-        requestParkings(lat, lon, 'destination');
+        const lat=Number(item.lat),lon=Number(item.lon); if (!inBulgaria(lat,lon)) return setStatus('Избраната дестинация не е в България.','error');
+        state.destination={lat,lon,name:item.name||'Дестинация'}; $('searchInput').value=state.destination.name; $('destinationTitle').textContent=state.destination.name;
+        if (!state.destinationMarker) state.destinationMarker=L.marker([lat,lon],{icon:destinationIcon,title:'Дестинация'}).addTo(state.map); else state.destinationMarker.setLatLng([lat,lon]);
+        state.destinationMarker.bindPopup(`<strong>Дестинация</strong><br>${escapeHtml(state.destination.name)}`).openPopup();
+        addHistory(state.destination); state.map.setView([lat,lon],16); findParkings(); if (state.signalsEnabled) loadSignals();
+      }
+      function addHistory(place) {
+        const item={name:place.name,lat:place.lat,lon:place.lon,at:Date.now()};
+        state.history=[item,...state.history.filter(x=>Math.abs(x.lat-place.lat)>.00001||Math.abs(x.lon-place.lon)>.00001)].slice(0,20);
+        writeJson(STORAGE.history,state.history); updateCounts();
       }
 
-      function requestParkings(lat, lon, mode='nearby') {
-        activeSearchPoint = { lat, lon, mode };
-        pendingSearch = { type:'SEARCH_PARKINGS', payload:{ lat, lon, mode } };
-        if (!workerReady || !workerFrame.contentWindow) return;
-        workerFrame.contentWindow.postMessage(pendingSearch, targetOrigin);
-        pendingSearch = null;
+      function parkingQuery(lat,lon,radius) { return `[out:json][timeout:25];(node(around:${radius},${lat},${lon})["amenity"="parking"];way(around:${radius},${lat},${lon})["amenity"="parking"];relation(around:${radius},${lat},${lon})["amenity"="parking"];);out ids center tags geom;`; }
+      async function callOverpass(query) {
+        const response=await fetch('/api/overpass',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({query})});
+        const data=await response.json().catch(()=>null); if (!response.ok) throw new Error(data?.error||`Overpass ${response.status}`); return Array.isArray(data?.elements)?data.elements:[];
       }
-
-      async function searchAddress(query, showAlternatives=false) {
-        const text = String(query || '').trim();
-        if (text.length < 2) return;
-
-        searchButton.disabled = true;
-        searchResults.classList.remove('active');
-        setStatus(`Търся адрес „${text}“…`);
-
+      async function findParkings() {
+        if (!state.destination) return; state.selected=null; state.parkingLayer.clearLayers(); state.routeLayer.clearLayers(); $('routeCard').classList.remove('active');
+        $('parkingList').innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div>Търся паркинги около дестинацията…</div>';
+        let elements=[]; let usedRadius=RADII.at(-1);
         try {
-          const bias = userLocation || (map ? { lat:map.getCenter().lat, lon:map.getCenter().lng } : null);
-          const params = new URLSearchParams({ q:text });
-          if (bias) {
-            params.set('lat', String(bias.lat));
-            params.set('lon', String(bias.lon));
-          }
-
-          const response = await fetch(`/api/geocode?${params.toString()}`);
-          const data = await response.json();
-          if (!response.ok) throw new Error(data?.error || 'Search failed');
-          const results = Array.isArray(data.results) ? data.results : [];
-
-          if (!results.length) {
-            setStatus('Не намерих адреса. Добави град, например: „Янка Войвода 2, Сливен“');
-            return;
-          }
-
-          const first = results[0];
-          setDestination(first);
-
-          if (showAlternatives && results.length > 1) renderSearchAlternatives(results.slice(1));
-        } catch (error) {
-          console.error(error);
-          setStatus('Търсенето временно не работи. Избери точка на картата.');
-        } finally {
-          searchButton.disabled = false;
-        }
+          for (const radius of RADII) { setStatus(`Търся паркинги в радиус ${formatDistance(radius)}…`); elements=await callOverpass(parkingQuery(state.destination.lat,state.destination.lon,radius)); usedRadius=radius; if (elements.length>=3||radius===RADII.at(-1)) break; }
+          const seen=new Set(); state.parkings=elements.map(el=>deriveParking(el,state.destination)).filter(Boolean).filter(item=>{if(seen.has(item.id))return false;seen.add(item.id);return true;});
+          state.searchRadius=usedRadius; sortParkings(); drawParkings(); renderParkingList(); updateSummary();
+          if (!state.parkings.length) setStatus('Няма отбелязани паркинги в радиус до 5 км.','error'); else setStatus(`Намерени ${state.parkings.length} паркинга около дестинацията.`,'success');
+        } catch(error) { console.error(error); state.parkings=[]; renderParkingList(); setStatus('Паркинг данните временно не са достъпни.','error'); }
       }
-
-      function renderSearchAlternatives(results) {
-        searchResults.innerHTML = '';
-        results.forEach((item) => {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'search-result';
-          button.innerHTML = `${escapeHtml(item.name)}<small>Избери този адрес</small>`;
-          button.addEventListener('click', () => {
-            searchResults.classList.remove('active');
-            setDestination(item);
-          });
-          searchResults.appendChild(button);
+      function sortParkings() {
+        const sort=state.sort;
+        state.parkings.sort((a,b)=>{
+          if (sort==='nearest') return a.straight-b.straight;
+          if (sort==='walking') return a.walkDistance-b.walkDistance;
+          if (sort==='covered') return Number(b.covered)-Number(a.covered)||a.straight-b.straight;
+          if (sort==='charging') return Number(b.charging)-Number(a.charging)||a.straight-b.straight;
+          return b.score-a.score||a.straight-b.straight;
         });
-        if (results.length) searchResults.classList.add('active');
       }
-
-      function radians(value) { return value * Math.PI / 180; }
-      function distanceMeters(a, b) {
-        const earth = 6371000;
-        const dLat = radians(b.lat - a.lat);
-        const dLon = radians(b.lon - a.lon);
-        const lat1 = radians(a.lat);
-        const lat2 = radians(b.lat);
-        const h = Math.sin(dLat/2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon/2) ** 2;
-        return earth * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
-      }
-
-      function representativePoint(element) {
-        const lat = Number(element.lat ?? element.center?.lat);
-        const lon = Number(element.lon ?? element.center?.lon);
-        if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
-
-        if (Array.isArray(element.geometry) && element.geometry.length) {
-          const valid = element.geometry.filter((p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)));
-          if (valid.length) {
-            return {
-              lat:valid.reduce((sum,p) => sum + Number(p.lat), 0) / valid.length,
-              lon:valid.reduce((sum,p) => sum + Number(p.lon), 0) / valid.length
-            };
-          }
-        }
-
-        if (Array.isArray(element.members)) {
-          const points = element.members.flatMap((member) => Array.isArray(member.geometry) ? member.geometry : []);
-          const valid = points.filter((p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)));
-          if (valid.length) {
-            return {
-              lat:valid.reduce((sum,p) => sum + Number(p.lat), 0) / valid.length,
-              lon:valid.reduce((sum,p) => sum + Number(p.lon), 0) / valid.length
-            };
-          }
-        }
-        return null;
-      }
-
-      function parkingName(element) {
-        const tags = element.tags || {};
-        return tags.name || tags.operator || 'Паркинг';
-      }
-
-      function osmUrl(element) {
-        const type = ['node','way','relation'].includes(element.type) ? element.type : 'node';
-        return `https://www.openstreetmap.org/${type}/${encodeURIComponent(element.id)}`;
-      }
-
-      function popupContent(element, distance, isNearest=false) {
-        const name = escapeHtml(parkingName(element));
-        const type = element.tags?.parking ? ` (${escapeHtml(element.tags.parking)})` : '';
-        const distanceText = Number.isFinite(distance) ? `<div style="margin-top:5px">Разстояние: <strong>${formatDistance(distance)}</strong></div>` : '';
-        return `${isNearest ? '<strong style="color:#16a34a">Най-близък паркинг</strong><br>' : ''}<strong>${name}${type}</strong>${distanceText}<div style="margin-top:6px"><a href="${osmUrl(element)}" target="_blank" rel="noopener noreferrer">Данни в OSM</a></div>`;
-      }
-
-      function formatDistance(meters) {
-        if (meters < 1000) return `${Math.max(1, Math.round(meters))} м`;
-        return `${(meters / 1000).toFixed(meters < 10000 ? 1 : 0)} км`;
-      }
-
-      function drawParkingElement(element, icon, popup, isNearest=false) {
-        const point = representativePoint(element);
-        if (!point) return null;
-
-        if (!isNearest && (element.type === 'way' || element.type === 'relation') && Array.isArray(element.geometry) && element.geometry.length) {
-          const path = element.geometry.map((p) => [Number(p.lat), Number(p.lon)]).filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
-          if (path.length > 2) {
-            L.polygon(path, { color:'#2563eb', weight:2, fillOpacity:.12 }).bindPopup(popup).addTo(parkingLayer);
-          }
-        }
-
-        return L.marker([point.lat, point.lon], { icon, zIndexOffset:isNearest ? 1000 : 0 })
-          .bindPopup(popup)
-          .addTo(parkingLayer);
-      }
-
-      function drawParkings(features) {
-        parkingLayer.clearLayers();
-        if (connectionLine) { connectionLine.remove(); connectionLine = null; }
-        nearestCard.classList.remove('active');
-        nearestParking = null;
-
-        const searchPoint = activeSearchPoint;
-        if (!searchPoint || !Array.isArray(features) || !features.length) {
-          setStatus('Не намерих отбелязан паркинг наблизо.');
-          return;
-        }
-
-        const ranked = features
-          .map((element) => {
-            const point = representativePoint(element);
-            return point ? { element, point, distance:distanceMeters(searchPoint, point) } : null;
-          })
-          .filter(Boolean)
-          .sort((a,b) => a.distance - b.distance);
-
-        if (!ranked.length) {
-          setStatus('Паркингите нямат достатъчно координатни данни.');
-          return;
-        }
-
-        nearestParking = ranked[0];
-        ranked.slice(1).forEach((item) => {
-          drawParkingElement(item.element, parkingIcon, popupContent(item.element, item.distance, false), false);
+      function drawParkings() {
+        state.parkingLayer.clearLayers();
+        state.parkings.forEach(item=>{
+          const marker=L.marker([item.point.lat,item.point.lon],{icon:parkingIcon(state.selected?.id===item.id),title:item.name}).addTo(state.parkingLayer);
+          marker.bindPopup(`<strong>${escapeHtml(item.name)}</strong><br>${escapeHtml(item.type)} · ${formatDistance(item.straight)} от дестинацията<br><a href="${osmUrl(item.element)}" target="_blank" rel="noopener">Данни в OSM</a>`);
+          marker.on('click',()=>selectParking(item.id));
         });
-        const nearestLayer = drawParkingElement(
-          nearestParking.element,
-          nearestIcon,
-          popupContent(nearestParking.element, nearestParking.distance, true),
-          true
-        );
+      }
+      function renderParkingList() {
+        const root=$('parkingList'); root.innerHTML='';
+        if (!state.parkings.length) { root.innerHTML='<div class="empty-state"><div class="empty-icon">🅿️</div>Няма намерени паркинги. Данните зависят от наличното картографиране в OpenStreetMap.</div>'; return; }
+        state.parkings.forEach((item,index)=>{
+          const active=state.selected?.id===item.id; const saved=state.saved.some(x=>x.id===item.id);
+          const card=document.createElement('article'); card.className=`parking-card${active?' active':''}`; card.dataset.id=item.id;
+          const features=[item.covered?'Закрит':null,item.charging?'Зарядна станция':null,item.lit?'Осветен':null,item.surveillance?'Наблюдение':null,item.capacity?`${item.capacity} места`:null,item.maxheight?`до ${item.maxheight} м`:null].filter(Boolean);
+          card.innerHTML=`
+            <div class="parking-top"><div class="parking-name">${index+1}. ${escapeHtml(item.name)}</div><div class="score">${item.score}</div></div>
+            <div class="parking-sub">${escapeHtml(item.type)} · <span class="availability">⚪ Няма live информация за свободни места</span></div>
+            <div class="parking-grid"><div><b>${formatDistance(item.driveDistance)}</b><span>прогнозно с кола</span></div><div><b>${formatDistance(item.walkDistance)}</b><span>прогнозно пеша</span></div><div><b>${escapeHtml(item.feeText)}</b><span>цена</span></div></div>
+            <div class="tags">${features.length?features.map(x=>`<span class="tag">${escapeHtml(x)}</span>`).join(''):'<span class="tag">Ограничени OSM данни</span>'}</div>
+            <div class="card-actions"><button class="preview-btn" data-preview="${item.id}">Преглед</button><a class="nav-btn" href="https://www.google.com/maps/dir/?api=1&destination=${item.point.lat},${item.point.lon}&travelmode=driving" target="_blank" rel="noopener">Навигирай</a><button class="save-btn" data-save="${item.id}" aria-label="Запази">${saved?'★':'☆'}</button></div>`;
+          card.addEventListener('click',event=>{ if (!event.target.closest('a,button')) selectParking(item.id); }); root.appendChild(card);
+        });
+        root.querySelectorAll('[data-preview]').forEach(btn=>btn.addEventListener('click',()=>selectParking(btn.dataset.preview)));
+        root.querySelectorAll('[data-save]').forEach(btn=>btn.addEventListener('click',()=>toggleSaved(btn.dataset.save)));
+      }
+      function updateSummary() { $('parkingCount').textContent=state.parkings.length; $('searchRadius').textContent=state.searchRadius?formatDistance(state.searchRadius):'—'; $('dataSource').textContent='OSM'; }
 
-        const start = [searchPoint.lat, searchPoint.lon];
-        const end = [nearestParking.point.lat, nearestParking.point.lon];
-        connectionLine = L.polyline([start, end], { color:'#16a34a', weight:4, opacity:.8, dashArray:'8 8' }).addTo(map);
-        map.fitBounds(L.latLngBounds([start, end]).pad(.45), { maxZoom:17 });
-        nearestLayer?.openPopup();
-
-        const name = parkingName(nearestParking.element);
-        nearestTitle.textContent = name;
-        nearestMeta.textContent = `${formatDistance(nearestParking.distance)} по права линия от ${destination ? 'търсения адрес' : 'избраната точка'}. Намерени общо: ${ranked.length}.`;
-        navigateNearest.href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nearestParking.point.lat)},${encodeURIComponent(nearestParking.point.lon)}&travelmode=driving`;
-        nearestCard.classList.add('active');
-        setStatus(`Най-близък паркинг: ${name} — ${formatDistance(nearestParking.distance)}`);
+      async function routeBetween(from,to,mode) {
+        const params=new URLSearchParams({fromLat:from.lat,fromLon:from.lon,toLat:to.lat,toLon:to.lon,mode});
+        const response=await fetch(`/api/route?${params}`); const data=await response.json(); if (!response.ok) throw new Error(data?.error||'Route error'); return data;
+      }
+      async function selectParking(id) {
+        const item=state.parkings.find(x=>x.id===id); if (!item||!state.destination) return; state.selected=item; drawParkings(); renderParkingList();
+        state.map.fitBounds(L.latLngBounds([[item.point.lat,item.point.lon],[state.destination.lat,state.destination.lon]]).pad(.4),{maxZoom:17});
+        $('routeCard').classList.add('active'); $('routeTitle').textContent=item.name; $('driveDistance').textContent='…'; $('driveTime').textContent='…'; $('walkDistance').textContent='…'; $('tripCost').textContent='…'; $('routeNote').textContent='Изчислявам автомобилен и пешеходен маршрут…';
+        state.routeLayer.clearLayers();
+        try {
+          const tasks=[routeBetween(item.point,state.destination,'walking')]; if (state.user) tasks.unshift(routeBetween(state.user,item.point,'driving'));
+          const results=await Promise.all(tasks); const drive=state.user?results[0]:null; const walk=state.user?results[1]:results[0];
+          item.route=drive; item.walkingRoute=walk;
+          if (drive?.geometry?.coordinates) L.geoJSON(drive.geometry,{style:{color:'#0ea5e9',weight:6,opacity:.85}}).addTo(state.routeLayer);
+          if (walk?.geometry?.coordinates) L.geoJSON(walk.geometry,{style:{color:'#f59e0b',weight:5,opacity:.9,dashArray:'8 8'}}).addTo(state.routeLayer);
+          item.driveDistance=drive?.distance??item.driveDistance; item.driveDuration=drive?.duration??item.driveDuration; item.walkDistance=walk?.distance??item.walkDistance;
+          $('driveDistance').textContent=state.user?formatDistance(item.driveDistance):'Нужен GPS'; $('driveTime').textContent=state.user?formatDuration(item.driveDuration):'—'; $('walkDistance').textContent=formatDistance(item.walkDistance);
+          const km=(item.driveDistance||0)/1000; const energy=km*Number(state.vehicle.consumption||0)/100; const cost=energy*Number(state.vehicle.price||0); $('tripCost').textContent=state.user?money(cost):'—';
+          const estimated=[drive,walk].filter(Boolean).some(route=>route.isEstimate); $('routeNote').textContent=estimated?'Част от маршрута е прогнозна, защото routing услугата временно не отговори.':'Синьо: маршрут с автомобил. Оранжево: пешеходен маршрут до дестинацията.';
+          renderParkingList(); setStatus(`Маршрутът до „${item.name}“ е готов.`,'success');
+        } catch(error) { console.error(error); $('routeNote').textContent='Маршрутът временно не можа да се изчисли. Бутонът „Навигирай“ остава достъпен.'; setStatus('Routing услугата временно не отговаря.','error'); }
+      }
+      function toggleSaved(id) {
+        const item=state.parkings.find(x=>x.id===id); if (!item) return;
+        const exists=state.saved.some(x=>x.id===id);
+        state.saved=exists?state.saved.filter(x=>x.id!==id):[{id:item.id,name:item.name,lat:item.point.lat,lon:item.point.lon,type:item.type},...state.saved].slice(0,50);
+        writeJson(STORAGE.saved,state.saved); updateCounts(); renderParkingList(); setStatus(exists?'Мястото е премахнато от запазени.':'Мястото е запазено.','success');
       }
 
-      document.getElementById('menu-button').addEventListener('click', () => panel.classList.toggle('active'));
-      locateButton.addEventListener('click', locateUser);
-      searchForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-        searchAddress(searchInput.value, true);
-      });
-      document.addEventListener('click', (event) => {
-        if (!event.target.closest('.search-wrap')) searchResults.classList.remove('active');
-      });
-      showNearestButton.addEventListener('click', () => {
-        if (!nearestParking) return;
-        map.setView([nearestParking.point.lat, nearestParking.point.lon], 18);
-      });
+      async function loadSignals() {
+        if (!state.signalsEnabled) { state.signalLayer.clearLayers(); return; }
+        const center=state.destination||state.user||{lat:state.map.getCenter().lat,lon:state.map.getCenter().lng};
+        setStatus('Зареждам местоположенията на светофарите…');
+        try {
+          const query=`[out:json][timeout:20];node(around:5000,${center.lat},${center.lon})["highway"="traffic_signals"];out ids tags;`;
+          const elements=await callOverpass(query); state.signalLayer.clearLayers();
+          elements.forEach(el=>{ if(Number.isFinite(Number(el.lat))&&Number.isFinite(Number(el.lon))) L.marker([el.lat,el.lon],{icon:signalIcon}).bindPopup('<strong>Светофар</strong><br>Позиция от OpenStreetMap.<br>Няма live достъп до текущия цвят.').addTo(state.signalLayer); });
+          setStatus(`Показани ${elements.length} светофара. Текущият им цвят не е достъпен.`,'success');
+        } catch(error) { console.error(error); setStatus('Светофарният слой временно не се зареди.','error'); }
+      }
 
-      workerFrame.addEventListener('load', () => {
-        workerReady = true;
-        if (pendingSearch && workerFrame.contentWindow) {
-          workerFrame.contentWindow.postMessage(pendingSearch, targetOrigin);
-          pendingSearch = null;
-        }
-      });
+      function updateProfileUi() {
+        const typeNames={car:'Лек автомобил',electric:'Електромобил',motorcycle:'Мотор',van:'Бус',truck:'Камион'};
+        $('vehicleSummary').textContent=`${typeNames[state.vehicle.type]||'Автомобил'} · ${Number(state.vehicle.consumption||0).toFixed(1)} ${state.vehicle.fuel==='electric'?'kWh':'л'}/100 км`;
+        $('vehicleName').value=state.vehicle.name||''; $('vehicleType').value=state.vehicle.type||'car'; $('vehicleFuel').value=state.vehicle.fuel||'petrol'; $('vehicleConsumption').value=state.vehicle.consumption??8; $('fuelPrice').value=state.vehicle.price??2.8; $('vehicleHeight').value=state.vehicle.height??1.75; $('parkingPreference').value=state.vehicle.preference||'balanced'; updateCounts();
+      }
+      function updateCounts() { $('savedCount').textContent=state.saved.length; $('historyCount').textContent=state.history.length; }
+      function openDrawer() { $('drawer').classList.add('open'); $('backdrop').classList.add('open'); }
+      function closeDrawer() { $('drawer').classList.remove('open'); $('backdrop').classList.remove('open'); }
+      function openModal(id) { $(id).classList.add('open'); closeDrawer(); }
+      function closeModal(id) { $(id).classList.remove('open'); }
+      function showStoredList(kind) {
+        const data=kind==='saved'?state.saved:state.history; $('listTitle').textContent=kind==='saved'?'Запазени места':'История на дестинациите'; $('listContent').innerHTML='';
+        if (!data.length) $('listContent').innerHTML='<div class="empty-state">Списъкът е празен.</div>';
+        data.forEach((item,index)=>{
+          const row=document.createElement('div'); row.className='list-item'; row.innerHTML=`<button data-remove="${index}">Изтрий</button><strong>${escapeHtml(item.name)}</strong><br><small style="color:#94a3b8">${Number(item.lat).toFixed(5)}, ${Number(item.lon).toFixed(5)}</small>`;
+          row.addEventListener('click',event=>{ if(event.target.closest('[data-remove]')) return; closeModal('listModal'); setDestination(item); }); $('listContent').appendChild(row);
+        });
+        $('listContent').querySelectorAll('[data-remove]').forEach(btn=>btn.addEventListener('click',event=>{event.stopPropagation(); data.splice(Number(btn.dataset.remove),1); writeJson(kind==='saved'?STORAGE.saved:STORAGE.history,data); updateCounts(); showStoredList(kind);})); openModal('listModal');
+      }
+      function handleMenu(action) {
+        if (action==='map') { closeDrawer(); return; }
+        if (action==='saved'||action==='history') return showStoredList(action);
+        if (action==='vehicle') return openModal('vehicleModal');
+        if (action==='signals') { state.signalsEnabled=!state.signalsEnabled; $('signalsState').textContent=state.signalsEnabled?'ON':'OFF'; closeDrawer(); loadSignals(); return; }
+        if (action==='report') return openModal('reportModal');
+        if (action==='ai') { closeDrawer(); return setStatus('AI Mobility OS е заключен до реална база, профили и съгласие за обработка на данни.','info'); }
+        if (action==='privacy') { closeDrawer(); return setStatus('Локацията, историята и автомобилът се пазят локално в браузъра в Level 1.6.','info'); }
+      }
 
-      window.addEventListener('message', (event) => {
-        if (event.origin !== targetOrigin || event.source !== workerFrame.contentWindow) return;
-        const message = event.data || {};
-        if (message.type === 'PARKINGS_RESULT') {
-          drawParkings(Array.isArray(message.features) ? message.features : []);
-        } else if (message.type === 'PARKINGS_ERROR') {
-          parkingLayer.clearLayers();
-          nearestCard.classList.remove('active');
-          setStatus(`Паркинг данните временно не са достъпни: ${message.message || 'опитай отново'}`);
-        }
-      });
+      let suggestionTimer=null;
+      $('searchForm').addEventListener('submit',event=>{event.preventDefault();submitSearch();});
+      $('searchInput').addEventListener('input',()=>{ clearTimeout(suggestionTimer); const text=$('searchInput').value.trim(); if(text.length<2)return closeSuggestions(); suggestionTimer=setTimeout(()=>geocode(text,true).catch(()=>closeSuggestions()),420); });
+      document.addEventListener('click',event=>{if(!event.target.closest('.search-box'))closeSuggestions();});
+      $('locateBtn').addEventListener('click',locateUser); $('mapModeBtn').addEventListener('click',cycleMapMode);
+      $('menuBtn').addEventListener('click',openDrawer); $('drawerClose').addEventListener('click',closeDrawer); $('backdrop').addEventListener('click',closeDrawer);
+      document.querySelectorAll('.menu-item').forEach(button=>button.addEventListener('click',()=>handleMenu(button.dataset.action)));
+      document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>closeModal(button.dataset.close)));
+      document.querySelectorAll('.modal').forEach(modal=>modal.addEventListener('click',event=>{if(event.target===modal)closeModal(modal.id);}));
+      $('filters').addEventListener('click',event=>{const chip=event.target.closest('[data-sort]');if(!chip)return;state.sort=chip.dataset.sort;document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('active',x===chip));sortParkings();drawParkings();renderParkingList();});
+      $('routeClose').addEventListener('click',()=>{$('routeCard').classList.remove('active');state.routeLayer.clearLayers();});
+      $('vehicleForm').addEventListener('submit',event=>{event.preventDefault();state.vehicle={name:$('vehicleName').value.trim()||'Моят автомобил',type:$('vehicleType').value,fuel:$('vehicleFuel').value,consumption:Number($('vehicleConsumption').value||0),price:Number($('fuelPrice').value||0),height:Number($('vehicleHeight').value||0),preference:$('parkingPreference').value};writeJson(STORAGE.vehicle,state.vehicle);updateProfileUi();closeModal('vehicleModal');setStatus('Профилът на автомобила е запазен.','success');});
+      $('reportForm').addEventListener('submit',event=>{event.preventDefault();const center=state.user||state.destination;if(!center)return setStatus('Нужно е местоположение или избрана точка за сигнал.','error');state.reports.unshift({type:$('reportType').value,description:$('reportDescription').value.trim(),lat:center.lat,lon:center.lon,at:Date.now(),localOnly:true});state.reports=state.reports.slice(0,50);writeJson(STORAGE.reports,state.reports);$('reportDescription').value='';closeModal('reportModal');setStatus('Тестовият сигнал е запазен локално.','success');});
 
-      window.addEventListener('error', (event) => {
-        console.error(event.error || event.message);
-        if (!map) setStatus('Картата не можа да се стартира. Презареди страницата.');
-      });
-
+      window.addEventListener('error',event=>{console.error(event.error||event.message);if(!state.map)setStatus('Картата не можа да се стартира. Презареди страницата.','error');});
       initMap();
     })();
   </script>
