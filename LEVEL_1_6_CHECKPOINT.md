@@ -17,16 +17,18 @@
 - AI Mobility OS shown as locked until backend, identity, consent and AI data requirements are met.
 - Automated serverless API contract tests for method restrictions, invalid input and routing fallback behavior.
 - PWA shell assets prepared: valid manifest, normal and maskable icons, service worker and honest offline fallback page.
+- Installed PWA identity and start route corrected to `/app`, so installation will open the map rather than the onboarding page.
 - Automated CI validation for the PWA manifest, icons, service worker syntax and offline fallback.
-- Reusable Preview acceptance runner for homepage, honest data labels, PWA assets and invalid API input behavior.
+- Reusable Preview acceptance runner for onboarding, map app, honest data labels, PWA assets, PWA launch routing and invalid API input behavior.
 
 ## Verification completed
 - Browser JavaScript syntax checked with `node --check` before commit.
 - Serverless JavaScript syntax is checked in GitHub Actions.
 - API contract test file: `tests/api-contract.mjs`.
 - Preview acceptance runner: `tests/preview-acceptance.mjs`.
-- Latest verified GitHub Actions run before this batch completed successfully.
-- Vercel Preview reached READY for the previous branch head.
+- GitHub Actions run 32 for commit `e716df870d85b91b255c07259c609fe0681fe505` completed successfully.
+- Vercel Preview deployment `dpl_4W7JvNzhw6SsNMpxMQiSzB9Jkcwb` reached READY for the same commit.
+- Preview manifest returned HTTP 200 with `id=/app`, `start_url=/app?source=pwa` and parking shortcut `/app?action=parking`.
 - PR #2 remains open, draft and mergeable.
 - Production branch was not overwritten by these batches.
 
@@ -40,23 +42,25 @@
 - `1a29a6613dd53f77fdeba5d8f3bc16e67e2ed697` — add service worker shell.
 - `ee70c046b5f61d5138439f652d1d4a314df51260` — validate PWA assets in CI.
 - `077317851177cd4b260fa0b8bc53f589cbbbf10f` — add reusable Preview acceptance runner.
+- `5da933a13c1f7ac9fcbb18b72740518ac1fb47cc` — validate onboarding and map routes separately.
+- `43055aa5e4f49f6365b4f548cde7d01efdfa6e73` — launch installed PWA directly into the map app.
+- `e716df870d85b91b255c07259c609fe0681fe505` — verify PWA identity, start route and parking shortcut in Preview acceptance.
 
 ## Preview acceptance command
 ```bash
 BASE_URL=https://<preview-host> node tests/preview-acceptance.mjs
 ```
 
-The runner verifies `/`, `/manifest.webmanifest`, `/sw.js`, `/offline.html`, invalid `/api/geocode` input and invalid `/api/route` input. It does not claim physical Android installation or human interaction testing.
+The runner verifies `/`, `/app`, `/manifest.webmanifest`, `/sw.js`, `/offline.html`, invalid `/api/geocode` input and invalid `/api/route` input. It does not claim physical Android installation or human interaction testing.
 
 ## Next checks before production
-1. Confirm the GitHub Actions run succeeds for the latest branch head.
-2. Confirm the Vercel Preview for the latest branch head reaches READY.
-3. Run `tests/preview-acceptance.mjs` against that exact Preview deployment.
-4. Connect `manifest.webmanifest` and `sw.js` to the main HTML; this is not yet claimed as an active install flow.
-5. Add PNG 192×192 and 512×512 icons for strict cross-browser installability.
-6. Verify browser installability and offline navigation on Android Chrome and desktop Chromium.
-7. Test phone and desktop interaction, especially the bottom sheet and route card.
-8. Merge only after Preview acceptance.
+1. Connect `manifest.webmanifest` and `sw.js` to the map HTML; service-worker registration is not yet claimed as active.
+2. Add PNG 192×192 and 512×512 icons for strict cross-browser installability.
+3. Run the complete Preview acceptance command against the exact latest deployment after HTML activation.
+4. Verify browser installability and offline navigation on Android Chrome and desktop Chromium.
+5. Test phone and desktop interaction, especially the bottom sheet, route card and all menu actions.
+6. Inspect Preview runtime logs for serverless errors after route/geocode/parking usage.
+7. Merge only after Preview acceptance and human interaction checks.
 
 ## Known external limitations
 - OpenStreetMap does not provide live parking occupancy by default.
