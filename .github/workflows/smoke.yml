@@ -37,6 +37,9 @@ jobs:
       - name: Run API contract checks
         run: node tests/api-contract.mjs
 
+      - name: Run UI action contract checks
+        run: node tests/ui-contract.mjs
+
       - name: Check PWA service worker syntax
         run: node --check sw.js
 
