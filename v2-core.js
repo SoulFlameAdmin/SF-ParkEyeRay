@@ -2,7 +2,12 @@
   'use strict';
   const app=window.SFV2={};
   app.$=id=>document.getElementById(id);
-  app.STORAGE={proposals:'sf_v2_proposals',saved:'sf_v2_saved'};
+  app.STORAGE={
+    proposals:'sf_v2_proposals',
+    saved:'sf_v2_saved',
+    destinationHistory:'sf_v2_destination_history',
+    savedDestinations:'sf_v2_saved_destinations'
+  };
   app.RADII=[500,1000,2000,5000];
   app.BG={south:41.1,north:44.3,west:22.2,east:28.75};
   app.DEFAULT_CENTER=[42.7339,25.4858];
@@ -12,9 +17,12 @@
     map:null,user:null,destination:null,parkings:[],entrances:[],selected:null,sort:'recommended',
     userMarker:null,destinationMarker:null,accuracyCircle:null,
     parkingLayer:null,routeLayer:null,proposalLayer:null,drawingLayer:null,
-    proposals:app.read(app.STORAGE.proposals,[]),saved:app.read(app.STORAGE.saved,[]),
+    proposals:app.read(app.STORAGE.proposals,[]),
+    saved:app.read(app.STORAGE.saved,[]),
+    destinationHistory:app.read(app.STORAGE.destinationHistory,[]),
+    savedDestinations:app.read(app.STORAGE.savedDestinations,[]),
     drawing:false,drawPoints:[],drawLine:null,drawPolygon:null,pendingGeometry:null,
-    locating:false,searchVersion:0,requests:{},ui:null
+    locating:false,searchVersion:0,requests:{},ui:null,searchTimer:null
   };
   app.safe=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
   app.setStatus=(text,type='info',sticky=false)=>{
@@ -47,7 +55,8 @@
   };
   app.updateProfile=()=>{
     const saved=app.$('profile-saved'),proposals=app.$('profile-proposals');
-    if(saved)saved.textContent=app.state.saved.length;if(proposals)proposals.textContent=app.state.proposals.length;
+    if(saved)saved.textContent=app.state.saved.length+app.state.savedDestinations.length;
+    if(proposals)proposals.textContent=app.state.proposals.length;
   };
   app.locate=()=>{
     const s=app.state;if(s.locating)return;
