@@ -93,14 +93,19 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(s.map);
     s.parkingLayer=L.layerGroup().addTo(s.map);s.fuelLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
     s.map.on('click',event=>{
-      if(!s.drawing)return;
-      if(performance.now()-s.lastDrawPointerAt<180)return;
+      if(!s.drawing||performance.now()-s.lastDrawPointerAt<220)return;
       app.addDrawPoint?.(event.latlng);
     });
-    app.$('map').addEventListener('pointerup',event=>{
-      if(!s.drawing||event.button!==0||event.target.closest('.leaflet-control'))return;
+    document.addEventListener('pointerup',event=>{
+      if(!s.drawing)return;
+      if(event.pointerType!=='touch'&&event.button!==0)return;
+      const blocked=event.target instanceof Element&&event.target.closest('.top-shell,.parking-sheet,.route-card,.draw-toolbar,.map-menu,.modal,.leaflet-control,.leaflet-popup,.leaflet-tooltip');
+      if(blocked)return;
+      const mapNode=app.$('map'),rect=mapNode.getBoundingClientRect();
+      if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)return;
       s.lastDrawPointerAt=performance.now();
-      app.addDrawPoint?.(s.map.mouseEventToLatLng(event));
+      const point=L.point(event.clientX-rect.left,event.clientY-rect.top);
+      app.addDrawPoint?.(s.map.containerPointToLatLng(point));
     },true);
     return true;
   };
