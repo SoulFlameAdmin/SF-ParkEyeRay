@@ -1,0 +1,41 @@
+name: SmartCity V2 browser acceptance
+
+on:
+  push:
+    branches:
+      - smartcity-v2-foundation
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  browser-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install browser test dependencies
+        run: |
+          npm install --no-save @playwright/test@1.55.0 http-server@14.1.1
+          npx playwright install --with-deps chromium
+
+      - name: Run Android and desktop acceptance
+        run: npx playwright test
+
+      - name: Upload browser report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smartcity-v2-browser-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
