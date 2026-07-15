@@ -1,4 +1,5 @@
 const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org/search';
+const NOMINATIM_REVERSE_ENDPOINT = 'https://nominatim.openstreetmap.org/reverse';
 const PHOTON_ENDPOINT = 'https://photon.komoot.io/api/';
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -101,6 +102,25 @@ async function nominatimSearch(query, bias) {
   if (!response.ok) throw new Error(`Nominatim ${response.status}`);
   const data = await response.json();
   return Array.isArray(data) ? data : [];
+}
+
+async function reverseContext(bias) {
+  if (!bias) return null;
+  const url = new URL(NOMINATIM_REVERSE_ENDPOINT);
+  url.searchParams.set('lat', String(bias.lat));
+  url.searchParams.set('lon', String(bias.lon));
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('addressdetails', '1');
+  url.searchParams.set('accept-language', 'bg');
+  url.searchParams.set('zoom', '14');
+  const response = await fetch(url, {
+    headers:{ accept:'application/json', 'user-agent':'ParkEyeRay/1.4 (https://parkeyeray.com)' }
+  });
+  if (!response.ok) throw new Error(`Nominatim reverse ${response.status}`);
+  const data = await response.json();
+  const address = data?.address || {};
+  const city = address.city || address.town || address.village || address.municipality || address.county || '';
+  return city ? { city, displayName:data.display_name || city } : null;
 }
 
 async function photonSearch(query, bias) {
@@ -267,7 +287,16 @@ export default async function handler(req, res) {
   const bias = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
   const transliterated = transliterateToBulgarian(q);
   const withoutHouseNumber = transliterated.replace(/(?:,|\s)\s*\d+[а-яa-z]?\s*$/i, '').trim();
-  const variants = [...new Set([q, transliterated, withoutHouseNumber].filter(Boolean))];
+  let context = null;
+  try { context = await reverseContext(bias); } catch (error) { console.warn('Reverse context failed', error?.message || error); }
+  const city = context?.city || '';
+  const variants = [...new Set([
+    q,
+    transliterated,
+    city && `${transliterated}, ${city}`,
+    withoutHouseNumber,
+    city && `${withoutHouseNumber}, ${city}`
+  ].filter(Boolean))];
 
   try {
     let results = [];
@@ -301,7 +330,7 @@ export default async function handler(req, res) {
     if (!results.length) results = await nearbyStreetFallback(withoutHouseNumber || transliterated, bias);
 
     res.setHeader('Cache-Control', 's-maxage=180, stale-while-revalidate=900');
-    return res.status(200).json({ results, normalizedQuery:transliterated, variants });
+    return res.status(200).json({ results, normalizedQuery:transliterated, variants, context });
   } catch (error) {
     return res.status(502).json({
       error:'Address search is temporarily unavailable',
