@@ -10,6 +10,10 @@
     .trim();
 
   app.destinationKey=item=>`${Number(item.lat).toFixed(6)},${Number(item.lon).toFixed(6)}`;
+  app.setSearchExpanded=expanded=>{
+    app.$('search-results').classList.toggle('active',expanded);
+    app.$('search-input').setAttribute('aria-expanded',String(expanded));
+  };
 
   app.destinationTypeLabel=type=>({
     mall:'Мол',shopping_centre:'Търговски център',supermarket:'Магазин',hospital:'Болница',
@@ -44,7 +48,11 @@
       if(item.source==='nominatim')score+=3;
       if(Number.isFinite(item.distance))score+=Math.max(0,8-Math.min(8,item.distance/25000));
       return{...item,_score:score};
-    }).sort((a,b)=>b._score-a._score||Number(a.distance||Infinity)-Number(b.distance||Infinity));
+    }).sort((a,b)=>{
+      const distanceA=Number.isFinite(a.distance)?a.distance:Infinity;
+      const distanceB=Number.isFinite(b.distance)?b.distance:Infinity;
+      return b._score-a._score||distanceA-distanceB;
+    });
   };
 
   app.destinationRecord=item=>({
@@ -106,7 +114,7 @@
   app.createDestinationButton=(item,meta,icon='⌖')=>{
     const button=document.createElement('button');button.type='button';button.className='search-result destination-result';button.setAttribute('role','option');
     button.innerHTML=`<span class="destination-icon">${icon}</span><span class="destination-copy"><b>${app.safe(item.name)}</b><small>${app.safe(meta)}</small></span>`;
-    button.addEventListener('click',()=>{app.$('search-results').classList.remove('active');app.selectDestination(item)});
+    button.addEventListener('click',()=>{app.setSearchExpanded(false);app.selectDestination(item)});
     return button;
   };
 
@@ -127,7 +135,7 @@
       const clear=document.createElement('button');clear.type='button';clear.className='search-clear';clear.textContent='Изчисти историята';
       clear.addEventListener('click',event=>{event.stopPropagation();s.destinationHistory=[];app.write(app.STORAGE.destinationHistory,[]);app.renderLocalDestinations(query)});root.appendChild(clear);
     }
-    root.classList.add('active');
+    app.setSearchExpanded(true);
   };
 
   app.renderSearchResults=(results,query='')=>{
@@ -138,7 +146,7 @@
       const meta=[index===0?'Най-подходящ':'Алтернатива',app.destinationContext(item)].filter(Boolean).join(' · ');
       root.appendChild(app.createDestinationButton(item,meta,index===0?'●':'○'));
     });
-    root.classList.toggle('active',ranked.length>0);
+    app.setSearchExpanded(ranked.length>0);
     return ranked;
   };
 
