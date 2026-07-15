@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08111f">
-  <meta name="description" content="SmartCity V2 — търсене, паркинги, навигация и проверени общностни зони">
+  <meta name="description" content="SmartCity V2 — карта, автоматични паркинги, бензиностанции и навигация">
   <title>SmartCity V2</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
   <link rel="stylesheet" href="/v2.css">
@@ -15,11 +15,11 @@
   <div id="map" aria-label="Карта"></div>
 
   <header class="top-shell">
-    <div class="brand-mark" aria-label="SmartCity V2"><b>SF</b><span>SmartCity</span><small>V2</small></div>
+    <button id="menu-btn" class="round-btn burger-btn" type="button" aria-label="Отвори менюто" aria-controls="map-menu" aria-expanded="false">☰</button>
     <div class="search-wrap">
       <form id="search-form" class="search-form">
         <span aria-hidden="true">⌕</span>
-        <input id="search-input" type="search" autocomplete="off" placeholder="Адрес или обект — Стара Загора мол…" aria-label="Търси дестинация" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false">
+        <input id="search-input" type="search" autocomplete="off" placeholder="Къде отиваш?" aria-label="Търси дестинация" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false">
         <button id="search-submit" type="submit">Търси</button>
       </form>
       <div id="search-results" class="search-results" role="listbox" aria-label="Предложения за дестинация"></div>
@@ -27,17 +27,49 @@
     <button id="locate-btn" class="round-btn" type="button" aria-label="Моето местоположение">◎</button>
   </header>
 
+  <aside id="map-menu" class="map-menu" aria-hidden="true" aria-label="Слоеве и действия">
+    <div class="map-menu-head">
+      <div class="menu-logo">SF</div>
+      <div><b>SmartCity</b><span>Картата остава свободна</span></div>
+      <button id="menu-close" type="button" aria-label="Затвори менюто">✕</button>
+    </div>
+
+    <div class="menu-section-title">Карта</div>
+    <button class="menu-action nav-action" data-action="search" type="button" aria-current="page">
+      <span class="menu-icon">⌕</span><span class="menu-copy"><b>Търсене</b><small>Адрес, обект или място</small></span><span class="menu-arrow">›</span>
+    </button>
+    <button id="parking-layer-btn" class="menu-action nav-action layer-action" data-action="parkings" type="button" aria-current="false" aria-pressed="true">
+      <span class="menu-icon parking">P</span><span class="menu-copy"><b>Паркинги</b><small><span id="parking-layer-count">0</span> около текущия район</small></span><span class="switch"><i></i></span>
+    </button>
+    <button id="fuel-layer-btn" class="menu-action layer-action" data-layer="fuel" type="button" aria-pressed="false">
+      <span class="menu-icon fuel">⛽</span><span class="menu-copy"><b>Бензиностанции</b><small><span id="fuel-layer-count">0</span> около текущия район</small></span><span class="switch"><i></i></span>
+    </button>
+
+    <div class="menu-section-title">Действия</div>
+    <button class="menu-action nav-action" data-action="navigate" type="button" aria-current="false">
+      <span class="menu-icon">➤</span><span class="menu-copy"><b>Навигация</b><small>Към избрания паркинг</small></span><span class="menu-arrow">›</span>
+    </button>
+    <button class="menu-action nav-action" data-action="add" type="button" aria-current="false">
+      <span class="menu-icon add">＋</span><span class="menu-copy"><b>Добави зона</b><small>Предложи реален паркинг</small></span><span class="menu-arrow">›</span>
+    </button>
+    <button class="menu-action nav-action" data-action="profile" type="button" aria-current="false">
+      <span class="menu-icon">●</span><span class="menu-copy"><b>Профил</b><small>Запазени места и предложения</small></span><span class="menu-arrow">›</span>
+    </button>
+
+    <div class="menu-truth">Паркингите и бензиностанциите се зареждат автоматично около GPS позицията или видимия район на картата. Свободните места не са live.</div>
+  </aside>
+
   <div id="network-state" class="network-state" role="alert" aria-hidden="true">Няма интернет връзка</div>
   <div id="status" class="status-pill" role="status">Стартирам SmartCity V2…</div>
   <button id="global-retry" class="global-retry" type="button" hidden>Опитай отново</button>
 
-  <section id="parking-sheet" class="parking-sheet" aria-label="Паркинги">
-    <button id="sheet-handle" class="sheet-handle" type="button" aria-label="Разгъни или свий панела" aria-expanded="true"><span></span></button>
+  <section id="parking-sheet" class="parking-sheet collapsed" aria-label="Паркинги">
+    <button id="sheet-handle" class="sheet-handle" type="button" aria-label="Разгъни или свий списъка" aria-expanded="false"><span></span></button>
     <div class="sheet-head">
       <div>
         <div id="sheet-eyebrow" class="eyebrow">Около теб</div>
-        <h1 id="sheet-title">Избери дестинация</h1>
-        <p id="sheet-subtitle">След търсене ще покажем паркинги около крайната точка.</p>
+        <h1 id="sheet-title">Паркинги наблизо</h1>
+        <p id="sheet-subtitle">При разрешен GPS се зареждат автоматично.</p>
       </div>
       <div class="sheet-head-actions">
         <button id="save-destination" class="save-destination" type="button" aria-label="Запази дестинацията" aria-pressed="false" hidden>☆</button>
@@ -52,7 +84,7 @@
       <button class="filter" data-sort="free" type="button">Безплатни</button>
     </div>
     <div id="parking-list" class="parking-list">
-      <div class="empty-card"><div>🅿️</div><strong>Няма избрана дестинация</strong><span>Потърси адрес, мол или обект. Паркингите се търсят около него.</span></div>
+      <div class="empty-card"><div>🅿️</div><strong>Определям района</strong><span>Паркингите ще се появят автоматично около теб.</span></div>
     </div>
   </section>
 
@@ -70,14 +102,6 @@
     </div>
     <small id="route-note">Синьо: автомобил. Оранжево: пеша до дестинацията.</small>
   </section>
-
-  <nav class="bottom-nav" aria-label="Основни действия">
-    <button data-action="search" class="nav-action active" type="button" aria-current="page"><span>⌕</span><small>Търсене</small></button>
-    <button data-action="parkings" class="nav-action" type="button" aria-current="false"><span>P</span><small>Паркинги</small></button>
-    <button data-action="navigate" class="nav-action" type="button" aria-current="false"><span>➤</span><small>Навигация</small></button>
-    <button data-action="add" class="nav-action" type="button" aria-current="false"><span>＋</span><small>Добави зона</small></button>
-    <button data-action="profile" class="nav-action" type="button" aria-current="false"><span>●</span><small>Профил</small></button>
-  </nav>
 
   <div id="draw-toolbar" class="draw-toolbar">
     <div><b>Очертаване на паркинг зона</b><small id="draw-help">Докосвай картата по границата. Нужни са поне 3 точки.</small></div>
