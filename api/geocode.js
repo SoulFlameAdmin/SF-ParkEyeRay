@@ -161,7 +161,6 @@ async function photonSearch(query, bias) {
   const url = new URL(PHOTON_ENDPOINT);
   url.searchParams.set('q', query);
   url.searchParams.set('limit', '8');
-  url.searchParams.set('lang', 'bg');
   if (bias) {
     url.searchParams.set('lat', String(bias.lat));
     url.searchParams.set('lon', String(bias.lon));
@@ -179,7 +178,7 @@ async function callOverpass(query) {
   let lastError = null;
   for (const endpoint of OVERPASS_ENDPOINTS) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 16000);
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
       const response = await fetch(endpoint, {
         method:'POST',
@@ -215,7 +214,8 @@ async function nearbyStreetFallback(target, bias) {
 
   const clauses = stems.map((stem) => {
     const safe = stem.replace(/["\\]/g, '\\$&');
-    return `way(around:25000,${bias.lat},${bias.lon})["highway"]["name"~"${safe}",i];`;
+    const upper = safe.charAt(0).toUpperCase() + safe.slice(1);
+    return `way(around:25000,${bias.lat},${bias.lon})["highway"]["name"~"${safe}|${upper}"];`;
   }).join('\n');
 
   const elements = await callOverpass(`[out:json][timeout:20];\n(${clauses}\n);\nout center tags;`);
@@ -238,7 +238,7 @@ async function nearbyStreetFallback(target, bias) {
         matchScore
       };
     })
-    .filter((item) => item && item.matchScore >= 0.72)
+    .filter((item) => item && item.matchScore >= 0.58)
     .sort((a, b) => b.matchScore - a.matchScore || a.distance - b.distance)
     .slice(0, 6);
 }
@@ -339,6 +339,7 @@ export default async function handler(req, res) {
 
   try {
     let results = [];
+    let distantResults = [];
 
     // Structured address search is much better at house numbers than a single
     // free-text query. Try likely street spellings before broad fallbacks.
@@ -366,6 +367,13 @@ export default async function handler(req, res) {
 
     results = dedupeAndSort(results, bias);
 
+    // A weak free-text match hundreds of kilometres away is worse than a
+    // nearby fuzzy street candidate. Hold distant matches as a final fallback.
+    if (bias && results.length && !results.some((item) => item.distance <= 60000)) {
+      distantResults = results;
+      results = [];
+    }
+
     if (!results.length) {
       const photonResults = [];
       for (const variant of variants) {
@@ -378,14 +386,22 @@ export default async function handler(req, res) {
         if (photonResults.filter(Boolean).length >= 8) break;
       }
       results = dedupeAndSort(photonResults, bias);
+      if (bias && results.length && !results.some((item) => item.distance <= 60000)) {
+        distantResults = [...distantResults, ...results];
+        results = [];
+      }
     }
 
     if (!results.length) {
-      for (const spelling of streetSpellings) {
-        results = await nearbyStreetFallback(spelling || transliterated, bias);
-        if (results.length) break;
+      const likelyStreet = streetSpellings.at(-1) || withoutHouseNumber || transliterated;
+      try {
+        results = await nearbyStreetFallback(likelyStreet, bias);
+      } catch (error) {
+        console.warn('Nearby street fallback failed', error?.message || error);
       }
     }
+
+    if (!results.length && distantResults.length) results = dedupeAndSort(distantResults, bias);
 
     res.setHeader('Cache-Control', 's-maxage=180, stale-while-revalidate=900');
     return res.status(200).json({ results, normalizedQuery:transliterated, variants, context });
