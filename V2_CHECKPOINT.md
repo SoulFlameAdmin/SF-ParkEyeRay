@@ -14,7 +14,7 @@
 - Deterministic phone sheet and accessible parking selection.
 - Safe proposal drawing and cancellation.
 - Pixel 7 and desktop Chromium acceptance coverage.
-- Android polygon drawing has pointer, click and native `touchend` coordinate capture with deduplication.
+- Android polygon drawing has pointer, click and native touch coordinate capture with deduplication.
 
 ## Stage 2 — search and destinations
 - Debounced Bulgarian and transliterated destination suggestions.
@@ -49,10 +49,11 @@
 - This batch does not claim road rotation, lane guidance, live traffic, police reports or speed-limit data.
 
 ## Phone drawing stability hotfix
-- Browser acceptance showed that Android synthetic taps entered drawing mode but did not reach `addDrawPoint`.
-- Root cause: `touchend` exposes coordinates through `changedTouches`, while the previous fallback read only `event.clientX/clientY`.
-- Drawing now captures `touchend`, pointer and click coordinates through one normalized event helper.
-- Duplicate synthetic events are filtered with a slightly wider phone-safe threshold.
+- Browser acceptance showed that Android synthetic taps can lose a later polygon point even after `changedTouches` normalization.
+- Root cause is timing at the end of the synthetic touch gesture: `pointerup`/`touchend` can race with Leaflet gesture cleanup.
+- Touch drawing now captures the point at `pointerdown`, before Leaflet can consume or transform the gesture.
+- `touchend`, pointer-up, click and Leaflet click remain safe fallbacks and are deduplicated.
+- App overlays and Leaflet controls are still excluded, while drawing tooltips/popups no longer incorrectly block map point capture.
 - Drawing mode still disables conflicting Leaflet gestures and temporary drawing layers remain non-interactive.
 - The product rule remains unchanged: every submitted user polygon is `pending_soulflame` until moderation.
 
@@ -89,13 +90,14 @@ Imported from live OSM data into PostGIS:
 Occupancy remains unknown and is labelled as non-live.
 
 ## Runtime preview verification
-- The latest navigation deployments are currently blocked by Vercel's build-rate limit.
-- The branch alias still points to the last READY build and must not be described as containing the newest GPS/navigation or drawing hotfixes.
+- The branch alias returned HTTP 200 for `/v2` on 2026-07-16, but the served HTML was still the older single-script build and must not be described as containing the newest modular navigation/drawing code.
+- The latest source commit therefore still requires a READY Vercel deployment verification.
 - Branch alias: `sf-parkeyeray-git-smartcity-v2-57e0ea-dimitar-lambovs-projects.vercel.app`.
 
 ## Current CI state
-- Head `975d968e6ce5eb962fa3d068d05afba4b3440430`: parking smoke and V2 smoke passed; browser acceptance failed because Android `touchend` coordinates were not read.
-- Touch fix head `b0c75f0fce57fced534cf6d1f80a45cdd04eaf57` adds native `changedTouches` support.
+- Head `883ab3a66ae6487c2ec36959ce054a1c417068f4`: parking smoke and V2 smoke passed; browser acceptance failed because Android drawing intermittently stopped at two points.
+- Artifact evidence showed the drawing toolbar active and `Готово` disabled after only two captured points.
+- Touch-start fix head `bb6dc85a2604aee26a4380f317cd94f9f3a70ce7` captures Android points on touch `pointerdown`.
 - New CI must pass before acceptance is claimed.
 
 ## Production safety
@@ -113,8 +115,9 @@ Occupancy remains unknown and is labelled as non-live.
 - A physical Android road test remains required before replacing production.
 
 ## Next safe batch
-1. Confirm green browser acceptance for native Android touch drawing.
+1. Confirm green browser acceptance for touch-start Android polygon drawing.
 2. Confirm a READY Vercel deployment and test the branch alias on phone and desktop.
-3. Add route-progress projection and remaining distance/time updates without rebuilding the route every second.
-4. Add off-route detection and throttled rerouting.
-5. Add next-maneuver banner from routing instructions.
+3. Verify runtime `/api/geocode`, `/api/overpass`, driving and walking `/api/routing` against the READY branch deployment.
+4. Add route-progress projection and remaining distance/time updates without rebuilding the route every second.
+5. Add off-route detection and throttled rerouting.
+6. Add next-maneuver banner from routing instructions.
