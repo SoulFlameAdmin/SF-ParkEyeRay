@@ -6,6 +6,7 @@ const ENDPOINTS = [
 
 const MAX_QUERY_LENGTH = 20000;
 const TIMEOUT_MS = 18000;
+const HEALTH_QUERY = '[out:json][timeout:10];node(42.68,23.30,42.71,23.34)["amenity"="parking"];out ids 1;';
 
 async function fetchEndpoint(endpoint, query) {
   const controller = new AbortController();
@@ -37,7 +38,43 @@ async function fetchEndpoint(endpoint, query) {
   }
 }
 
+async function runQuery(query) {
+  let lastError = null;
+
+  for (const endpoint of ENDPOINTS) {
+    try {
+      const data = await fetchEndpoint(endpoint, query);
+      return { data, endpoint };
+    } catch (error) {
+      lastError = error;
+      console.warn(`[ParkEyeRay] Overpass failed: ${endpoint}`, error?.message || error);
+    }
+  }
+
+  const error = new Error('Parking data service is temporarily unavailable');
+  error.cause = lastError;
+  throw error;
+}
+
 export default async function handler(req, res) {
+  if (req.method === 'GET' && req.query?.health === '1') {
+    try {
+      const { data, endpoint } = await runQuery(HEALTH_QUERY);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json({
+        ok: true,
+        endpoint,
+        elements: data.elements.length
+      });
+    } catch (error) {
+      return res.status(502).json({
+        ok: false,
+        error: error.message,
+        detail: error.cause?.message || 'Unknown upstream error'
+      });
+    }
+  }
+
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
@@ -52,21 +89,14 @@ export default async function handler(req, res) {
     return res.status(413).json({ error: 'Query is too large' });
   }
 
-  let lastError = null;
-
-  for (const endpoint of ENDPOINTS) {
-    try {
-      const data = await fetchEndpoint(endpoint, query);
-      res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=120');
-      return res.status(200).json(data);
-    } catch (error) {
-      lastError = error;
-      console.warn(`[ParkEyeRay] Overpass failed: ${endpoint}`, error?.message || error);
-    }
+  try {
+    const { data } = await runQuery(query);
+    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=120');
+    return res.status(200).json(data);
+  } catch (error) {
+    return res.status(502).json({
+      error: error.message,
+      detail: error.cause?.message || 'Unknown upstream error'
+    });
   }
-
-  return res.status(502).json({
-    error: 'Parking data service is temporarily unavailable',
-    detail: lastError?.message || 'Unknown upstream error'
-  });
 }
