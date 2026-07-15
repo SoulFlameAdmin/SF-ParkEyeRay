@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const { createEvidenceToken } = require('./_evidence-token');
+const { createEvidenceToken } = require('../../server/v2/evidence-token');
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BYTES = 8 * 1024 * 1024;
