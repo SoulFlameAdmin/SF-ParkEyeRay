@@ -1,6 +1,6 @@
 'use strict';
 
-const { verifyEvidenceToken } = require('./_evidence-token');
+const { verifyEvidenceToken } = require('../../server/v2/evidence-token');
 
 const STATUS = 'pending_soulflame';
 const WINDOW_MS = 60_000;
