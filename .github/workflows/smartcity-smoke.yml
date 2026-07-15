@@ -40,7 +40,7 @@ jobs:
           grep -q 'id="external-destination"' smart-city.html
           grep -q 'Стара Загора мол' smart-city.html
           grep -q 'Няма live информация' smart-city.html
-          grep -q 'всички OSM паркинги' smart-city.html
+          grep -qi 'всички OSM паркинги' smart-city.html
       - name: Module references exist
         run: |
           for file in smart-city-base.css smart-city-components.css smart-city-state.js smart-city-parking-grid.js smart-city-data.js smart-city-search.js smart-city-route.js smart-city-init.js; do
