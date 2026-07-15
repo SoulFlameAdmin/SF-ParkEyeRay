@@ -33,7 +33,9 @@ jobs:
           node --check api/geocode.js
           node --check api/overpass.js
           node --check api/routing.js
+          node --check api/v2/parking-proposals.js
           node --check scripts/test-v2-contracts.cjs
+          node --check scripts/test-v2-submission-api.cjs
 
       - name: Verify V2 route and five primary actions
         run: |
@@ -65,5 +67,7 @@ jobs:
       - name: Verify backend foundation contracts
         run: |
           node scripts/test-v2-contracts.cjs
+          node scripts/test-v2-submission-api.cjs
           grep -q "status = 'approved'" supabase/migrations/20260715190000_smartcity_parking_foundation.sql
           grep -q 'pending_soulflame' contracts/parking-submission.schema.json
+          grep -q "const STATUS = 'pending_soulflame'" api/v2/parking-proposals.js
