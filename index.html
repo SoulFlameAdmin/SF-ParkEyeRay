@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#111827" />
-  <title>ParkEyeRay — Паркинг карта</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%232563eb%22/><text x=%2232%22 y=%2245%22 text-anchor=%22middle%22 font-size=%2242%22 font-family=%22Arial%22 font-weight=%22700%22 fill=%22white%22>P</text></svg>">
+  <title>ParkEyeRay — Най-близък паркинг</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%232563eb%22/><text x=%2232%22 y=%2245%22 text-anchor=%22middle%22 font-size=%2242%22 font-family=%22Arial%22 font-weight=%22700%22 fill=%22white%22>P</text></svg>" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
   <style>
     * { box-sizing: border-box; }
@@ -21,7 +21,7 @@
       right: 12px;
       z-index: 1000;
       display: grid;
-      grid-template-columns: 46px minmax(220px, 620px) 46px;
+      grid-template-columns: 46px minmax(220px, 680px) 46px;
       justify-content: space-between;
       gap: 10px;
       pointer-events: none;
@@ -39,7 +39,7 @@
       box-shadow: 0 8px 24px rgba(0, 0, 0, .22);
       cursor: pointer;
     }
-    .control-button:disabled { opacity: .6; cursor: wait; }
+    .control-button:disabled { opacity: .55; cursor: wait; }
 
     .search-wrap { position: relative; min-width: 0; }
     .search-form {
@@ -47,13 +47,13 @@
       grid-template-columns: 1fr auto;
       padding: 5px;
       border-radius: 15px;
-      background: rgba(255, 255, 255, .97);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+      background: rgba(255,255,255,.98);
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
     }
     .search-form input {
       min-width: 0;
       height: 36px;
-      padding: 0 10px;
+      padding: 0 11px;
       border: 0;
       outline: 0;
       background: transparent;
@@ -61,21 +61,23 @@
     }
     .search-form button {
       height: 36px;
-      padding: 0 14px;
+      padding: 0 16px;
       border: 0;
       border-radius: 10px;
       background: #2563eb;
       color: #fff;
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
     }
+    .search-form button:disabled { opacity: .65; cursor: wait; }
+
     .search-results {
       position: absolute;
       top: 52px;
       left: 0;
       right: 0;
       display: none;
-      max-height: min(320px, 55vh);
+      max-height: min(310px, 52vh);
       overflow: auto;
       border-radius: 14px;
       background: #fff;
@@ -94,6 +96,7 @@
       cursor: pointer;
     }
     .search-result:hover { background: #f3f4f6; }
+    .search-result small { display: block; margin-top: 3px; color: #64748b; }
 
     #status {
       position: fixed;
@@ -104,12 +107,12 @@
       max-width: calc(100vw - 28px);
       padding: 9px 13px;
       border-radius: 999px;
-      background: rgba(17, 24, 39, .94);
+      background: rgba(17,24,39,.94);
       color: #fff;
       font-size: 12px;
       line-height: 1.3;
       text-align: center;
-      box-shadow: 0 8px 22px rgba(0, 0, 0, .18);
+      box-shadow: 0 8px 22px rgba(0,0,0,.18);
     }
 
     #panel-container {
@@ -124,60 +127,96 @@
       transform: translateY(-8px);
       transition: max-height .25s ease, opacity .2s ease, transform .2s ease;
       border-radius: 16px;
-      box-shadow: 0 14px 35px rgba(0, 0, 0, .25);
+      box-shadow: 0 14px 35px rgba(0,0,0,.25);
     }
     #panel-container.active { max-height: 420px; opacity: 1; transform: translateY(0); }
     #panel-container iframe { display: block; width: 100%; height: 310px; border: 0; background: #f4f4f4; }
 
-    .parking-marker {
+    .parking-marker, .nearest-marker {
       display: grid;
       place-items: center;
       width: 30px;
       height: 30px;
       border: 2px solid #fff;
       border-radius: 9px;
-      background: #2563eb;
       color: #fff;
       font-weight: 900;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, .28);
+      box-shadow: 0 4px 12px rgba(0,0,0,.28);
     }
-    .location-marker {
+    .parking-marker { background: #2563eb; }
+    .nearest-marker { width: 36px; height: 36px; border-radius: 11px; background: #16a34a; font-size: 17px; }
+    .user-marker {
       width: 22px;
       height: 22px;
       border: 4px solid #fff;
       border-radius: 50%;
-      background: #16a34a;
+      background: #2563eb;
       box-shadow: 0 3px 12px rgba(0,0,0,.4);
     }
+    .destination-marker {
+      width: 28px;
+      height: 28px;
+      border: 4px solid #fff;
+      border-radius: 50% 50% 50% 0;
+      background: #dc2626;
+      transform: rotate(-45deg);
+      box-shadow: 0 3px 12px rgba(0,0,0,.4);
+    }
+    .destination-marker::after {
+      content: '';
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      top: 6px;
+      left: 6px;
+      border-radius: 50%;
+      background: #fff;
+    }
 
-    .leaflet-control-zoom { margin-top: 112px !important; }
-    .leaflet-popup-content { min-width: 160px; }
-    .leaflet-popup-content a { color: #2563eb; font-weight: 700; }
-
-    #help {
+    #nearest-card {
       position: fixed;
       left: 50%;
-      bottom: max(18px, env(safe-area-inset-bottom));
-      z-index: 900;
+      bottom: max(16px, env(safe-area-inset-bottom));
+      z-index: 1000;
+      display: none;
       transform: translateX(-50%);
-      width: max-content;
-      max-width: calc(100vw - 28px);
-      padding: 9px 13px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.96);
-      font-size: 12px;
-      text-align: center;
-      box-shadow: 0 8px 24px rgba(0,0,0,.16);
+      width: min(560px, calc(100vw - 24px));
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.98);
+      box-shadow: 0 16px 40px rgba(0,0,0,.26);
     }
+    #nearest-card.active { display: block; }
+    .nearest-label { color: #16a34a; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; }
+    .nearest-title { margin-top: 3px; font-size: 17px; font-weight: 900; }
+    .nearest-meta { margin-top: 5px; color: #475569; font-size: 13px; }
+    .nearest-actions { display: flex; gap: 9px; margin-top: 12px; }
+    .nearest-actions a, .nearest-actions button {
+      flex: 1;
+      min-height: 40px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 11px;
+      text-decoration: none;
+      font-weight: 850;
+      cursor: pointer;
+    }
+    .navigate-button { background: #16a34a; color: #fff; }
+    .show-button { background: #e2e8f0; color: #0f172a; }
+
+    .leaflet-control-zoom { margin-top: 112px !important; }
+    .leaflet-popup-content { min-width: 165px; }
+    .leaflet-popup-content a { color: #2563eb; font-weight: 800; }
 
     @media (max-width: 700px) {
       .topbar { grid-template-columns: 43px 1fr 43px; gap: 7px; }
       .control-button { width: 43px; height: 43px; border-radius: 13px; }
       .search-form { padding: 4px; }
       .search-form input { height: 35px; font-size: 13px; }
-      .search-form button { height: 35px; padding: 0 10px; font-size: 13px; }
+      .search-form button { height: 35px; padding: 0 11px; font-size: 13px; }
       #status { top: calc(max(12px, env(safe-area-inset-top)) + 53px); font-size: 11px; }
-      #help { font-size: 11px; }
+      .nearest-title { font-size: 15px; }
     }
   </style>
 </head>
@@ -188,21 +227,30 @@
     <button id="menu-button" class="control-button" type="button" aria-label="Отвори меню">☰</button>
     <div class="search-wrap">
       <form id="search-form" class="search-form">
-        <input id="search-input" type="search" autocomplete="off" placeholder="Град, улица или адрес в България" aria-label="Търси адрес" />
-        <button type="submit">Търси</button>
+        <input id="search-input" type="search" autocomplete="off" placeholder="Улица или адрес — напр. Янка Войвода 2" aria-label="Търси адрес" />
+        <button id="search-button" type="submit">Търси</button>
       </form>
       <div id="search-results" class="search-results" role="listbox"></div>
     </div>
     <button id="locate-button" class="control-button" type="button" aria-label="Моето местоположение">⌖</button>
   </div>
 
-  <div id="status" role="status">Зареждам картата…</div>
+  <div id="status" role="status">Зареждам ParkEyeRay…</div>
 
   <div id="panel-container">
     <iframe src="panel.html" title="Меню ParkEyeRay"></iframe>
   </div>
 
-  <div id="help">GPS се проверява. Можеш и да потърсиш адрес или да докоснеш картата.</div>
+  <section id="nearest-card" aria-live="polite">
+    <div class="nearest-label">Най-близък паркинг</div>
+    <div id="nearest-title" class="nearest-title">—</div>
+    <div id="nearest-meta" class="nearest-meta">—</div>
+    <div class="nearest-actions">
+      <button id="show-nearest" class="show-button" type="button">Покажи</button>
+      <a id="navigate-nearest" class="navigate-button" href="#" target="_blank" rel="noopener noreferrer">Навигирай</a>
+    </div>
+  </section>
+
   <iframe id="worker" src="parkomesta.html" title="Parking data worker" hidden></iframe>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
@@ -213,28 +261,36 @@
       const BULGARIA_CENTER = [42.7339, 25.4858];
       const BG_LIMITS = { south: 41.10, north: 44.30, west: 22.20, east: 28.75 };
       const targetOrigin = window.location.origin;
+
       const statusEl = document.getElementById('status');
-      const helpEl = document.getElementById('help');
       const workerFrame = document.getElementById('worker');
       const panel = document.getElementById('panel-container');
       const locateButton = document.getElementById('locate-button');
       const searchForm = document.getElementById('search-form');
       const searchInput = document.getElementById('search-input');
+      const searchButton = document.getElementById('search-button');
       const searchResults = document.getElementById('search-results');
+      const nearestCard = document.getElementById('nearest-card');
+      const nearestTitle = document.getElementById('nearest-title');
+      const nearestMeta = document.getElementById('nearest-meta');
+      const navigateNearest = document.getElementById('navigate-nearest');
+      const showNearestButton = document.getElementById('show-nearest');
 
       let map;
-      let pinMarker;
-      let accuracyCircle;
       let parkingLayer;
+      let userMarker;
+      let userAccuracy;
+      let destinationMarker;
+      let connectionLine;
       let workerReady = false;
       let pendingSearch = null;
+      let activeSearchPoint = null;
+      let userLocation = null;
+      let destination = null;
+      let nearestParking = null;
       let locating = false;
-      let locateWatchId = null;
-      let locateTimer = null;
-      let bestPosition = null;
 
       const setStatus = (text) => { statusEl.textContent = text; };
-      const hideHelp = () => { helpEl.style.display = 'none'; };
       const isInBulgaria = (lat, lon) => Number.isFinite(lat) && Number.isFinite(lon)
         && lat >= BG_LIMITS.south && lat <= BG_LIMITS.north
         && lon >= BG_LIMITS.west && lon <= BG_LIMITS.east;
@@ -243,14 +299,10 @@
         .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 
-      const parkingIcon = L.divIcon({
-        className: '', html: '<div class="parking-marker">P</div>',
-        iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -14]
-      });
-      const locationIcon = L.divIcon({
-        className: '', html: '<div class="location-marker"></div>',
-        iconSize: [22, 22], iconAnchor: [11, 11]
-      });
+      const parkingIcon = L.divIcon({ className:'', html:'<div class="parking-marker">P</div>', iconSize:[30,30], iconAnchor:[15,15], popupAnchor:[0,-14] });
+      const nearestIcon = L.divIcon({ className:'', html:'<div class="nearest-marker">P</div>', iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-17] });
+      const userIcon = L.divIcon({ className:'', html:'<div class="user-marker"></div>', iconSize:[22,22], iconAnchor:[11,11] });
+      const destinationIcon = L.divIcon({ className:'', html:'<div class="destination-marker"></div>', iconSize:[28,28], iconAnchor:[8,27] });
 
       function initMap() {
         if (typeof L === 'undefined') {
@@ -258,275 +310,299 @@
           return;
         }
 
-        map = L.map('map', { zoomControl: true, minZoom: 6 }).setView(BULGARIA_CENTER, 7);
+        map = L.map('map', { zoomControl:true, minZoom:6 }).setView(BULGARIA_CENTER, 7);
         parkingLayer = L.layerGroup().addTo(map);
-        const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap contributors'
-        });
-        tiles.on('tileerror', () => setStatus('Част от картата не се зареди. Провери интернет връзката.'));
-        tiles.addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom:19,
+          attribution:'&copy; OpenStreetMap contributors'
+        }).addTo(map);
 
         map.on('click', (event) => {
           searchResults.classList.remove('active');
           const { lat, lng } = event.latlng;
           if (!isInBulgaria(lat, lng)) {
-            setStatus('ParkEyeRay в момента работи за България. Избери точка в България.');
+            setStatus('Избери точка в България.');
             return;
           }
-          applyLocation(lat, lng, { source: 'ръчно избрана точка', accuracy: null, search: true, zoom: 15 });
+          setDestination({ lat, lon:lng, name:'Избрана точка на картата' });
         });
 
-        setStatus('Проверявам реалното GPS местоположение…');
+        setStatus('Определям местоположението ти…');
         locateUser();
-      }
-
-      function stopLocationWatch() {
-        if (locateWatchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(locateWatchId);
-        if (locateTimer) clearTimeout(locateTimer);
-        locateWatchId = null;
-        locateTimer = null;
-        locating = false;
-        locateButton.disabled = false;
-      }
-
-      function finishGpsLocation() {
-        stopLocationWatch();
-        if (bestPosition && isInBulgaria(bestPosition.lat, bestPosition.lon) && bestPosition.accuracy <= 2500) {
-          const rough = bestPosition.accuracy > 500;
-          applyLocation(bestPosition.lat, bestPosition.lon, {
-            source: rough ? 'GPS с ниска точност' : 'GPS',
-            accuracy: bestPosition.accuracy,
-            search: true
-          });
-          return;
-        }
-        useIpFallback(bestPosition ? 'GPS даде грешна или неточна позиция' : 'GPS не върна позиция');
       }
 
       function locateUser() {
         if (locating) return;
         if (!navigator.geolocation) {
-          useIpFallback('Този браузър няма GPS поддръжка');
+          setStatus('GPS не се поддържа. Потърси адрес.');
           return;
         }
 
         locating = true;
         locateButton.disabled = true;
-        bestPosition = null;
-        setStatus('Събирам точни GPS данни…');
-
-        locateWatchId = navigator.geolocation.watchPosition(
+        navigator.geolocation.getCurrentPosition(
           (position) => {
+            locating = false;
+            locateButton.disabled = false;
             const lat = Number(position.coords.latitude);
             const lon = Number(position.coords.longitude);
-            const accuracy = Number(position.coords.accuracy || 99999);
-            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-
-            if (!bestPosition || accuracy < bestPosition.accuracy) {
-              bestPosition = { lat, lon, accuracy, timestamp: position.timestamp };
-            }
+            const accuracy = Number(position.coords.accuracy || 0);
 
             if (!isInBulgaria(lat, lon)) {
-              setStatus('Браузърът подава позиция извън България. Проверявам резервен източник…');
+              map.setView(BULGARIA_CENTER, 7);
+              setStatus('Браузърът подаде грешна позиция извън България. Потърси адрес.');
               return;
             }
 
-            setStatus(`GPS точност: ±${Math.round(accuracy)} м. Изчаквам по-точен сигнал…`);
-            if (accuracy <= 120) {
-              stopLocationWatch();
-              applyLocation(lat, lon, { source: 'GPS', accuracy, search: true });
+            userLocation = { lat, lon, accuracy };
+            const point = [lat, lon];
+            if (!userMarker) userMarker = L.marker(point, { icon:userIcon, title:'Твоето местоположение' }).addTo(map);
+            else userMarker.setLatLng(point);
+
+            if (userAccuracy) userAccuracy.remove();
+            if (accuracy > 0) {
+              userAccuracy = L.circle(point, {
+                radius:Math.min(accuracy, 3000), color:'#2563eb', weight:1,
+                fillColor:'#3b82f6', fillOpacity:.10
+              }).addTo(map);
             }
+
+            map.setView(point, accuracy <= 150 ? 16 : 14);
+            setStatus(`Местоположение намерено${accuracy ? ` — точност ±${Math.round(accuracy)} м` : ''}. Потърси улица или адрес.`);
           },
           (error) => {
-            const reason = error?.code === 1 ? 'Достъпът до GPS е отказан' : 'GPS не е достъпен';
-            stopLocationWatch();
-            useIpFallback(reason);
+            locating = false;
+            locateButton.disabled = false;
+            const denied = error?.code === 1;
+            setStatus(denied ? 'GPS достъпът е отказан. Потърси адрес.' : 'GPS не е достъпен. Потърси адрес.');
           },
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+          { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
         );
-
-        locateTimer = setTimeout(finishGpsLocation, 12000);
       }
 
-      async function useIpFallback(reason) {
-        stopLocationWatch();
-        setStatus(`${reason}. Проверявам приблизително местоположение…`);
-        try {
-          const response = await fetch('/api/geo', { cache: 'no-store' });
-          if (!response.ok) throw new Error('Geo service failed');
-          const geo = await response.json();
-          const lat = Number(geo.latitude);
-          const lon = Number(geo.longitude);
-
-          if (geo.country === 'BG' && isInBulgaria(lat, lon)) {
-            applyLocation(lat, lon, {
-              source: `приблизително по интернет${geo.city ? ` — ${geo.city}` : ''}`,
-              accuracy: null,
-              search: true,
-              zoom: 12
-            });
-            return;
-          }
-
-          if (geo.country === 'BG' && geo.city) {
-            const result = await searchAddress(geo.city, true);
-            if (result) return;
-          }
-        } catch (error) {
-          console.warn('IP geolocation fallback failed', error);
-        }
-
-        map.setView(BULGARIA_CENTER, 7);
-        setStatus('Не приемам грешната позиция. Потърси своя град/адрес или избери точка на картата.');
-      }
-
-      function applyLocation(lat, lon, options = {}) {
+      function setDestination(item) {
+        const lat = Number(item.lat);
+        const lon = Number(item.lon);
         if (!isInBulgaria(lat, lon)) {
-          setStatus('Отказах позиция извън България. Използвай търсенето по адрес.');
-          map.setView(BULGARIA_CENTER, 7);
+          setStatus('Адресът не е в България.');
           return;
         }
 
-        hideHelp();
+        destination = { lat, lon, name:item.name || 'Търсен адрес' };
         const point = [lat, lon];
-        if (!pinMarker) {
-          pinMarker = L.marker(point, { icon: locationIcon, draggable: true, title: 'Избрано местоположение' }).addTo(map);
-          pinMarker.on('dragend', () => {
-            const current = pinMarker.getLatLng();
-            if (!isInBulgaria(current.lat, current.lng)) {
-              setStatus('Избери точка в България.');
-              return;
-            }
-            applyLocation(current.lat, current.lng, { source: 'преместен маркер', accuracy: null, search: true, zoom: 15 });
-          });
-        } else {
-          pinMarker.setLatLng(point);
-        }
+        if (!destinationMarker) destinationMarker = L.marker(point, { icon:destinationIcon, title:'Търсен адрес' }).addTo(map);
+        else destinationMarker.setLatLng(point);
+        destinationMarker.bindPopup(`<strong>Дестинация</strong><br>${escapeHtml(destination.name)}`).openPopup();
 
-        if (accuracyCircle) accuracyCircle.remove();
-        if (Number.isFinite(options.accuracy) && options.accuracy > 0) {
-          accuracyCircle = L.circle(point, {
-            radius: Math.min(options.accuracy, 5000),
-            color: '#16a34a', weight: 1, fillColor: '#22c55e', fillOpacity: .12
-          }).addTo(map);
-        }
-
-        const zoom = options.zoom || (options.accuracy <= 100 ? 17 : options.accuracy <= 500 ? 15 : 13);
-        map.setView(point, zoom);
-        const accuracyText = Number.isFinite(options.accuracy) ? `, точност ±${Math.round(options.accuracy)} м` : '';
-        setStatus(`Позиция: ${options.source || 'избрана точка'}${accuracyText}. Търся паркинги…`);
-        if (options.search !== false) requestParkings(lat, lon);
+        nearestCard.classList.remove('active');
+        nearestParking = null;
+        searchInput.value = destination.name;
+        map.setView(point, 16);
+        setStatus('Адресът е намерен. Търся най-близкия паркинг…');
+        requestParkings(lat, lon, 'destination');
       }
 
-      function requestParkings(lat, lon) {
-        pendingSearch = { type: 'SEARCH_PARKINGS', payload: { lat, lon } };
+      function requestParkings(lat, lon, mode='nearby') {
+        activeSearchPoint = { lat, lon, mode };
+        pendingSearch = { type:'SEARCH_PARKINGS', payload:{ lat, lon, mode } };
         if (!workerReady || !workerFrame.contentWindow) return;
         workerFrame.contentWindow.postMessage(pendingSearch, targetOrigin);
         pendingSearch = null;
       }
 
-      async function searchAddress(query, autoPick = false) {
+      async function searchAddress(query, showAlternatives=false) {
         const text = String(query || '').trim();
-        if (text.length < 2) return null;
-        setStatus(`Търся „${text}“ в България…`);
+        if (text.length < 2) return;
+
+        searchButton.disabled = true;
         searchResults.classList.remove('active');
+        setStatus(`Търся адрес „${text}“…`);
 
         try {
-          const response = await fetch(`/api/geocode?q=${encodeURIComponent(text)}`);
+          const bias = userLocation || (map ? { lat:map.getCenter().lat, lon:map.getCenter().lng } : null);
+          const params = new URLSearchParams({ q:text });
+          if (bias) {
+            params.set('lat', String(bias.lat));
+            params.set('lon', String(bias.lon));
+          }
+
+          const response = await fetch(`/api/geocode?${params.toString()}`);
           const data = await response.json();
           if (!response.ok) throw new Error(data?.error || 'Search failed');
           const results = Array.isArray(data.results) ? data.results : [];
+
           if (!results.length) {
-            setStatus('Не намерих този адрес в България. Опитай с град и улица.');
-            return null;
+            setStatus('Не намерих адреса. Добави град, например: „Янка Войвода 2, Сливен“');
+            return;
           }
 
-          if (autoPick) {
-            const item = results[0];
-            applyLocation(item.lat, item.lon, { source: item.name, accuracy: null, search: true, zoom: 14 });
-            return item;
-          }
+          const first = results[0];
+          setDestination(first);
 
-          searchResults.innerHTML = '';
-          results.forEach((item) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'search-result';
-            button.textContent = item.name;
-            button.addEventListener('click', () => {
-              searchResults.classList.remove('active');
-              searchInput.value = item.name;
-              applyLocation(item.lat, item.lon, { source: 'търсене по адрес', accuracy: null, search: true, zoom: 16 });
-            });
-            searchResults.appendChild(button);
-          });
-          searchResults.classList.add('active');
-          setStatus(`Намерени резултати: ${results.length}. Избери адрес.`);
-          return results[0];
+          if (showAlternatives && results.length > 1) renderSearchAlternatives(results.slice(1));
         } catch (error) {
-          setStatus('Търсенето по адрес временно не работи. Избери точка на картата.');
-          return null;
+          console.error(error);
+          setStatus('Търсенето временно не работи. Избери точка на картата.');
+        } finally {
+          searchButton.disabled = false;
         }
       }
 
-      function popupContent(element) {
+      function renderSearchAlternatives(results) {
+        searchResults.innerHTML = '';
+        results.forEach((item) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'search-result';
+          button.innerHTML = `${escapeHtml(item.name)}<small>Избери този адрес</small>`;
+          button.addEventListener('click', () => {
+            searchResults.classList.remove('active');
+            setDestination(item);
+          });
+          searchResults.appendChild(button);
+        });
+        if (results.length) searchResults.classList.add('active');
+      }
+
+      function radians(value) { return value * Math.PI / 180; }
+      function distanceMeters(a, b) {
+        const earth = 6371000;
+        const dLat = radians(b.lat - a.lat);
+        const dLon = radians(b.lon - a.lon);
+        const lat1 = radians(a.lat);
+        const lat2 = radians(b.lat);
+        const h = Math.sin(dLat/2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon/2) ** 2;
+        return earth * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
+      }
+
+      function representativePoint(element) {
+        const lat = Number(element.lat ?? element.center?.lat);
+        const lon = Number(element.lon ?? element.center?.lon);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
+
+        if (Array.isArray(element.geometry) && element.geometry.length) {
+          const valid = element.geometry.filter((p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)));
+          if (valid.length) {
+            return {
+              lat:valid.reduce((sum,p) => sum + Number(p.lat), 0) / valid.length,
+              lon:valid.reduce((sum,p) => sum + Number(p.lon), 0) / valid.length
+            };
+          }
+        }
+
+        if (Array.isArray(element.members)) {
+          const points = element.members.flatMap((member) => Array.isArray(member.geometry) ? member.geometry : []);
+          const valid = points.filter((p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)));
+          if (valid.length) {
+            return {
+              lat:valid.reduce((sum,p) => sum + Number(p.lat), 0) / valid.length,
+              lon:valid.reduce((sum,p) => sum + Number(p.lon), 0) / valid.length
+            };
+          }
+        }
+        return null;
+      }
+
+      function parkingName(element) {
         const tags = element.tags || {};
-        const name = escapeHtml(tags.name || 'Паркинг');
-        const type = tags.parking ? ` (${escapeHtml(tags.parking)})` : '';
-        const operator = tags.operator ? `<div style="margin-top:5px;color:#64748b">Оператор: ${escapeHtml(tags.operator)}</div>` : '';
-        const osmUrl = element.type === 'node'
-          ? `https://www.openstreetmap.org/node/${encodeURIComponent(element.id)}`
-          : element.type === 'way'
-            ? `https://www.openstreetmap.org/way/${encodeURIComponent(element.id)}`
-            : `https://www.openstreetmap.org/relation/${encodeURIComponent(element.id)}`;
-        return `<strong>${name}${type}</strong><br><a href="${osmUrl}" target="_blank" rel="noopener noreferrer">Отвори в OSM</a>${operator}`;
+        return tags.name || tags.operator || 'Паркинг';
+      }
+
+      function osmUrl(element) {
+        const type = ['node','way','relation'].includes(element.type) ? element.type : 'node';
+        return `https://www.openstreetmap.org/${type}/${encodeURIComponent(element.id)}`;
+      }
+
+      function popupContent(element, distance, isNearest=false) {
+        const name = escapeHtml(parkingName(element));
+        const type = element.tags?.parking ? ` (${escapeHtml(element.tags.parking)})` : '';
+        const distanceText = Number.isFinite(distance) ? `<div style="margin-top:5px">Разстояние: <strong>${formatDistance(distance)}</strong></div>` : '';
+        return `${isNearest ? '<strong style="color:#16a34a">Най-близък паркинг</strong><br>' : ''}<strong>${name}${type}</strong>${distanceText}<div style="margin-top:6px"><a href="${osmUrl(element)}" target="_blank" rel="noopener noreferrer">Данни в OSM</a></div>`;
+      }
+
+      function formatDistance(meters) {
+        if (meters < 1000) return `${Math.max(1, Math.round(meters))} м`;
+        return `${(meters / 1000).toFixed(meters < 10000 ? 1 : 0)} км`;
+      }
+
+      function drawParkingElement(element, icon, popup, isNearest=false) {
+        const point = representativePoint(element);
+        if (!point) return null;
+
+        if (!isNearest && (element.type === 'way' || element.type === 'relation') && Array.isArray(element.geometry) && element.geometry.length) {
+          const path = element.geometry.map((p) => [Number(p.lat), Number(p.lon)]).filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+          if (path.length > 2) {
+            L.polygon(path, { color:'#2563eb', weight:2, fillOpacity:.12 }).bindPopup(popup).addTo(parkingLayer);
+          }
+        }
+
+        return L.marker([point.lat, point.lon], { icon, zIndexOffset:isNearest ? 1000 : 0 })
+          .bindPopup(popup)
+          .addTo(parkingLayer);
       }
 
       function drawParkings(features) {
         parkingLayer.clearLayers();
-        const bounds = L.latLngBounds();
-        features.forEach((element) => {
-          if (element.type === 'relation' && Array.isArray(element.members)) {
-            const outerPaths = element.members
-              .filter((member) => (member.role === 'outer' || member.role === 'outline') && Array.isArray(member.geometry))
-              .map((member) => member.geometry.map((point) => [point.lat, point.lon]));
-            if (outerPaths.length) {
-              L.polygon(outerPaths).bindPopup(popupContent(element)).addTo(parkingLayer);
-              outerPaths.flat().forEach((point) => bounds.extend(point));
-              return;
-            }
-          }
+        if (connectionLine) { connectionLine.remove(); connectionLine = null; }
+        nearestCard.classList.remove('active');
+        nearestParking = null;
 
-          if ((element.type === 'way' || element.type === 'relation') && Array.isArray(element.geometry) && element.geometry.length) {
-            const path = element.geometry.map((point) => [point.lat, point.lon]);
-            L.polygon(path).bindPopup(popupContent(element)).addTo(parkingLayer);
-            path.forEach((point) => bounds.extend(point));
-            return;
-          }
-
-          const lat = Number(element.lat ?? element.center?.lat);
-          const lon = Number(element.lon ?? element.center?.lon);
-          if (Number.isFinite(lat) && Number.isFinite(lon)) {
-            L.marker([lat, lon], { icon: parkingIcon }).bindPopup(popupContent(element)).addTo(parkingLayer);
-            bounds.extend([lat, lon]);
-          }
-        });
-
-        if (bounds.isValid()) {
-          if (pinMarker) bounds.extend(pinMarker.getLatLng());
-          map.fitBounds(bounds.pad(.12), { maxZoom: 16 });
+        const searchPoint = activeSearchPoint;
+        if (!searchPoint || !Array.isArray(features) || !features.length) {
+          setStatus('Не намерих отбелязан паркинг наблизо.');
+          return;
         }
+
+        const ranked = features
+          .map((element) => {
+            const point = representativePoint(element);
+            return point ? { element, point, distance:distanceMeters(searchPoint, point) } : null;
+          })
+          .filter(Boolean)
+          .sort((a,b) => a.distance - b.distance);
+
+        if (!ranked.length) {
+          setStatus('Паркингите нямат достатъчно координатни данни.');
+          return;
+        }
+
+        nearestParking = ranked[0];
+        ranked.slice(1).forEach((item) => {
+          drawParkingElement(item.element, parkingIcon, popupContent(item.element, item.distance, false), false);
+        });
+        const nearestLayer = drawParkingElement(
+          nearestParking.element,
+          nearestIcon,
+          popupContent(nearestParking.element, nearestParking.distance, true),
+          true
+        );
+
+        const start = [searchPoint.lat, searchPoint.lon];
+        const end = [nearestParking.point.lat, nearestParking.point.lon];
+        connectionLine = L.polyline([start, end], { color:'#16a34a', weight:4, opacity:.8, dashArray:'8 8' }).addTo(map);
+        map.fitBounds(L.latLngBounds([start, end]).pad(.45), { maxZoom:17 });
+        nearestLayer?.openPopup();
+
+        const name = parkingName(nearestParking.element);
+        nearestTitle.textContent = name;
+        nearestMeta.textContent = `${formatDistance(nearestParking.distance)} по права линия от ${destination ? 'търсения адрес' : 'избраната точка'}. Намерени общо: ${ranked.length}.`;
+        navigateNearest.href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nearestParking.point.lat)},${encodeURIComponent(nearestParking.point.lon)}&travelmode=driving`;
+        nearestCard.classList.add('active');
+        setStatus(`Най-близък паркинг: ${name} — ${formatDistance(nearestParking.distance)}`);
       }
 
       document.getElementById('menu-button').addEventListener('click', () => panel.classList.toggle('active'));
       locateButton.addEventListener('click', locateUser);
       searchForm.addEventListener('submit', (event) => {
         event.preventDefault();
-        searchAddress(searchInput.value);
+        searchAddress(searchInput.value, true);
       });
       document.addEventListener('click', (event) => {
         if (!event.target.closest('.search-wrap')) searchResults.classList.remove('active');
+      });
+      showNearestButton.addEventListener('click', () => {
+        if (!nearestParking) return;
+        map.setView([nearestParking.point.lat, nearestParking.point.lon], 18);
       });
 
       workerFrame.addEventListener('load', () => {
@@ -541,14 +617,10 @@
         if (event.origin !== targetOrigin || event.source !== workerFrame.contentWindow) return;
         const message = event.data || {};
         if (message.type === 'PARKINGS_RESULT') {
-          const features = Array.isArray(message.features) ? message.features : [];
-          drawParkings(features);
-          setStatus(features.length
-            ? `Намерени паркинг обекти наблизо: ${features.length}`
-            : 'Не са намерени отбелязани паркинги наблизо. Избери друга точка.');
-        }
-        if (message.type === 'PARKINGS_ERROR') {
+          drawParkings(Array.isArray(message.features) ? message.features : []);
+        } else if (message.type === 'PARKINGS_ERROR') {
           parkingLayer.clearLayers();
+          nearestCard.classList.remove('active');
           setStatus(`Паркинг данните временно не са достъпни: ${message.message || 'опитай отново'}`);
         }
       });
