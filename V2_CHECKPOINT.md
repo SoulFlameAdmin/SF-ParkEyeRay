@@ -6,7 +6,7 @@
 - Preview route: `/v2`
 - Master plan: issue `#5`
 - Completed technical roadmap stages: **Stage 1, Stage 2 and Stage 3 parking data engine**
-- Next active roadmap stage: **SoulFlame moderation workflow and authenticated UI submission**
+- Active roadmap stage: **SoulFlame moderation workflow and authenticated UI submission**
 
 ## Stage 1 — stable phone-first interface
 - Exactly five primary actions.
@@ -34,20 +34,24 @@
 - UI labels PostGIS, approved SoulFlame and fallback data honestly.
 - `liveOccupancy: false` is explicit; no live vacancy is implied.
 
-## Applied Supabase infrastructure
-The connected Supabase project now has the following migrations applied:
-- SmartCity parking foundation;
-- private evidence storage;
-- parking data engine;
-- search hardening;
-- parking-engine security hardening.
+## SoulFlame moderation backend batch
+- Added server-only moderator authentication requiring both a dedicated moderator key and moderator UUID.
+- Added protected `GET /api/v2/moderation-proposals` list and detail reads.
+- List output is restricted to `pending_soulflame` community proposals.
+- Detail output includes geometry, entrances, evidence and moderation history.
+- Added protected `POST /api/v2/moderate-parking-proposal`.
+- Supported actions are approve, reject and request changes.
+- Reject and request-changes actions require a reason.
+- Added atomic service-role-only `moderate_parking_proposal` PostGIS RPC.
+- The RPC locks the proposal, verifies it is still `pending_soulflame`, changes status and writes the audit event in one transaction.
+- Approval is the only transition that sets `verified_at` and `verified_by`.
+- Moderation event update/delete/truncate access is revoked from public, anon and authenticated roles.
+- Added deterministic moderation contract tests.
 
-Security verification:
-- anon and authenticated roles can execute only the bounded public parking search;
-- anon and authenticated roles cannot finalize imports;
-- only service role can finalize an import;
-- parking feature/import tables remain protected by RLS;
-- no service-role key is exposed in browser configuration.
+## Applied Supabase infrastructure
+The connected Supabase project has the parking foundation, private evidence storage, parking data engine, search hardening and parking-engine security migrations applied.
+
+The new SoulFlame moderation migration is committed but must not be described as applied until it is verified against the configured project.
 
 ## First real data import
 Scope: `bg:sliven-core`
@@ -60,48 +64,34 @@ Imported from live OSM data into PostGIS:
 
 The spatial RPC returns real Sliven results around the requested destination. Occupancy remains unknown and is labelled as non-live.
 
-## Automated verification
-The Stage 3 code commit passed:
-- SmartCity V2 browser acceptance;
-- SmartCity V2 smoke;
-- existing SmartCity parking smoke.
-
-The acceptance flow covers normalized PostGIS records, an approved SoulFlame source fixture, selection, vehicle routing to an entrance and walking to the destination.
-
 ## Runtime preview verification
-Vercel reached the free-plan limit of more than 100 deployments per day. The Vercel branch alias therefore still serves an older V2 build and must not be presented as Stage 3.
+Vercel reached the free-plan limit of more than 100 deployments per day. The Vercel branch alias therefore still serves an older V2 build and must not be presented as the current moderation build.
 
-A temporary keyed, read-only Supabase Edge Preview was deployed for Stage 3. Supabase infrastructure verified:
-- preview HTML response: HTTP 200;
-- parking JSON response: HTTP 200;
-- the JSON response contains real PostGIS Sliven parking records.
+The temporary keyed Supabase Edge Preview remains read-only and does not expose moderation or write operations.
 
 ## Production safety
 - Production `/app` remains unchanged.
 - PR #6 remains draft and unmerged.
-- The temporary preview has no administrative or write operations.
-- Public search is bounded to Bulgaria, radius 100–5000 m and limited results.
-
-## Existing backend foundation
-- Authenticated parking proposal contract with forced `pending_soulflame` status.
-- Idempotent proposal submission API.
-- Private evidence bucket and signed evidence-token contract.
-- Moderation state machine and approved-only public publication rule.
+- No service-role or moderator secret is stored in browser configuration.
+- Public search remains bounded to Bulgaria, radius 100–5000 m and limited results.
+- User proposals remain `pending_soulflame` until an explicit moderator transition.
+- Only `approved` SoulFlame zones can enter published parking results.
 
 ## Remaining limitations
+- The moderation migration is not yet confirmed as applied.
+- Moderation endpoints require `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `SOULFLAME_MODERATOR_KEY` server environment variables.
+- Signed evidence viewing for moderators is not implemented yet.
+- The moderation dashboard UI is not implemented yet.
+- Authenticated proposal UI and photo-byte upload are not wired yet.
 - PostGIS coverage currently includes the imported central Sliven scope, not all of Bulgaria.
-- Other areas depend on the intended Overpass fallback after the complete V2 build is deployed.
-- Full polygon geometries should be preserved for nationwide import batches; the first live Sliven bootstrap includes representative points for many features.
-- Authenticated proposal UI and photo upload are not wired yet.
 - The current in-memory submission limiter must be replaced by a durable shared limiter before public scale.
 - Real live vacancy requires municipality/operator/sensor data.
 - A physical test on the user’s Android device remains required before replacing production.
 
-## Next safe batch — moderation and authenticated submission UI
-1. Build service-role-only list and detail endpoints for `pending_soulflame` proposals.
-2. Add approve, reject and request-changes actions with immutable audit history.
-3. Add signed evidence viewing for moderators.
-4. Build the SoulFlame moderation dashboard without adding a sixth phone action.
-5. Wire authenticated proposal submission and protected photo upload with local outbox fallback.
-6. Ensure only approved polygons enter the parking engine.
-7. Expand controlled OSM imports from Sliven to additional Bulgarian scopes.
+## Next safe batch
+1. Add short-lived signed evidence viewing for authenticated moderators.
+2. Build the moderation dashboard as an internal route without adding a sixth primary phone action.
+3. Wire authenticated V2 proposal submission and protected photo upload with local outbox fallback.
+4. Apply and verify the moderation migration in the configured Supabase project.
+5. Re-run V2 smoke, browser acceptance and Preview runtime checks.
+6. Expand controlled OSM imports from Sliven to additional Bulgarian scopes.
