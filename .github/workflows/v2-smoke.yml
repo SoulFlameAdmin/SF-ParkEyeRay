@@ -29,6 +29,8 @@ jobs:
           node --check v2-parking.js
           node --check v2-destinations.js
           node --check v2-parking-engine.js
+          node --check v2-layers.js
+          node --check v2-map-first.js
           node --check v2-route.js
           node --check v2-proposals.js
           node --check v2-submission-adapter.js
@@ -37,26 +39,53 @@ jobs:
           node --check api/overpass.js
           node --check api/routing.js
           node --check api/v2/parkings.js
+          node --check api/v2/nearby.js
           node --check api/v2/_evidence-token.js
           node --check api/v2/evidence-upload-token.js
           node --check api/v2/parking-proposals.js
           node --check scripts/build-osm-parking-batch.cjs
           node --check scripts/import-osm-parking.cjs
           node --check scripts/test-v2-parking-engine.cjs
+          node --check scripts/test-v2-nearby.cjs
           node --check scripts/test-v2-contracts.cjs
           node --check scripts/test-v2-submission-api.cjs
           node --check scripts/test-v2-evidence-api.cjs
 
-      - name: Verify V2 route and five primary actions
+      - name: Verify Waze-style burger menu and five actions
         run: |
           grep -q '"source": "/v2"' vercel.json
+          grep -q 'id="menu-btn"' v2.html
+          grep -q 'id="map-menu"' v2.html
+          grep -q 'id="parking-layer-btn"' v2.html
+          grep -q 'id="fuel-layer-btn"' v2.html
           grep -q 'data-action="search"' v2.html
           grep -q 'data-action="parkings"' v2.html
           grep -q 'data-action="navigate"' v2.html
           grep -q 'data-action="add"' v2.html
           grep -q 'data-action="profile"' v2.html
-          test "$(grep -o 'class="nav-action' v2.html | wc -l)" -eq 5
+          test "$(grep -o 'nav-action' v2.html | wc -l)" -eq 5
           grep -q 'aria-current="page"' v2.html
+          test -s v2-waze.css
+          grep -q 'bottom-nav{display:none' v2-waze.css
+          grep -q 'map-menu.open' v2-waze.css
+
+      - name: Verify automatic nearby map layers
+        run: |
+          grep -q "layers:'sf_v2_map_layers'" v2-core.js
+          grep -q 'watchPosition' v2-layers.js
+          grep -q 'app.onUserPosition' v2-layers.js
+          grep -q 'app.loadNearbyParkings' v2-layers.js
+          grep -q 'app.loadFuelStations' v2-layers.js
+          grep -q '/api/v2/nearby' v2-layers.js
+          grep -q '/api/v2/parkings' v2-parking-engine.js
+          grep -q 'parkingContext' v2-map-first.js
+          grep -q 's.parkingContext' v2-route.js
+          grep -q 'amenity' api/v2/nearby.js
+          grep -q 'fuel' api/v2/nearby.js
+          grep -q 'liveStatus: false' api/v2/nearby.js
+
+      - name: Verify nearby layer behavior
+        run: node scripts/test-v2-nearby.cjs
 
       - name: Verify interface stability states
         run: |
