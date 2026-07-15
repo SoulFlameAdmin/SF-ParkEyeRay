@@ -36,6 +36,11 @@ async function run() {
   assert(register.response.ok, `PWA registration script failed: ${register.response.status}`);
   assert(register.text.includes("navigator.serviceWorker.register('/sw.js'"), 'Service worker registration call is missing');
   assert(register.text.includes("scope: '/'"), 'Service worker scope must cover the application');
+  assert(register.text.includes("beforeinstallprompt"), 'Install prompt lifecycle is not handled');
+  assert(register.text.includes('window.ParkEyeRayPWA'), 'PWA control API is missing');
+  assert(register.text.includes("outcome: 'unavailable'"), 'Unavailable install prompt must be reported honestly');
+  assert(register.text.includes('registration.waiting'), 'Waiting service-worker update is not detected');
+  assert(register.text.includes("type: 'SKIP_WAITING'"), 'Explicit update activation contract is missing');
 
   const app = await request('/app');
   assert(app.response.ok, `Map app failed: ${app.response.status}`);
