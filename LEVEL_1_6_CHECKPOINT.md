@@ -23,7 +23,7 @@
 - Service-worker shell includes `/app`; API calls remain network-only and return an explicit non-cached HTTP 503 response while offline.
 - Onboarding links `manifest.webmanifest` and loads `/pwa-register.js`.
 - `/pwa-register.js` safely registers `/sw.js` with application-wide scope and does not break unsupported browsers.
-- PWA lifecycle now captures `beforeinstallprompt`, exposes an explicit install API, reports unavailable/dismissed/already-installed states honestly and detects waiting service-worker updates.
+- PWA lifecycle captures `beforeinstallprompt`, exposes an explicit install API, reports unavailable/dismissed/already-installed states honestly and detects waiting service-worker updates.
 - Service-worker update activation is explicit through a `SKIP_WAITING` message; it is not triggered silently.
 - Preview acceptance verifies manifest wiring, registration, install lifecycle, update detection and honest unavailable-state behavior.
 - Onboarding copy clearly marks Google login and CarTag/NFC detection as demonstrations rather than production integrations.
@@ -33,11 +33,12 @@
 - API contract test: `tests/api-contract.mjs`.
 - UI action contract: `tests/ui-contract.mjs`.
 - Preview acceptance runner: `tests/preview-acceptance.mjs`.
-- The previous PWA activation commit `cd7d043ba2a81fbe4c8b412697ef0e80eb4fb876` passed CI and had a READY Preview.
-- The latest install-lifecycle batch requires CI and exact Vercel Preview verification before acceptance.
-- Static contract checks do not prove that a real browser displays the native installation prompt.
-- PR #2 must remain draft until the latest CI, Preview and human interaction checks pass.
-- Production `main` must not be overwritten before acceptance.
+- GitHub Actions run 60 passed on checkpoint commit `2c6e6b3c81efe5244be6fed1d453d8db64b3a02e`.
+- Exact Vercel Preview deployment `dpl_2GmfzyeM6rd1qW7bxwpdK2fnnLGa` for that commit is `READY`.
+- Delivered `/pwa-register.js` was fetched from that exact Preview with HTTP 200 and contains the install/update lifecycle implementation.
+- The complete browser-side install prompt, standalone launch and offline session remain unverified because they require a real Chromium browser/device interaction.
+- PR #2 must remain draft until PNG icons and human phone/desktop interaction checks pass.
+- Production `main` remains unchanged.
 
 ## Latest development commits
 - `c12b4f4009764be966f52f224cc21bf1880dc1e4` — add safe service-worker registration module.
@@ -46,6 +47,7 @@
 - `cd7d043ba2a81fbe4c8b412697ef0e80eb4fb876` — checkpoint the accepted PWA activation batch.
 - `aabb0487f0849074a0029a398b327348dcc26b64` — add honest PWA install and update lifecycle handling.
 - `5d575b28ad9ee1749620f94e5ddac0188a673bc9` — verify PWA install and update lifecycle contract.
+- `2c6e6b3c81efe5244be6fed1d453d8db64b3a02e` — checkpoint the PWA install lifecycle batch.
 
 ## Preview acceptance command
 ```bash
@@ -55,14 +57,13 @@ BASE_URL=https://<preview-host> node tests/preview-acceptance.mjs
 The runner verifies `/`, `/pwa-register.js`, `/app`, `/manifest.webmanifest`, `/sw.js`, `/offline.html`, invalid `/api/geocode` input and invalid `/api/route` input. Static checks prove that registration and install/update lifecycle handling are wired into delivered JavaScript, but they do not prove a physical browser installation, service-worker lifecycle or offline navigation session.
 
 ## Next checks before production
-1. Verify GitHub Actions on the exact latest checkpoint commit.
-2. Verify the exact Vercel Preview is `READY` and run the full Preview acceptance command against it.
-3. Add real PNG 192×192 and 512×512 icons for strict Android/Chromium installability.
-4. Connect the exposed PWA install state to a visible product control without showing a dead install button when the native prompt is unavailable.
-5. Verify install prompt, standalone launch and offline navigation on Android Chrome and desktop Chromium.
-6. Test phone and desktop interaction, especially bottom sheet, route card and all menu actions.
-7. Inspect Preview runtime logs after route/geocode/parking usage.
-8. Merge only after Preview acceptance and human interaction checks.
+1. Add real PNG 192×192 and 512×512 icons for strict Android/Chromium installability.
+2. Connect the exposed PWA install state to a visible product control without showing a dead install button when the native prompt is unavailable.
+3. Run the complete Preview acceptance command against the exact newest Preview after the next functional batch.
+4. Verify install prompt, standalone launch and offline navigation on Android Chrome and desktop Chromium.
+5. Test phone and desktop interaction, especially bottom sheet, route card and all menu actions.
+6. Inspect Preview runtime logs after route/geocode/parking usage.
+7. Merge only after Preview acceptance and human interaction checks.
 
 ## Known external limitations
 - OpenStreetMap does not provide live parking occupancy by default.
