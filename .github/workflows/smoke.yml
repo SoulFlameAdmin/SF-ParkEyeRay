@@ -1,0 +1,93 @@
+name: SmartCity smoke checks
+
+on:
+  push:
+    branches:
+      - main
+      - parkeyeray-level-1-6
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  static-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check serverless JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find api -maxdepth 1 -type f -name '*.js' -print0 | while IFS= read -r -d '' file; do
+            echo "Checking $file"
+            node --check "$file"
+          done
+
+      - name: Run API contract checks
+        run: node tests/api-contract.mjs
+
+      - name: Run UI action contract checks
+        run: node tests/ui-contract.mjs
+
+      - name: Check PWA service worker syntax
+        run: node --check sw.js
+
+      - name: Validate PWA shell assets
+        shell: bash
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8'))"
+          test -s offline.html
+          test -s icons/parkeyeray.svg
+          test -s icons/parkeyeray-maskable.svg
+          grep -q "'/api/'" sw.js
+          grep -q "offline.html" sw.js
+          grep -q 'display.*standalone' manifest.webmanifest
+
+      - name: Extract and check inline application JavaScript
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script>([\s\S]*?)</script>', html)
+          if not scripts:
+              raise SystemExit('No inline application script found in index.html')
+          Path('/tmp/smartcity-app.js').write_text(scripts[-1], encoding='utf-8')
+          PY
+          node --check /tmp/smartcity-app.js
+
+      - name: Verify critical product controls
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          html = Path('index.html').read_text(encoding='utf-8')
+          required = [
+              'searchInput', 'parkingList', 'vehicleForm', 'routeCard',
+              'AI Mobility OS', '/api/geocode', '/api/overpass', '/api/route',
+              'data-action="signals"', 'data-action="report"'
+          ]
+          missing = [item for item in required if item not in html]
+          if missing:
+              raise SystemExit(f'Missing critical controls: {missing}')
+          print('Critical controls present')
+          PY
+
+      - name: Verify honest live-data labelling
+        shell: bash
+        run: |
+          grep -q 'Няма live информация за свободни места' index.html
+          grep -q 'Няма live достъп до текущия цвят' index.html
+          grep -q 'AI Mobility OS е заключен' index.html

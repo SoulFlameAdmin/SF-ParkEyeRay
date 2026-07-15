@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ParkEyeRay">
+  <rect width="512" height="512" rx="112" fill="#07111f"/>
+  <circle cx="256" cy="256" r="194" fill="#0d1b2c" stroke="#38bdf8" stroke-width="18"/>
+  <path d="M158 382V130h131c75 0 119 39 119 105 0 67-44 106-119 106h-44v41h-87zm87-173v63h43c31 0 48-11 48-32 0-20-17-31-48-31h-43z" fill="#38bdf8"/>
+  <circle cx="374" cy="374" r="58" fill="#22c55e" stroke="#07111f" stroke-width="16"/>
+  <path d="M350 374l16 16 34-38" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

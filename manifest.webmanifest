@@ -1,0 +1,38 @@
+{
+  "id": "/app",
+  "name": "ParkEyeRay SmartCity Mobility",
+  "short_name": "ParkEyeRay",
+  "description": "Навигация, паркинги и градска мобилност за България.",
+  "lang": "bg",
+  "dir": "ltr",
+  "start_url": "/app?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "categories": ["navigation", "travel", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/parkeyeray.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/parkeyeray-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Намери паркинг",
+      "short_name": "Паркинг",
+      "description": "Отвори картата и потърси паркинг около дестинация.",
+      "url": "/app?action=parking",
+      "icons": [{"src":"/icons/parkeyeray.svg","sizes":"any","type":"image/svg+xml"}]
+    }
+  ]
+}
