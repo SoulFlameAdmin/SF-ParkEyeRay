@@ -6,22 +6,21 @@
     if(s.drawing&&action!=='add')return app.setStatus('Завърши или откажи очертаването първо.','error');
 
     if(action==='search'){
-      app.setActiveAction('search');app.setSheetCollapsed(false);app.$('search-input').focus();app.handleSearchFocus?.();return;
+      app.closeMapMenu?.();app.setActiveAction('search');app.$('search-input').focus();app.handleSearchFocus?.();return;
     }
     if(action==='parkings'){
-      app.setActiveAction('parkings');app.setSheetCollapsed(false);
-      if(!s.destination){app.renderParkingMessage('⌕','Избери дестинация','Паркингите се търсят около крайната точка.',{actionLabel:'Отвори търсенето',onAction:()=>{app.$('search-input').focus();app.handleSearchFocus?.()}});return app.setStatus('Първо потърси адрес или обект.','error')}
-      if(!s.parkings.length&&!s.ui.busy.has('parking'))app.findParkings();return;
+      app.toggleLayer?.('parking');return;
     }
     if(action==='navigate'){
-      if(!s.selected)return app.setStatus('Първо избери паркинг от картата или списъка.','error');
+      app.closeMapMenu?.();
+      if(!s.selected)return app.setStatus('Избери паркинг от картата или разгъни списъка.','error');
       app.setActiveAction('navigate');app.buildRoute(s.selected,true);return;
     }
     if(action==='add'){
-      app.setActiveAction('add');app.beginDraw();return;
+      app.closeMapMenu?.();app.setActiveAction('add');app.beginDraw();return;
     }
     if(action==='profile'){
-      app.setActiveAction('profile');app.updateProfile();app.openModal('profile-modal');
+      app.closeMapMenu?.();app.setActiveAction('profile');app.updateProfile();app.openModal('profile-modal');
     }
   };
 
@@ -37,7 +36,8 @@
     searchInput.addEventListener('focus',()=>app.handleSearchFocus?.());
     searchResults.addEventListener('transitionend',()=>searchInput.setAttribute('aria-expanded',String(searchResults.classList.contains('active'))));
     app.$('save-destination').addEventListener('click',app.toggleSavedDestination);
-    app.$('locate-btn').addEventListener('click',app.locate);
+    app.$('locate-btn').addEventListener('click',()=>{s.followUser=true;app.locate()});
+    app.$('menu-close').addEventListener('click',app.closeMapMenu);
     app.$('sheet-handle').addEventListener('click',()=>app.setSheetCollapsed(!app.$('parking-sheet').classList.contains('collapsed')));
 
     app.$('parking-filters').addEventListener('click',event=>{
@@ -53,7 +53,9 @@
       app.buildRoute(s.selected,true);
     });
 
-    document.querySelectorAll('.nav-action').forEach(button=>button.addEventListener('click',()=>app.navAction(button.dataset.action,button)));
+    document.querySelectorAll('.nav-action').forEach(button=>{
+      if(button.dataset.action!=='parkings')button.addEventListener('click',()=>app.navAction(button.dataset.action,button));
+    });
     document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>app.requestCloseModal(button.dataset.close)));
     document.querySelectorAll('.modal').forEach(modal=>modal.addEventListener('click',event=>{if(event.target===modal)app.requestCloseModal(modal.id)}));
     document.addEventListener('click',event=>{
@@ -72,10 +74,10 @@
     try{
       app.initUi();
       if(!app.initMap())return;
-      app.bind();app.renderProposals();app.updateProfile();app.updateDestinationControls?.();
-      app.renderParkingMessage('🅿️','Избери дестинация','Потърси адрес, мол или обект. Паркингите ще се търсят около крайната точка.',{actionLabel:'Започни търсене',onAction:()=>{app.$('search-input').focus();app.handleSearchFocus?.()}});
+      app.bind();app.initLayers();app.renderProposals();app.updateProfile();app.updateDestinationControls?.();
+      app.renderParkingMessage('◎','Определям района','При разрешен GPS паркингите ще се появят автоматично около теб.');
       app.locate();
-      app.setStatus('SmartCity V2 е готов. Потърси дестинация.','success');
+      app.setStatus('SmartCity е готов · Паркингите се зареждат автоматично около теб.','success');
     }catch(error){
       console.error(error);
       app.setStatus('SmartCity V2 не можа да се стартира напълно.','error',true);
