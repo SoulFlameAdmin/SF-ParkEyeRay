@@ -6,23 +6,26 @@
     proposals:'sf_v2_proposals',
     saved:'sf_v2_saved',
     destinationHistory:'sf_v2_destination_history',
-    savedDestinations:'sf_v2_saved_destinations'
+    savedDestinations:'sf_v2_saved_destinations',
+    layers:'sf_v2_map_layers'
   };
   app.RADII=[500,1000,2000,5000];
   app.BG={south:41.1,north:44.3,west:22.2,east:28.75};
   app.DEFAULT_CENTER=[42.7339,25.4858];
   app.read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
   app.write=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
+  const savedLayers=app.read(app.STORAGE.layers,{parking:true,fuel:false});
   app.state={
-    map:null,user:null,destination:null,parkings:[],entrances:[],selected:null,sort:'recommended',
+    map:null,user:null,destination:null,parkings:[],entrances:[],selected:null,sort:'recommended',parkingContext:'nearby',parkingOrigin:null,
     userMarker:null,destinationMarker:null,accuracyCircle:null,
-    parkingLayer:null,routeLayer:null,proposalLayer:null,drawingLayer:null,
+    parkingLayer:null,fuelLayer:null,routeLayer:null,proposalLayer:null,drawingLayer:null,
+    fuelStations:[],layers:{parking:savedLayers.parking!==false,fuel:savedLayers.fuel===true},
     proposals:app.read(app.STORAGE.proposals,[]),
     saved:app.read(app.STORAGE.saved,[]),
     destinationHistory:app.read(app.STORAGE.destinationHistory,[]),
     savedDestinations:app.read(app.STORAGE.savedDestinations,[]),
     drawing:false,drawPoints:[],drawLine:null,drawPolygon:null,pendingGeometry:null,
-    locating:false,searchVersion:0,requests:{},ui:null,searchTimer:null
+    locating:false,locationWatchId:null,followUser:true,lastLayerCenter:null,searchVersion:0,requests:{},ui:null,searchTimer:null,layerTimer:null
   };
   app.safe=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
   app.setStatus=(text,type='info',sticky=false)=>{
@@ -44,6 +47,7 @@
   app.userIcon=L.divIcon({className:'',html:'<div class="user-dot"></div>',iconSize:[23,23],iconAnchor:[11,11]});
   app.destinationIcon=L.divIcon({className:'',html:'<div class="dest-dot"></div>',iconSize:[29,29],iconAnchor:[8,28]});
   app.parkingIcon=selected=>L.divIcon({className:'',html:`<div class="parking-pin${selected?' selected':''}">P</div>`,iconSize:selected?[37,37]:[31,31],iconAnchor:selected?[18,18]:[15,15]});
+  app.fuelIcon=L.divIcon({className:'',html:'<div class="fuel-pin">⛽</div>',iconSize:[32,32],iconAnchor:[16,16]});
   app.openModal=id=>{
     const modal=app.$(id);if(!modal)return;
     modal.classList.add('open');modal.setAttribute('aria-hidden','false');
@@ -58,30 +62,36 @@
     if(saved)saved.textContent=app.state.saved.length+app.state.savedDestinations.length;
     if(proposals)proposals.textContent=app.state.proposals.length;
   };
+  app.applyUserPosition=(user,options={})=>{
+    const s=app.state;
+    if(!app.inBulgaria(user.lat,user.lon))return false;
+    s.user=user;
+    if(!s.userMarker)s.userMarker=L.marker([user.lat,user.lon],{icon:app.userIcon,zIndexOffset:2000}).bindPopup('Твоето местоположение').addTo(s.map);else s.userMarker.setLatLng([user.lat,user.lon]);
+    if(s.accuracyCircle)s.accuracyCircle.setLatLng([user.lat,user.lon]).setRadius(Math.min(user.accuracy||0,2000));else s.accuracyCircle=L.circle([user.lat,user.lon],{radius:Math.min(user.accuracy||0,2000),color:'#2563eb',weight:1,fillOpacity:.08}).addTo(s.map);
+    if(options.center===true&&!s.destination){s.followUser=true;s.map.setView([user.lat,user.lon],user.accuracy<120?16:14)}
+    app.onUserPosition?.(user,options);
+    if(s.selected)app.buildRoute?.(s.selected,false);
+    return true;
+  };
   app.locate=()=>{
     const s=app.state;if(s.locating)return;
-    if(!navigator.geolocation)return app.setStatus('GPS не се поддържа. Търсенето и паркингите остават активни.','error',true);
+    if(!navigator.geolocation)return app.setStatus('GPS не се поддържа. Търсенето и картата остават активни.','error',true);
     s.locating=true;app.setBusy?.('gps',true,'Определям местоположението…');
     navigator.geolocation.getCurrentPosition(position=>{
       s.locating=false;app.setBusy?.('gps',false);
       const user={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude),accuracy:Number(position.coords.accuracy||0)};
-      if(!app.inBulgaria(user.lat,user.lon))return app.setStatus('GPS позицията е извън България.','error',true);
-      s.user=user;
-      if(!s.userMarker)s.userMarker=L.marker([user.lat,user.lon],{icon:app.userIcon,zIndexOffset:2000}).bindPopup('Твоето местоположение').addTo(s.map);else s.userMarker.setLatLng([user.lat,user.lon]);
-      if(s.accuracyCircle)s.accuracyCircle.setLatLng([user.lat,user.lon]).setRadius(Math.min(user.accuracy,2000));else s.accuracyCircle=L.circle([user.lat,user.lon],{radius:Math.min(user.accuracy,2000),color:'#2563eb',weight:1,fillOpacity:.08}).addTo(s.map);
-      if(!s.destination)s.map.setView([user.lat,user.lon],user.accuracy<120?16:14);
+      if(!app.applyUserPosition(user,{center:true,reason:'manual'}))return app.setStatus('GPS позицията е извън България.','error',true);
       app.setStatus(`GPS е намерен · точност ±${Math.round(user.accuracy)} м`,'success');
-      if(s.selected)app.buildRoute?.(s.selected,false);
     },error=>{
       s.locating=false;app.setBusy?.('gps',false);
-      app.setStatus(error.code===1?'GPS е отказан. Разреши го за маршрут от текущото място.':'GPS временно не е достъпен.','error',true);
+      app.setStatus(error.code===1?'GPS е отказан. Разреши го, за да виждаш автоматично обектите около теб.':'GPS временно не е достъпен.','error',true);
     },{enableHighAccuracy:true,timeout:15000,maximumAge:15000});
   };
   app.initMap=()=>{
     if(typeof L==='undefined'){app.setStatus('Картата не можа да се зареди.','error',true);return false}
     const s=app.state;s.map=L.map('map',{zoomControl:true,minZoom:6}).setView(app.DEFAULT_CENTER,7);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(s.map);
-    s.parkingLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
+    s.parkingLayer=L.layerGroup().addTo(s.map);s.fuelLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
     s.map.on('click',event=>{if(s.drawing)app.addDrawPoint?.(event.latlng)});
     return true;
   };
