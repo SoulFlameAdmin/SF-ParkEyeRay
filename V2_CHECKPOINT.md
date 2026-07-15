@@ -41,7 +41,20 @@
 - Adds a bounded in-memory per-token/IP rate limit suitable as a first serverless protection layer.
 - Returns `503 submission_service_not_configured` when Supabase environment variables are absent instead of pretending that data was stored.
 - Adds a mocked API contract smoke test covering authentication, invalid payloads and a successful pending submission.
-- CI now checks endpoint syntax and runs the submission API contract test.
+- CI checks endpoint syntax and runs the submission API contract test.
+
+## Completed in protected evidence-upload batch
+- Added `POST /api/v2/evidence-upload-token` for authenticated image evidence preparation.
+- Accepts only JPEG, PNG and WebP images up to 8 MiB.
+- Generates user-scoped storage paths under `<auth.uid()>/<uuid>.<ext>`.
+- Uses a private `parking-evidence` Supabase Storage bucket with MIME and size restrictions.
+- Adds Storage RLS policies restricting upload/read/delete operations to the owner path.
+- Produces a short-lived HMAC upload token binding user ID, storage path, MIME type, maximum size and expiry.
+- Proposal submission verifies token signature, expiry and ownership before persisting `storage_path`.
+- Invalid, expired or cross-user evidence tokens are rejected; raw client storage paths are never trusted.
+- Returns `503 evidence_service_not_configured` when Supabase service-role or token-secret configuration is absent.
+- Adds contract tests for token tampering, expiry, ownership, MIME types and file-size limits.
+- CI validates the evidence endpoint, token helper and storage migration.
 
 ## Verified
 - PR #6 remains open, draft, mergeable and unmerged.
@@ -52,23 +65,30 @@
 - Previous production Overpass health endpoint: OK.
 - Previous production geocoder returned Stara Zagora mall candidates.
 - Previous production walking routing endpoint returned a valid route.
-- Fresh runtime verification is still required after the current Preview deployment finishes.
+- Fresh Preview, runtime and browser acceptance verification is required for the current evidence-upload commit.
+
+## Required environment before persistence
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only)
+- `EVIDENCE_TOKEN_SECRET` with at least 32 characters (server-only)
+- Both Supabase migrations applied in order.
 
 ## Known limitations
-- The migration is committed but not applied because no configured Supabase project credentials are present in the repository context.
-- The submission endpoint is implemented but cannot persist until `SUPABASE_URL` and `SUPABASE_ANON_KEY` are configured and the migration is applied.
+- The migrations are committed but not applied because no configured Supabase project credentials are present in the repository context.
+- The submission and evidence endpoints cannot persist until the required environment is configured and migrations are applied.
 - The local adapter is not wired into the UI until authentication exists; current proposal behavior remains local-only and safe.
-- Uploaded photo bytes are not persisted yet; only note evidence is production-ready in the current contract.
+- The evidence endpoint creates the signed upload contract, but the V2 UI does not upload photo bytes yet.
 - The current in-memory rate limit is per serverless instance; a durable shared rate limiter is required before public scale.
 - OSM coverage is incomplete and cannot represent live vacancy.
 - A parking entrance is used only when a mapped `parking_entrance` is within 180 m; otherwise routing ends at the representative parking point.
-- Browser runtime and touch interactions still need manual Preview testing on real phone and desktop.
+- Browser runtime and touch interactions still need successful Preview testing on real phone and desktop.
 
 ## Next batch
-1. Add evidence upload-token contract with protected Supabase Storage paths and ownership checks.
-2. Add durable rate limiting and request-level audit metadata.
-3. Build SoulFlame moderation API and dashboard: review, edit polygon, approve, reject and audit history.
+1. Add request-level submission audit metadata and a durable rate-limit adapter contract.
+2. Build service-role SoulFlame moderation API: list pending, review details, approve, reject, request changes and audit events.
+3. Build the phone/desktop moderation dashboard without exposing service-role credentials.
 4. Publish only approved SoulFlame zones to the V2 parking engine.
 5. Add deduplication between OSM features and approved SoulFlame zones.
-6. Wire authenticated submissions into the UI while preserving local outbox fallback.
-7. Add browser-level smoke tests for search → parking → route and draw → submit.
+6. Wire authenticated submissions and evidence upload into the UI while preserving local outbox fallback.
+7. Complete browser-level acceptance for search → parking → route and draw → submit.
