@@ -2,16 +2,19 @@
   'use strict';
   const app=window.SFV2,s=app.state;
 
-  app.search=async query=>{
+  app.search=async(query,options={})=>{
     const text=String(query||'').trim();
-    if(text.length<2){app.setStatus('Напиши поне 2 знака за търсене.','error');return}
-    if(!s.ui.online){app.setRetry(()=>app.search(text),'Повтори търсенето');return app.setStatus('Няма интернет връзка.','error',true)}
+    const autoSelect=options.autoSelect!==false,silent=options.silent===true;
+    if(text.length<2){if(!silent)app.setStatus('Напиши поне 2 знака за търсене.','error');return}
+    if(!s.ui.online){
+      if(!silent){app.setRetry(()=>app.search(text),'Повтори търсенето');app.setStatus('Няма интернет връзка.','error',true)}
+      return;
+    }
 
     const version=++s.searchVersion;
     const bias=s.user||s.destination||{lat:s.map.getCenter().lat,lon:s.map.getCenter().lng};
     const controller=app.newRequest('search');
-    app.setBusy('search',true,`Търся „${text}“…`);
-    app.setRetry(null);
+    if(!silent){app.setBusy('search',true,`Търся „${text}“…`);app.setRetry(null)}
 
     try{
       const params=new URLSearchParams({q:text,lat:String(bias.lat),lon:String(bias.lon)});
@@ -19,17 +22,19 @@
       const data=await response.json();
       if(version!==s.searchVersion||controller.signal.aborted)return;
       if(!response.ok||!Array.isArray(data.results)||!data.results.length)throw new Error('not-found');
-      app.renderSearchResults(data.results);
-      if(data.results.length===1)app.selectDestination(data.results[0]);
-      else app.setStatus(`Намерени са ${data.results.length} възможни места. Избери правилното.`,'success');
+      const ranked=app.renderSearchResults(data.results,data.normalizedQuery||text)||data.results;
+      if(autoSelect&&ranked.length===1)app.selectDestination(ranked[0]);
+      else if(!silent)app.setStatus(`Намерени са ${ranked.length} възможни места. Избери правилното.`,'success');
     }catch(error){
       if(error.name==='AbortError')return;
       console.error(error);
-      app.setRetry(()=>app.search(text),'Повтори търсенето');
-      app.setStatus('Не намерих мястото или услугата не отговори. Добави град и опитай отново.','error',true);
+      if(!silent){
+        app.setRetry(()=>app.search(text),'Повтори търсенето');
+        app.setStatus('Не намерих мястото или услугата не отговори. Добави град и опитай отново.','error',true);
+      }
     }finally{
       if(s.requests.search===controller)delete s.requests.search;
-      app.setBusy('search',false);
+      if(!silent)app.setBusy('search',false);
     }
   };
 
@@ -41,14 +46,15 @@
       button.addEventListener('click',()=>{root.classList.remove('active');app.selectDestination(item)});root.appendChild(button);
     });
     root.classList.toggle('active',results.length>1);
+    return results;
   };
 
   app.selectDestination=item=>{
     const lat=Number(item.lat),lon=Number(item.lon);
     if(!app.inBulgaria(lat,lon))return app.setStatus('Дестинацията е извън България.','error');
-    app.abortRequest('parking');app.abortRequest('route');app.clearRoute?.();
-    s.destination={lat,lon,name:item.name||'Дестинация'};s.selected=null;
-    app.$('search-input').value=s.destination.name;
+    app.abortRequest('search');app.abortRequest('parking');app.abortRequest('route');app.clearRoute?.();
+    s.destination={lat,lon,name:item.name||'Дестинация',type:item.type||'',source:item.source||''};s.selected=null;
+    app.$('search-input').value=s.destination.name;app.$('search-results').classList.remove('active');
     if(!s.destinationMarker)s.destinationMarker=L.marker([lat,lon],{icon:app.destinationIcon,zIndexOffset:1800}).addTo(s.map);else s.destinationMarker.setLatLng([lat,lon]);
     s.destinationMarker.bindPopup(`<b>${app.safe(s.destination.name)}</b>`).openPopup();
     app.$('sheet-eyebrow').textContent='Дестинация';app.$('sheet-title').textContent=s.destination.name;app.$('sheet-subtitle').textContent='Търся паркинги около крайната точка…';app.$('parking-count').textContent='0';
