@@ -24,7 +24,7 @@
     saved:app.read(app.STORAGE.saved,[]),
     destinationHistory:app.read(app.STORAGE.destinationHistory,[]),
     savedDestinations:app.read(app.STORAGE.savedDestinations,[]),
-    drawing:false,drawPoints:[],drawLine:null,drawPolygon:null,pendingGeometry:null,
+    drawing:false,drawPoints:[],drawLine:null,drawPolygon:null,pendingGeometry:null,lastDrawPointerAt:0,
     locating:false,locationWatchId:null,followUser:true,lastLayerCenter:null,searchVersion:0,requests:{},ui:null,searchTimer:null,layerTimer:null
   };
   app.safe=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
@@ -92,7 +92,16 @@
     const s=app.state;s.map=L.map('map',{zoomControl:true,minZoom:6}).setView(app.DEFAULT_CENTER,7);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(s.map);
     s.parkingLayer=L.layerGroup().addTo(s.map);s.fuelLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
-    s.map.on('click',event=>{if(s.drawing)app.addDrawPoint?.(event.latlng)});
+    s.map.on('click',event=>{
+      if(!s.drawing)return;
+      if(performance.now()-s.lastDrawPointerAt<180)return;
+      app.addDrawPoint?.(event.latlng);
+    });
+    app.$('map').addEventListener('pointerup',event=>{
+      if(!s.drawing||event.button!==0||event.target.closest('.leaflet-control'))return;
+      s.lastDrawPointerAt=performance.now();
+      app.addDrawPoint?.(s.map.mouseEventToLatLng(event));
+    },true);
     return true;
   };
 })();
