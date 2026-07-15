@@ -51,7 +51,7 @@ jobs:
           grep -q '/api/geocode' v2-parking.js
           grep -q '/api/overpass' v2-parking.js
           grep -q '/api/routing' v2-route.js
-          grep -q "profile==='walking'" api/routing.js
+          grep -Eq "profile[[:space:]]*===[[:space:]]*'walking'" api/routing.js
 
       - name: Verify proposal moderation truth labels
         run: |
