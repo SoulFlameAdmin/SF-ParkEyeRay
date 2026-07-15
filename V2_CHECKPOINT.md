@@ -19,9 +19,10 @@
 - Deterministic phone sheet and accessible parking selection.
 - Search → destination → parking list/marker → selected parking → driving route → walking route flow.
 - Polygon drawing → details → pending submission flow.
-- Polygon drawing now uses a dedicated transparent `draw-surface` above Leaflet while drawing.
+- Polygon drawing uses a dedicated transparent `draw-surface` above Leaflet while drawing.
 - Touch, pointer, mouse and synthesized Playwright taps are captured directly on that surface with deduplication.
 - Conflicting map gestures remain disabled only while drawing.
+- Critical draw-surface layout is now in statically loaded `v2-stability.css`, eliminating the Android race where dynamic map-first CSS could arrive after drawing began.
 
 ## Stage 2 — search and destinations
 - Debounced Bulgarian and transliterated destination suggestions.
@@ -80,10 +81,12 @@ Scope: `bg:sliven-core`
 - Occupancy remains unknown and non-live.
 
 ## Runtime and CI verification
-- Runtime error clusters for `/v2`, `/api/geocode`, `/api/overpass` and `/api/routing` showed no errors in the checked 24-hour window before this batch.
-- Code head `875cbfa210404059aa06a6ecc277a7ccf5772d42`: SmartCity parking smoke and V2 smoke passed; browser acceptance was still in progress at checkpoint update time.
-- Previous Preview deployments after the old READY head failed at the Vercel 12-function limit.
-- The exact final head still requires a new READY deployment and endpoint verification before a fresh Preview link is presented as current.
+- Runtime error clusters for `/v2`, `/api/geocode`, `/api/overpass` and `/api/routing` showed no errors in the previously checked 24-hour window.
+- Head `7c233aa9faaeb670b9bfc0414f1848da7038c666`: SmartCity parking smoke and V2 smoke passed; Android browser acceptance failed because polygon taps were not registered and `#draw-finish` remained disabled.
+- Failure artifact and screenshots confirmed that the app entered drawing mode correctly, while the transparent capture surface was not reliably active before the taps.
+- Fix commit `0c9afbf4a23272b50d7a734ca3d695c34010b9e8` makes the capture surface deterministic through the statically loaded stability stylesheet.
+- The latest observed Vercel Preview deployment was still an ERROR deployment for an older commit, so it is not accepted as a valid exact-head preview.
+- Exact-head browser acceptance, READY Preview and endpoint runtime checks remain required.
 
 ## Production safety
 - `/app` is unchanged.
@@ -97,7 +100,7 @@ Scope: `bg:sliven-core`
 - Voice guidance and lane guidance are not implemented.
 
 ## Next safe batch
-1. Confirm green Android and desktop browser acceptance for the dedicated drawing surface.
+1. Confirm green Android and desktop browser acceptance after the static draw-surface fix.
 2. Confirm a READY Vercel deployment for the exact latest head.
 3. Verify runtime `/v2`, `/api/geocode`, `/api/overpass`, driving and walking `/api/routing`.
 4. Perform a real phone navigation test of maneuver timing, ETA and rerouting.
