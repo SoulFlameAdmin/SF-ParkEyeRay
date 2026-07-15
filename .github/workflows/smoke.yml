@@ -34,6 +34,9 @@ jobs:
             node --check "$file"
           done
 
+      - name: Run API contract checks
+        run: node tests/api-contract.mjs
+
       - name: Extract and check inline application JavaScript
         shell: bash
         run: |
