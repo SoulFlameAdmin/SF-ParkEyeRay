@@ -1,10 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const moderation = require('../api/v2/moderate-parking-proposal.js')._test;
-const list = require('../api/v2/moderation-proposals.js')._test;
-const evidence = require('../api/v2/moderation-evidence-url.js')._test;
-const auth = require('../api/v2/_moderation-auth.js');
+const moderation = require('../api/v2/moderation.js')._test;
+const auth = require('../server/v2/moderation-auth.js');
 
 const approved = moderation.normalizeBody({
   proposalId: '123e4567-e89b-42d3-a456-426614174000',
@@ -26,25 +24,25 @@ const changes = moderation.normalizeBody({
 });
 assert.deepEqual(changes.errors, []);
 assert.equal(changes.value.nextStatus, 'changes_requested');
-assert.equal(list.clampLimit('999'), 100);
-assert.equal(list.clampLimit('0'), 1);
+assert.equal(moderation.clampLimit('999'), 100);
+assert.equal(moderation.clampLimit('0'), 1);
 assert.equal(auth.safeEqual('secret', 'secret'), true);
 assert.equal(auth.safeEqual('secret', 'wrong'), false);
 
-const validEvidence = evidence.normalizeRequest({
+const validEvidence = moderation.normalizeRequest({
   proposalId: '123e4567-e89b-42d3-a456-426614174000',
   evidenceId: '123e4567-e89b-42d3-a456-426614174001',
   expiresIn: 999
 });
 assert.deepEqual(validEvidence.errors, []);
-assert.equal(validEvidence.value.expiresIn, evidence.MAX_TTL_SECONDS);
-assert.equal(evidence.safeStoragePath('123e4567-e89b-42d3-a456-426614174000/photo.webp'), '123e4567-e89b-42d3-a456-426614174000/photo.webp');
-assert.equal(evidence.safeStoragePath('../service-role-secret'), null);
-assert.equal(evidence.safeStoragePath('/absolute/path.jpg'), null);
-assert.equal(evidence.safeStoragePath('owner\\photo.jpg'), null);
-assert.equal(evidence.encodeStoragePath('owner/photo 1.webp'), 'owner/photo%201.webp');
+assert.equal(validEvidence.value.expiresIn, moderation.MAX_TTL_SECONDS);
+assert.equal(moderation.safeStoragePath('123e4567-e89b-42d3-a456-426614174000/photo.webp'), '123e4567-e89b-42d3-a456-426614174000/photo.webp');
+assert.equal(moderation.safeStoragePath('../service-role-secret'), null);
+assert.equal(moderation.safeStoragePath('/absolute/path.jpg'), null);
+assert.equal(moderation.safeStoragePath('owner\\photo.jpg'), null);
+assert.equal(moderation.encodeStoragePath('owner/photo 1.webp'), 'owner/photo%201.webp');
 
-const invalidEvidence = evidence.normalizeRequest({ proposalId: 'bad', evidenceId: 'also-bad' });
+const invalidEvidence = moderation.normalizeRequest({ proposalId: 'bad', evidenceId: 'also-bad' });
 assert.ok(invalidEvidence.errors.includes('proposal_id_invalid'));
 assert.ok(invalidEvidence.errors.includes('evidence_id_invalid'));
 
@@ -55,10 +53,19 @@ assert.match(sql, /insert into public\.parking_moderation_events/);
 assert.match(sql, /grant execute[\s\S]*to service_role/i);
 assert.match(sql, /revoke update, delete, truncate/i);
 
-const signedEndpoint = fs.readFileSync('api/v2/moderation-evidence-url.js', 'utf8');
-assert.match(signedEndpoint, /parking_zone_id=eq\./);
-assert.match(signedEndpoint, /object\/sign\/parking-evidence/);
-assert.match(signedEndpoint, /cacheable: false/);
-assert.doesNotMatch(signedEndpoint, /SUPABASE_SERVICE_ROLE_KEY[^\n]*url/);
+const consolidatedEndpoint = fs.readFileSync('api/v2/moderation.js', 'utf8');
+assert.match(consolidatedEndpoint, /parking_zone_id=eq\./);
+assert.match(consolidatedEndpoint, /object\/sign\/parking-evidence/);
+assert.match(consolidatedEndpoint, /cacheable: false/);
+assert.match(consolidatedEndpoint, /operation === 'proposals'/);
+assert.match(consolidatedEndpoint, /operation === 'transition'/);
+assert.match(consolidatedEndpoint, /operation === 'evidence-url'/);
+assert.doesNotMatch(consolidatedEndpoint, /SUPABASE_SERVICE_ROLE_KEY[^\n]*url/);
+
+const vercel = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+const rewrites = new Map(vercel.rewrites.map(item => [item.source, item.destination]));
+assert.equal(rewrites.get('/api/v2/moderation-proposals'), '/api/v2/moderation?operation=proposals');
+assert.equal(rewrites.get('/api/v2/moderate-parking-proposal'), '/api/v2/moderation?operation=transition');
+assert.equal(rewrites.get('/api/v2/moderation-evidence-url'), '/api/v2/moderation?operation=evidence-url');
 
 console.log('V2 moderation API contracts OK');
