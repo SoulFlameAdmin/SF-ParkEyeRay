@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const modules=['/v2-core.js','/v2-ui.js','/v2-parking.js','/v2-destinations.js','/v2-route.js','/v2-proposals.js','/v2-init.js'];
+  const modules=['/v2-core.js','/v2-ui.js','/v2-parking.js','/v2-destinations.js','/v2-parking-engine.js','/v2-route.js','/v2-proposals.js','/v2-init.js'];
   async function load(){
     for(const src of modules){
       await new Promise((resolve,reject)=>{
