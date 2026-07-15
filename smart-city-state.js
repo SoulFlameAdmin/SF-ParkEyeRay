@@ -3,6 +3,7 @@
   const app=window.SFMap={};
   app.RADII=[250000,100000,50000,25000,10000,5000,2500,1000,500,250,100,50,25,10,5,1];
   app.BULGARIA=[42.7339,25.4858];
+  app.BG_BOUNDS={south:41.1,north:44.3,west:22.2,east:28.75};
   app.QUERY_CAP=15000;
   app.REFRESH_MS=120000;
   app.defs={
@@ -20,9 +21,11 @@
     map:null,userMarker:null,accuracyCircle:null,radiusCircle:null,routeLine:null,walkLine:null,
     destinationMarker:null,watchId:null,location:null,activeDestination:null,nearestParking:null,
     parkingCandidates:[],follow:true,loading:false,loadTimer:null,lastLoadAt:0,syncingZoom:false,
-    pendingRefresh:false,requestVersion:0,lastNamedPoint:null,statusTimer:null
+    pendingRefresh:false,requestVersion:0,lastNamedPoint:null,statusTimer:null,
+    nationalParkingVersion:0,nationalParkingLoading:false,nationalParkingCells:0
   };
   app.layers=Object.fromEntries(Object.keys(app.defs).map(key=>[key,L.layerGroup()]));
+  app.canvasRenderer=L.canvas({padding:.5,tolerance:8});
   app.enabled=new Set(['parking','charging']);
   app.markerIcon=(def,nearest=false)=>L.divIcon({
     className:'',html:`<div class="smart-marker ${def.cls}${nearest?' nearest':''}">${def.glyph}</div>`,
