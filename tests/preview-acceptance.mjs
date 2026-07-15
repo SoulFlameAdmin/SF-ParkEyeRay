@@ -29,6 +29,13 @@ async function run() {
   assert(home.text.includes('ParkEyeRay'), 'Onboarding does not contain product title');
   assert(home.text.includes('Към картата'), 'Onboarding map entry is missing');
   assert(home.text.includes("location.href='/app'"), 'Onboarding does not route to /app');
+  assert(home.text.includes('rel="manifest" href="/manifest.webmanifest"'), 'Manifest is not linked from onboarding');
+  assert(home.text.includes('src="/pwa-register.js"'), 'PWA registration script is not loaded from onboarding');
+
+  const register = await request('/pwa-register.js');
+  assert(register.response.ok, `PWA registration script failed: ${register.response.status}`);
+  assert(register.text.includes("navigator.serviceWorker.register('/sw.js'"), 'Service worker registration call is missing');
+  assert(register.text.includes("scope: '/'"), 'Service worker scope must cover the application');
 
   const app = await request('/app');
   assert(app.response.ok, `Map app failed: ${app.response.status}`);
