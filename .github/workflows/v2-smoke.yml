@@ -105,7 +105,7 @@ jobs:
           grep -q 'AbortError' v2-parking.js
           grep -q 'AbortError' v2-route.js
           grep -q 'pointerup' v2-core.js
-          grep -q 'mouseEventToLatLng' v2-core.js
+          grep -q 'containerPointToLatLng' v2-core.js
 
       - name: Verify Stage 2 destination intelligence
         run: |
