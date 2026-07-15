@@ -1,4 +1,5 @@
 const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org/search';
+const PHOTON_ENDPOINT = 'https://photon.komoot.io/api/';
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter'
@@ -6,7 +7,6 @@ const OVERPASS_ENDPOINTS = [
 
 function transliterateToBulgarian(input) {
   let text = String(input || '').toLowerCase();
-
   const multi = [
     ['sht', 'щ'], ['zh', 'ж'], ['ch', 'ч'], ['sh', 'ш'],
     ['ts', 'ц'], ['yu', 'ю'], ['iu', 'ю'], ['ya', 'я'], ['ia', 'я'], ['yo', 'йо']
@@ -18,22 +18,21 @@ function transliterateToBulgarian(input) {
     j:'дж', k:'к', l:'л', m:'м', n:'н', o:'о', p:'п', q:'я', r:'р',
     s:'с', t:'т', u:'у', v:'в', w:'в', x:'кс', y:'й', z:'з'
   };
-
   text = text.replace(/[a-z]/g, (char) => map[char] || char);
-  text = text
+  return text
     .replaceAll('воивода', 'войвода')
     .replaceAll('раион', 'район')
     .replaceAll('маика', 'майка')
-    .replaceAll('наи', 'най');
-
-  return text.replace(/\s+/g, ' ').trim();
+    .replaceAll('наи', 'най')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function normalizeStreetName(value) {
   return transliterateToBulgarian(value)
     .replace(/\d+[а-яa-z]?/gi, ' ')
     .replace(/[.,;:'"()\-–—/\\]/g, ' ')
-    .replace(/\b(улица|ул|булевард|бул|площад|пл|жк|квартал|кв|българия)\b/gi, ' ')
+    .replace(/(улица|ул|булевард|бул|площад|пл|жк|квартал|кв|българия)/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -52,19 +51,18 @@ function haversineMeters(a, b) {
 function levenshtein(a, b) {
   const left = String(a || '');
   const right = String(b || '');
-  const previous = Array.from({ length:right.length + 1 }, (_, index) => index);
-
+  const row = Array.from({ length:right.length + 1 }, (_, index) => index);
   for (let i = 1; i <= left.length; i += 1) {
-    let diagonal = previous[0];
-    previous[0] = i;
+    let diagonal = row[0];
+    row[0] = i;
     for (let j = 1; j <= right.length; j += 1) {
-      const saved = previous[j];
+      const saved = row[j];
       const cost = left[i - 1] === right[j - 1] ? 0 : 1;
-      previous[j] = Math.min(previous[j] + 1, previous[j - 1] + 1, diagonal + cost);
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, diagonal + cost);
       diagonal = saved;
     }
   }
-  return previous[right.length];
+  return row[right.length];
 }
 
 function similarity(a, b) {
@@ -72,7 +70,7 @@ function similarity(a, b) {
   const right = normalizeStreetName(b);
   if (!left || !right) return 0;
   if (left === right) return 1;
-  if (left.includes(right) || right.includes(left)) return 0.92;
+  if (left.includes(right) || right.includes(left)) return 0.94;
 
   const leftTokens = new Set(left.split(' ').filter(Boolean));
   const rightTokens = new Set(right.split(' ').filter(Boolean));
@@ -91,7 +89,6 @@ async function nominatimSearch(query, bias) {
   url.searchParams.set('addressdetails', '1');
   url.searchParams.set('accept-language', 'bg');
   url.searchParams.set('dedupe', '1');
-
   if (bias) {
     const spread = 0.65;
     url.searchParams.set('viewbox', `${bias.lon - spread},${bias.lat + spread},${bias.lon + spread},${bias.lat - spread}`);
@@ -99,14 +96,29 @@ async function nominatimSearch(query, bias) {
   }
 
   const response = await fetch(url, {
-    headers: {
-      accept:'application/json',
-      'user-agent':'ParkEyeRay/1.2 (https://sf-parkeyeray.vercel.app)'
-    }
+    headers:{ accept:'application/json', 'user-agent':'ParkEyeRay/1.3 (https://sf-parkeyeray.vercel.app)' }
   });
-  if (!response.ok) throw new Error(`Geocoder ${response.status}`);
+  if (!response.ok) throw new Error(`Nominatim ${response.status}`);
   const data = await response.json();
   return Array.isArray(data) ? data : [];
+}
+
+async function photonSearch(query, bias) {
+  const url = new URL(PHOTON_ENDPOINT);
+  url.searchParams.set('q', query);
+  url.searchParams.set('limit', '8');
+  url.searchParams.set('lang', 'bg');
+  if (bias) {
+    url.searchParams.set('lat', String(bias.lat));
+    url.searchParams.set('lon', String(bias.lon));
+  }
+
+  const response = await fetch(url, {
+    headers:{ accept:'application/json', 'user-agent':'ParkEyeRay/1.3 (https://sf-parkeyeray.vercel.app)' }
+  });
+  if (!response.ok) throw new Error(`Photon ${response.status}`);
+  const payload = await response.json();
+  return Array.isArray(payload?.features) ? payload.features : [];
 }
 
 async function callOverpass(query) {
@@ -119,7 +131,7 @@ async function callOverpass(query) {
         method:'POST',
         headers:{
           'content-type':'application/x-www-form-urlencoded;charset=UTF-8',
-          'user-agent':'ParkEyeRay/1.2 (https://sf-parkeyeray.vercel.app)'
+          'user-agent':'ParkEyeRay/1.3 (https://sf-parkeyeray.vercel.app)'
         },
         body:new URLSearchParams({ data:query }),
         signal:controller.signal
@@ -138,7 +150,6 @@ async function callOverpass(query) {
 
 async function nearbyStreetFallback(target, bias) {
   if (!bias) return [];
-
   const normalized = normalizeStreetName(target);
   const words = normalized.split(' ').filter((word) => word.length >= 3);
   if (!words.length) return [];
@@ -153,35 +164,93 @@ async function nearbyStreetFallback(target, bias) {
     return `way(around:25000,${bias.lat},${bias.lon})["highway"]["name"~"${safe}",i];`;
   }).join('\n');
 
-  const query = `[out:json][timeout:20];\n(${clauses}\n);\nout center tags;`;
-  const elements = await callOverpass(query);
-
+  const elements = await callOverpass(`[out:json][timeout:20];\n(${clauses}\n);\nout center tags;`);
   return elements
     .map((element) => {
-      const name = element.tags?.name;
+      const street = element.tags?.name;
       const lat = Number(element.center?.lat);
       const lon = Number(element.center?.lon);
-      if (!name || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-      const matchScore = similarity(normalized, name);
-      const distance = haversineMeters(bias, { lat, lon });
+      if (!street || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      const matchScore = similarity(normalized, street);
       return {
-        name:`ул. ${name} — приблизителна точка`,
+        name:`ул. ${street} — приблизителна точка`,
         lat,
         lon,
         type:'street',
         importance:matchScore,
-        distance,
+        distance:haversineMeters(bias, { lat, lon }),
         matchedQuery:normalized,
         source:'nearby-street',
         matchScore
       };
     })
-    .filter((item) => item && item.matchScore >= 0.38)
-    .sort((a, b) => {
-      if (Math.abs(b.matchScore - a.matchScore) > 0.08) return b.matchScore - a.matchScore;
-      return a.distance - b.distance;
-    })
+    .filter((item) => item && item.matchScore >= 0.72)
+    .sort((a, b) => b.matchScore - a.matchScore || a.distance - b.distance)
     .slice(0, 6);
+}
+
+function mapNominatim(item, bias, queryVariant) {
+  const lat = Number(item.lat);
+  const lon = Number(item.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return {
+    name:item.display_name,
+    lat,
+    lon,
+    type:item.type || '',
+    importance:Number(item.importance || 0),
+    distance:bias ? haversineMeters(bias, { lat, lon }) : null,
+    matchedQuery:queryVariant,
+    source:'nominatim'
+  };
+}
+
+function mapPhoton(feature, bias, queryVariant) {
+  const coordinates = feature.geometry?.coordinates;
+  const properties = feature.properties || {};
+  const lon = Number(coordinates?.[0]);
+  const lat = Number(coordinates?.[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+  const countryCode = String(properties.countrycode || '').toUpperCase();
+  const country = String(properties.country || '').toLowerCase();
+  if (countryCode && countryCode !== 'BG' && !country.includes('българ') && !country.includes('bulgaria')) return null;
+
+  const first = properties.name || properties.street || properties.locality || 'Адрес';
+  const house = properties.housenumber ? ` ${properties.housenumber}` : '';
+  const place = properties.city || properties.town || properties.village || properties.county || '';
+  const displayName = [first + house, place, 'България'].filter(Boolean).join(', ');
+
+  return {
+    name:displayName,
+    lat,
+    lon,
+    type:properties.type || properties.osm_value || '',
+    importance:0.55,
+    distance:bias ? haversineMeters(bias, { lat, lon }) : null,
+    matchedQuery:queryVariant,
+    source:'photon'
+  };
+}
+
+function dedupeAndSort(items, bias) {
+  const seen = new Set();
+  return items
+    .filter(Boolean)
+    .filter((item) => {
+      const key = `${item.lat.toFixed(6)},${item.lon.toFixed(6)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => {
+      if (bias && Number.isFinite(a.distance) && Number.isFinite(b.distance)) {
+        const delta = a.distance - b.distance;
+        if (Math.abs(delta) > 250) return delta;
+      }
+      return b.importance - a.importance;
+    })
+    .slice(0, 8);
 }
 
 export default async function handler(req, res) {
@@ -191,59 +260,45 @@ export default async function handler(req, res) {
   }
 
   const q = String(req.query?.q || '').trim();
-  if (q.length < 2 || q.length > 140) {
-    return res.status(400).json({ error:'Invalid search query' });
-  }
+  if (q.length < 2 || q.length > 140) return res.status(400).json({ error:'Invalid search query' });
 
   const lat = Number(req.query?.lat);
   const lon = Number(req.query?.lon);
   const bias = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
-
   const transliterated = transliterateToBulgarian(q);
   const withoutHouseNumber = transliterated.replace(/(?:,|\s)\s*\d+[а-яa-z]?\s*$/i, '').trim();
   const variants = [...new Set([q, transliterated, withoutHouseNumber].filter(Boolean))];
 
   try {
-    const collected = [];
+    let results = [];
+
     for (const variant of variants) {
-      const batch = await nominatimSearch(variant, bias);
-      collected.push(...batch.map((item) => ({ ...item, queryVariant:variant })));
-      if (collected.length >= 8) break;
+      try {
+        const batch = await nominatimSearch(variant, bias);
+        results.push(...batch.map((item) => mapNominatim(item, bias, variant)));
+      } catch (error) {
+        console.warn('Nominatim failed', error?.message || error);
+      }
+      if (results.filter(Boolean).length >= 8) break;
     }
 
-    const seen = new Set();
-    let results = collected
-      .map((item) => {
-        const itemLat = Number(item.lat);
-        const itemLon = Number(item.lon);
-        if (!Number.isFinite(itemLat) || !Number.isFinite(itemLon)) return null;
-        const key = `${itemLat.toFixed(6)},${itemLon.toFixed(6)}`;
-        if (seen.has(key)) return null;
-        seen.add(key);
-        return {
-          name:item.display_name,
-          lat:itemLat,
-          lon:itemLon,
-          type:item.type || '',
-          importance:Number(item.importance || 0),
-          distance:bias ? haversineMeters(bias, { lat:itemLat, lon:itemLon }) : null,
-          matchedQuery:item.queryVariant,
-          source:'nominatim'
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => {
-        if (bias && Number.isFinite(a.distance) && Number.isFinite(b.distance)) {
-          const delta = a.distance - b.distance;
-          if (Math.abs(delta) > 250) return delta;
-        }
-        return b.importance - a.importance;
-      })
-      .slice(0, 8);
+    results = dedupeAndSort(results, bias);
 
     if (!results.length) {
-      results = await nearbyStreetFallback(withoutHouseNumber || transliterated, bias);
+      const photonResults = [];
+      for (const variant of variants) {
+        try {
+          const batch = await photonSearch(variant, bias);
+          photonResults.push(...batch.map((item) => mapPhoton(item, bias, variant)));
+        } catch (error) {
+          console.warn('Photon failed', error?.message || error);
+        }
+        if (photonResults.filter(Boolean).length >= 8) break;
+      }
+      results = dedupeAndSort(photonResults, bias);
     }
+
+    if (!results.length) results = await nearbyStreetFallback(withoutHouseNumber || transliterated, bias);
 
     res.setHeader('Cache-Control', 's-maxage=180, stale-while-revalidate=900');
     return res.status(200).json({ results, normalizedQuery:transliterated, variants });
