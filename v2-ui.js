@@ -102,7 +102,7 @@
     if(online){
       app.setStatus('Интернет връзката е възстановена.','success');
       app.setRetry(null);
-      app.refreshMapLayers?.(app.layerCenter?.(),{force:true,announce:false});
+      if(s.map)app.refreshMapLayers?.(app.layerCenter?.(),{force:true,announce:false});
     }else{
       app.setStatus('Няма интернет. Картата остава видима, но търсенето и слоевете са временно спрени.','error',true);
     }
