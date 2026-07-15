@@ -66,6 +66,7 @@
       const drive=s.user?results[index++]:null;
       const walk=destinationMode?results[index]:null;
       item.route=drive;item.walkRoute=walk;
+      if(drive)app.prepareNavigationRoute?.(drive);
       if(drive?.geometry?.coordinates)L.geoJSON(drive.geometry,{style:{color:'#2f80ed',weight:6,opacity:.9}}).addTo(s.routeLayer);
       if(walk?.geometry?.coordinates)L.geoJSON(walk.geometry,{style:{color:'#f59e0b',weight:5,opacity:.95,dashArray:'8 8'}}).addTo(s.routeLayer);
 
@@ -87,10 +88,11 @@
       const geo=[];
       if(drive?.geometry)geo.push(L.geoJSON(drive.geometry));
       if(walk?.geometry)geo.push(L.geoJSON(walk.geometry));
-      if(geo.length){
+      if(geo.length&&!s.navigationActive){
         let bounds=null;geo.forEach(layer=>{bounds=bounds?bounds.extend(layer.getBounds()):layer.getBounds()});
         s.map.fitBounds(bounds,{padding:[55,55]});
       }
+      if(s.navigationActive&&s.user)app.updateNavigationProgress?.(s.user);
       app.setStatus(destinationMode
         ?(drive?`Маршрут: ${app.formatDistance(drive.distance)} с кола + ${app.formatDistance(walk.distance)} пеша.`:`Пешеходната част е готова. Разреши GPS за маршрут с автомобил.`)
         :(drive?`Маршрутът до паркинга е ${app.formatDistance(drive.distance)}.`:'Разреши GPS за маршрут до паркинга.'),'success');
@@ -110,7 +112,9 @@
 
   app.clearRoute=()=>{
     app.abortRequest?.('route');
+    if(s.navigationActive)app.stopNavigation?.();
     s.routeLayer?.clearLayers();
+    s.navigationRoute=null;
     app.$('route-card').classList.remove('active','loading');
     app.$('drive-distance').textContent='—';app.$('drive-time').textContent='—';app.$('walk-distance').textContent='—';
     if(s.selected){s.selected=null;app.renderParkingMarkers?.();app.renderParkings?.()}
