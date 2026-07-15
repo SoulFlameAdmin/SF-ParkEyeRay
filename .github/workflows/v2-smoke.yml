@@ -88,5 +88,6 @@ jobs:
       - name: Verify PostGIS moderation guards
         run: |
           grep -q "status = 'approved'" supabase/migrations/20260715190000_smartcity_parking_foundation.sql
-          grep -q 'pending_soulflame' contracts/parking-submission.schema.json
+          grep -q 'pending_soulflame' supabase/migrations/20260715190000_smartcity_parking_foundation.sql
+          grep -q "const STATUS='pending_soulflame'" v2-submission-adapter.js
           grep -q "const STATUS = 'pending_soulflame'" api/v2/parking-proposals.js
