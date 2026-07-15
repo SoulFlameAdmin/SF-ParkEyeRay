@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const parkingHandler = require('../api/v2/parkings.js');
 const parking = parkingHandler._test;
 const importer = require('./import-osm-parking.cjs');
+const builder = require('./build-osm-parking-batch.cjs');
 
 function responseMock() {
   return {
@@ -28,11 +29,17 @@ function overpassPayload() {
       {
         type: 'way', id: 100,
         center: { lat: 42.4385, lon: 25.6310 },
-        tags: { amenity: 'parking', name: 'Паркинг Мол Галерия', parking: 'surface', capacity: '120', fee: 'no' }
+        geometry: [
+          { lat: 42.4384, lon: 25.6309 }, { lat: 42.4386, lon: 25.6309 },
+          { lat: 42.4386, lon: 25.6311 }, { lat: 42.4384, lon: 25.6309 }
+        ],
+        tags: { amenity: 'parking', name: 'Паркинг Мол Галерия', parking: 'surface', capacity: '120', fee: 'no' },
+        timestamp: '2026-07-15T20:00:00Z'
       },
       {
         type: 'node', id: 101, lat: 42.43855, lon: 25.63105,
-        tags: { amenity: 'parking_entrance' }
+        tags: { amenity: 'parking_entrance' },
+        timestamp: '2026-07-15T20:00:00Z'
       },
       {
         type: 'way', id: 102,
@@ -74,20 +81,28 @@ async function run() {
   assert.equal(merged[0].verificationStatus, 'approved');
   assert.deepEqual(merged[0].sourceRefs.sort(), ['osm:way/1', 'soulflame:a']);
 
+  const bbox = builder.parseBbox('26.20,42.60,26.40,42.80');
+  assert.equal(builder.bboxPolygon(bbox).type, 'Polygon');
+  assert.match(builder.overpassQuery(bbox), /out center tags geom meta/);
+  const built = builder.buildFeatures(overpassPayload().elements);
+  assert.equal(built.length, 2);
+  assert.equal(built[0].externalId, 'way/100');
+  assert.equal(built[0].geometry.type, 'Polygon');
+  assert.equal(built[0].vehicleEntrance.type, 'Point');
+  assert.equal(built[0].sourceUpdatedAt, '2026-07-15T20:00:00Z');
+  assert.equal(builder.classify({ 'parking:left': 'lane' }).featureType, 'street');
+
   const batch = {
     source: 'osm', scopeKey: 'bg:sliven', revision: '2026-07-15T22:30:00Z',
-    features: [{
-      externalId: 'way/100', featureType: 'area', kind: 'surface', name: 'Тестов паркинг',
-      geometry: { type: 'Polygon', coordinates: [[[26.30,42.68],[26.31,42.68],[26.31,42.69],[26.30,42.68]]] },
-      representativePoint: { type: 'Point', coordinates: [26.305,42.685] },
-      tags: { amenity: 'parking' }
-    }]
+    bbox: builder.bboxPolygon(bbox),
+    features: built
   };
   assert.deepEqual(importer.validateBatch(batch), []);
   const rows = importer.normalizeRows(batch, '00000000-0000-0000-0000-000000000001');
   assert.equal(rows[0].source_revision, batch.revision);
   assert.equal(rows[0].scope_key, 'bg:sliven');
   assert.equal(rows[0].is_active, true);
+  assert.equal(rows[0].vehicle_entrance.type, 'Point');
 
   const originalFetch = global.fetch;
   const originalUrl = process.env.SUPABASE_URL;
