@@ -5,7 +5,7 @@
 
   app.requiredIds=[
     'map','draw-surface','status','search-form','search-input','search-submit','search-results','locate-btn','menu-btn','map-menu','parking-layer-btn','fuel-layer-btn',
-    'navigation-hud','nav-maneuver','nav-maneuver-icon','nav-maneuver-text','nav-maneuver-distance','nav-speed-value','nav-remaining-distance','nav-remaining-time','nav-eta','nav-route-state',
+    'speedometer','speedometer-value','navigation-hud','nav-maneuver','nav-maneuver-icon','nav-maneuver-text','nav-maneuver-distance','nav-speed-value','nav-remaining-distance','nav-remaining-time','nav-eta','nav-route-state',
     'parking-sheet','parking-list','parking-count','parking-filters','sheet-handle','save-destination',
     'route-card','route-close','start-route','external-route','draw-toolbar',
     'proposal-modal','proposal-form','profile-modal','proposals-modal','network-state'
