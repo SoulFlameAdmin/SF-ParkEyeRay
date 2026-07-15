@@ -32,6 +32,7 @@ jobs:
           node --check v2-layers.js
           node --check v2-map-first.js
           node --check v2-route.js
+          node --check v2-navigation.js
           node --check v2-proposals.js
           node --check v2-submission-adapter.js
           node --check v2-init.js
@@ -40,13 +41,11 @@ jobs:
           node --check api/routing.js
           node --check api/v2/parkings.js
           node --check api/v2/nearby.js
-          node --check api/v2/_evidence-token.js
           node --check api/v2/evidence-upload-token.js
           node --check api/v2/parking-proposals.js
-          node --check api/v2/_moderation-auth.js
-          node --check api/v2/moderation-proposals.js
-          node --check api/v2/moderate-parking-proposal.js
-          node --check api/v2/moderation-evidence-url.js
+          node --check api/v2/moderation.js
+          node --check server/v2/evidence-token.js
+          node --check server/v2/moderation-auth.js
           node --check scripts/build-osm-parking-batch.cjs
           node --check scripts/import-osm-parking.cjs
           node --check scripts/test-v2-parking-engine.cjs
@@ -73,6 +72,24 @@ jobs:
           test -s v2-waze.css
           grep -q 'bottom-nav{display:none' v2-waze.css
           grep -q 'map-menu.open' v2-waze.css
+
+      - name: Verify Waze navigation HUD and drawing surface
+        run: |
+          grep -q 'id="draw-surface"' v2.html
+          grep -q 'id="nav-maneuver"' v2.html
+          grep -q 'id="nav-maneuver-text"' v2.html
+          grep -q 'id="nav-maneuver-distance"' v2.html
+          grep -q 'id="nav-speed-value"' v2.html
+          grep -q 'id="nav-remaining-distance"' v2.html
+          grep -q 'id="nav-remaining-time"' v2.html
+          grep -q 'id="nav-eta"' v2.html
+          grep -q 'app.updateNextManeuver' v2-navigation.js
+          grep -q 'app.requestNavigationReroute' v2-navigation.js
+          grep -q 'app.closeMapMenu' v2-navigation.js
+          grep -q 'steps=true' api/routing.js
+          grep -q 'drawing-mode #draw-surface' v2-waze.css
+          grep -q "drawSurface.addEventListener('touchstart'" v2-core.js
+          grep -q 'containerPointToLatLng' v2-core.js
 
       - name: Verify automatic nearby map layers
         run: |
@@ -104,8 +121,6 @@ jobs:
           grep -q 'app.renderParkingMessage' v2-ui.js
           grep -q 'AbortError' v2-parking.js
           grep -q 'AbortError' v2-route.js
-          grep -q 'pointerup' v2-core.js
-          grep -q 'containerPointToLatLng' v2-core.js
 
       - name: Verify Stage 2 destination intelligence
         run: |
@@ -174,6 +189,19 @@ jobs:
           grep -q 'Не е публикувано като проверен обществен паркинг' v2-proposals.js
           grep -q 'без live свободни места' v2-core.js
 
+      - name: Verify Vercel Hobby function budget
+        run: |
+          test "$(find api -type f -name '*.js' | wc -l)" -le 12
+          test -f api/v2/moderation.js
+          test -f server/v2/moderation-auth.js
+          test -f server/v2/evidence-token.js
+          test ! -f api/v2/moderation-proposals.js
+          test ! -f api/v2/moderate-parking-proposal.js
+          test ! -f api/v2/moderation-evidence-url.js
+          grep -q 'operation=proposals' vercel.json
+          grep -q 'operation=transition' vercel.json
+          grep -q 'operation=evidence-url' vercel.json
+
       - name: Verify submission adapter contract
         run: node scripts/test-v2-contracts.cjs
 
@@ -194,4 +222,4 @@ jobs:
           grep -q "const STATUS = 'pending_soulflame'" api/v2/parking-proposals.js
           grep -q '^  false,$' supabase/migrations/20260715211500_parking_evidence_storage.sql
           grep -q "storage.foldername(name)" supabase/migrations/20260715211500_parking_evidence_storage.sql
-          grep -q 'object/sign/parking-evidence' api/v2/moderation-evidence-url.js
+          grep -q 'object/sign/parking-evidence' api/v2/moderation.js
