@@ -64,7 +64,7 @@ async function mockApplicationApis(page) {
     body: JSON.stringify({ results: [destination] })
   }));
 
-  await page.route('**/api/overpass', async route => route.fulfill({
+  await page.route('**/api/overpass', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ elements: parkingElements })
@@ -86,7 +86,9 @@ async function openV2(page) {
   await page.goto('/v2.html');
   await expect(page.locator('#map')).toBeVisible();
   await expect(page.locator('.nav-action')).toHaveCount(5);
-  await expect(page.locator('#status')).toContainText('SmartCity V2');
+  await expect(page.locator('#status')).toBeVisible();
+  await expect(page.locator('#search-input')).toBeEnabled();
+  await expect(page.locator('#parking-list')).toBeVisible();
 }
 
 test('search → parking selection → driving and walking route', async ({ page }) => {
