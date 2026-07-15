@@ -97,5 +97,5 @@ jobs:
           grep -q 'pending_soulflame' supabase/migrations/20260715190000_smartcity_parking_foundation.sql
           grep -q "const STATUS='pending_soulflame'" v2-submission-adapter.js
           grep -q "const STATUS = 'pending_soulflame'" api/v2/parking-proposals.js
-          grep -q "public.*false" supabase/migrations/20260715211500_parking_evidence_storage.sql
+          grep -q '^  false,$' supabase/migrations/20260715211500_parking_evidence_storage.sql
           grep -q "storage.foldername(name)" supabase/migrations/20260715211500_parking_evidence_storage.sql
