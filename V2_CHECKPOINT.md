@@ -5,119 +5,80 @@
 - Draft PR: `#6`
 - Preview route: `/v2`
 - Master plan: issue `#5`
-- Completed technical roadmap stages: **Stage 1, Stage 2 and Stage 3 parking data engine**
 - Active product direction: **small safe steps toward a working Waze-like navigation experience**
 
+## Stable product rules
+- Exactly five primary phone-first actions.
+- Production `/app` remains unchanged until V2 acceptance.
+- Every user proposal remains `pending_soulflame` until explicit SoulFlame moderation.
+- Only `approved` SoulFlame polygons may be published as SoulFlame verified.
+- OSM is mapped source data, not a complete physical inventory and not live vacancy.
+
 ## Stage 1 — stable phone-first interface
-- Exactly five primary actions.
 - Central busy, error, retry, offline and request-cancellation state.
 - Deterministic phone sheet and accessible parking selection.
-- Safe proposal drawing and cancellation.
-- Pixel 7 and desktop Chromium acceptance coverage.
-- Android polygon drawing has pointer, click and native touch coordinate capture with deduplication.
+- Search → destination → parking list/marker → selected parking → driving route → walking route flow.
+- Polygon drawing → details → pending submission flow.
+- Android drawing now captures points at native `touchstart`, before Leaflet gesture cleanup, with pointer/click fallbacks and deduplication.
+- Conflicting map gestures remain disabled only while drawing.
 
 ## Stage 2 — search and destinations
 - Debounced Bulgarian and transliterated destination suggestions.
 - Result ranking by query, object type, city/name tokens, source and distance.
-- Mall searches prioritize the actual mall above a nearby parking result.
 - Recent destination history and saved destinations.
-- Accessible listbox behavior and local privacy reset.
 
-## Stage 3 — live normalized parking data engine
-- PostGIS tables `parking_features` and `parking_import_runs`.
-- Spatial indexes and bounded `search_parking_features` RPC.
-- Versioned import batches with source revision and scope tracking.
-- OSM area, point, individual-space, street-parking and entrance support.
-- Approved-only SoulFlame zones combined with imported mapped data.
-- Deduplication prefers an approved SoulFlame record over overlapping OSM data while preserving source references.
+## Stage 3 — parking data engine
+- PostGIS parking tables, spatial indexes and bounded search RPC.
+- OSM area, point, parking-space, street-parking and entrance support.
+- Approved-only SoulFlame publication and deduplication preference over overlapping OSM data.
 - `GET /api/v2/parkings` uses PostGIS first and Overpass only as fallback.
-- Results expose source, verification state, revision/freshness, representative point and vehicle entrance.
-- UI labels PostGIS, approved SoulFlame and fallback data honestly.
-- `liveOccupancy: false` is explicit; no live vacancy is implied.
+- `liveOccupancy: false` remains explicit.
 
-## Waze navigation step 1 — GPS follow and live speed
-- Added a dedicated `v2-navigation.js` module.
-- The route button now has real Start/Stop navigation states.
-- Navigation starts a high-accuracy `watchPosition` GPS stream.
-- Current GPS speed is converted from metres per second and displayed in km/h.
-- The camera follows the current position with smooth movement.
-- Automatic zoom changes conservatively according to current speed.
-- GPS accuracy is visible in the navigation HUD.
-- Heading is reflected in the direction arrow when the browser supplies a valid heading and the vehicle is moving.
-- Continuous GPS updates no longer rebuild the complete route on every position event.
-- The five primary phone actions remain unchanged; Start/Stop is contextual.
-- This batch does not claim road rotation, lane guidance, live traffic, police reports or speed-limit data.
+## Waze navigation engine batch 1
+- High-accuracy `watchPosition` GPS stream.
+- Live GPS speed in km/h and GPS accuracy.
+- Smooth follow camera and conservative speed-based zoom.
+- Route geometry is normalized into cumulative segment distances.
+- Current GPS position is projected onto the nearest route segment.
+- Remaining driving distance and duration update without rebuilding the route every second.
+- ETA is calculated from the remaining route duration.
+- Off-route detection requires three consecutive samples beyond a threshold based on GPS accuracy.
+- Automatic rerouting is throttled with a 30-second cooldown and suppressed while offline or already rerouting.
+- Route fitting is disabled while active navigation is following the user.
+- Start/Stop remains contextual and does not add a sixth primary action.
+- This batch does not claim map-bearing rotation, lane guidance, speed limits, live traffic or police reports.
 
-## Phone drawing stability hotfix
-- Browser acceptance showed that Android synthetic taps can lose a later polygon point even after `changedTouches` normalization.
-- Root cause is timing at the end of the synthetic touch gesture: `pointerup`/`touchend` can race with Leaflet gesture cleanup.
-- Touch drawing now captures the point at `pointerdown`, before Leaflet can consume or transform the gesture.
-- `touchend`, pointer-up, click and Leaflet click remain safe fallbacks and are deduplicated.
-- App overlays and Leaflet controls are still excluded, while drawing tooltips/popups no longer incorrectly block map point capture.
-- Drawing mode still disables conflicting Leaflet gestures and temporary drawing layers remain non-interactive.
-- The product rule remains unchanged: every submitted user polygon is `pending_soulflame` until moderation.
-
-## SoulFlame moderation backend batch
-- Added server-only moderator authentication requiring both a dedicated moderator key and moderator UUID.
-- Added protected `GET /api/v2/moderation-proposals` list and detail reads.
-- List output is restricted to `pending_soulflame` community proposals.
-- Detail output includes geometry, entrances, evidence and moderation history.
-- Added protected `POST /api/v2/moderate-parking-proposal`.
-- Supported actions are approve, reject and request changes.
-- Reject and request-changes actions require a reason.
-- Added atomic service-role-only `moderate_parking_proposal` PostGIS RPC.
-- Approval is the only transition that sets `verified_at` and `verified_by`.
-
-## Signed moderator evidence batch
-- Added protected `POST /api/v2/moderation-evidence-url`.
-- Evidence ownership is verified before signing any object.
-- Signed private-bucket URLs live for 30–120 seconds and responses are `no-store`.
-
-## Applied Supabase infrastructure
-The connected Supabase project has the parking foundation, private evidence storage, parking data engine, search hardening and parking-engine security migrations applied.
-
-The SoulFlame moderation migration is committed but must not be described as applied until verified against the configured project.
+## SoulFlame moderation foundation
+- Protected moderation list/detail endpoints.
+- Approve, reject and request-changes actions.
+- Atomic moderation RPC and append-only audit history.
+- Private evidence signing with short-lived URLs.
+- Moderation migration remains committed but must not be described as applied until verified against the configured project.
 
 ## First real data import
 Scope: `bg:sliven-core`
+- 214 active parking features.
+- 91 parking areas or representative points.
+- 68 individual parking-space features.
+- 55 street-parking segments.
+- Occupancy remains unknown and non-live.
 
-Imported from live OSM data into PostGIS:
-- **214 active parking features**;
-- **91** parking areas or representative points;
-- **68** individual parking-space features;
-- **55** street-parking segments.
-
-Occupancy remains unknown and is labelled as non-live.
-
-## Runtime preview verification
-- The branch alias returned HTTP 200 for `/v2` on 2026-07-16, but the served HTML was still the older single-script build and must not be described as containing the newest modular navigation/drawing code.
-- The latest source commit therefore still requires a READY Vercel deployment verification.
-- Branch alias: `sf-parkeyeray-git-smartcity-v2-57e0ea-dimitar-lambovs-projects.vercel.app`.
-
-## Current CI state
-- Head `883ab3a66ae6487c2ec36959ce054a1c417068f4`: parking smoke and V2 smoke passed; browser acceptance failed because Android drawing intermittently stopped at two points.
-- Artifact evidence showed the drawing toolbar active and `Готово` disabled after only two captured points.
-- Touch-start fix head `bb6dc85a2604aee26a4380f317cd94f9f3a70ce7` captures Android points on touch `pointerdown`.
-- New CI must pass before acceptance is claimed.
-
-## Production safety
-- Production `/app` remains unchanged.
-- PR #6 remains draft and unmerged.
-- User proposals remain `pending_soulflame` until an explicit moderator transition.
-- Only `approved` SoulFlame zones can enter published parking results.
-- OSM is not described as a complete physical parking inventory or as live vacancy data.
+## Runtime and CI verification
+- Before this batch, head `db7825ac8c7c93e976cc93dd5f7ab75dd66f53fb` had green parking/V2 smoke and red Android browser acceptance because polygon drawing stopped before three points.
+- The new touch-start fix is committed and must receive green browser acceptance before the drawing defect is considered closed.
+- The Vercel branch alias is protected and has previously served an older READY build; it must not be described as containing this batch until a deployment for the latest head is verified.
+- Runtime checks required on the verified deployment: `/v2`, `/api/geocode`, `/api/overpass`, driving `/api/routing`, walking `/api/routing` and runtime error clusters.
 
 ## Remaining limitations
-- Leaflet does not provide true bearing-based map rotation in the current implementation; the heading arrow rotates, not the road map.
-- GPS speed and heading depend on the physical device/browser and must be tested while moving outdoors.
-- No automatic rerouting or route-progress snapping yet.
-- No next-turn instruction banner or voice guidance yet.
-- A physical Android road test remains required before replacing production.
+- Leaflet does not currently rotate the road map by bearing; only the heading arrow rotates.
+- GPS speed, heading and rerouting need a physical Android road test outdoors.
+- Route progress is geometric projection, not advanced map matching.
+- No next-turn maneuver banner or voice guidance yet.
+- A physical phone and desktop acceptance pass remains required before replacing production.
 
 ## Next safe batch
-1. Confirm green browser acceptance for touch-start Android polygon drawing.
-2. Confirm a READY Vercel deployment and test the branch alias on phone and desktop.
-3. Verify runtime `/api/geocode`, `/api/overpass`, driving and walking `/api/routing` against the READY branch deployment.
-4. Add route-progress projection and remaining distance/time updates without rebuilding the route every second.
-5. Add off-route detection and throttled rerouting.
-6. Add next-maneuver banner from routing instructions.
+1. Inspect CI for the touch-start and navigation-progress heads; fix any red browser acceptance before adding more features.
+2. Verify a READY Vercel deployment for the exact latest head and test all required runtime endpoints.
+3. Add routing maneuver instructions and a next-turn banner.
+4. Add voice prompts only after maneuver data and rerouting are stable.
+5. Continue authenticated submission, evidence upload and internal moderation dashboard work without changing the five phone actions.
