@@ -170,7 +170,7 @@
     s.parkingLayer=L.layerGroup().addTo(s.map);s.fuelLayer=L.layerGroup().addTo(s.map);s.routeLayer=L.layerGroup().addTo(s.map);s.proposalLayer=L.layerGroup().addTo(s.map);s.drawingLayer=L.layerGroup().addTo(s.map);
     const mapNode=app.$('map'),drawSurface=app.$('draw-surface');
     if(drawSurface&&drawSurface.parentElement!==mapNode)mapNode.appendChild(drawSurface);
-    const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<320&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<10;
+    const isDuplicateDrawEvent=(x,y,now)=>Number.isFinite(s.lastDrawClientX)&&Number.isFinite(s.lastDrawClientY)&&now-s.lastDrawPointerAt<500&&Math.hypot(x-s.lastDrawClientX,y-s.lastDrawClientY)<12;
     const rememberDrawEvent=(x,y,now)=>{s.lastDrawPointerAt=now;s.lastDrawClientX=x;s.lastDrawClientY=y};
     const eventPoint=event=>{
       const touch=event.changedTouches?.[0]||event.touches?.[0];
@@ -189,8 +189,7 @@
     };
     const captureDrawEvent=event=>{
       if(!s.drawing)return;
-      if((event.type==='mousedown'||event.type==='click')&&event.button!==0)return;
-      if((event.type==='pointerdown'||event.type==='pointerup')&&event.pointerType!=='touch'&&event.pointerType!=='pen'&&event.button!==0)return;
+      if((event.type==='pointerdown'||event.type==='click')&&event.button!==0)return;
       const rect=mapNode.getBoundingClientRect(),{x,y}=eventPoint(event),now=performance.now();
       if(!Number.isFinite(x)||!Number.isFinite(y)||x<rect.left||x>rect.right||y<rect.top||y>rect.bottom||isDuplicateDrawEvent(x,y,now))return;
       if(event.cancelable)event.preventDefault();
@@ -198,17 +197,9 @@
       rememberDrawEvent(x,y,now);
       appendDrawLatLng(s.map.containerPointToLatLng(L.point(x-rect.left,y-rect.top)));
     };
-    drawSurface.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
-    drawSurface.addEventListener('touchend',captureDrawEvent,{capture:true,passive:false});
     mapNode.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
-    mapNode.addEventListener('touchend',captureDrawEvent,{capture:true,passive:false});
-    [drawSurface,mapNode].forEach(target=>{
-      target.addEventListener('pointerdown',captureDrawEvent,true);
-      target.addEventListener('pointerup',captureDrawEvent,true);
-      target.addEventListener('mousedown',captureDrawEvent,true);
-      target.addEventListener('click',captureDrawEvent,true);
-    });
-    s.map.on('click',event=>appendDrawLatLng(event.latlng));
+    mapNode.addEventListener('pointerdown',captureDrawEvent,true);
+    mapNode.addEventListener('click',captureDrawEvent,true);
     return true;
   };
 })();
