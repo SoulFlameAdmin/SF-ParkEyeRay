@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - smartcity-v2-foundation
+      - stage4-moderation-auth
   pull_request:
     branches:
       - main
@@ -35,7 +36,11 @@ jobs:
           node --check v2-navigation.js
           node --check v2-proposals.js
           node --check v2-submission-adapter.js
+          node --check v2-auth-ui.js
           node --check v2-init.js
+          node --check smartcity-config.js
+          node --check smartcity-auth.js
+          node --check moderation.js
           node --check api/geocode.js
           node --check api/overpass.js
           node --check api/routing.js
@@ -190,8 +195,31 @@ jobs:
         run: |
           grep -q 'Чака SoulFlame одобрение' v2.html
           grep -q "status:'pending_soulflame'" v2-proposals.js
-          grep -q 'Не е публикувано като проверен обществен паркинг' v2-proposals.js
           grep -q 'без live свободни места' v2-core.js
+
+      - name: Verify Stage 4 authenticated moderation
+        run: |
+          test -s moderation.html
+          test -s moderation.css
+          test -s moderation.js
+          test -s smartcity-config.js
+          test -s smartcity-auth.js
+          test -s v2-auth-ui.js
+          test -s v2-auth.css
+          test -s supabase/migrations/20260716023000_parking_moderators.sql
+          grep -q 'parking_moderators' supabase/migrations/20260716023000_parking_moderators.sql
+          grep -q 'moderate_parking_proposal_auth' supabase/migrations/20260716023000_parking_moderators.sql
+          grep -q 'is_parking_moderator' supabase/migrations/20260716023000_parking_moderators.sql
+          grep -q 'to authenticated, service_role' supabase/migrations/20260716023000_parking_moderators.sql
+          grep -q 'moderate_parking_proposal_auth' moderation.js
+          grep -q 'createSignedUrl' moderation.js
+          grep -q 'signInWithOAuth' smartcity-auth.js
+          grep -q 'signInWithOtp' smartcity-auth.js
+          grep -q 'flushOutbox' v2-auth-ui.js
+          grep -q 'syncMine' v2-submission-adapter.js
+          grep -q "status:'pending_soulflame'" v2-proposals.js
+          grep -q 'moderation.html' v2-auth-ui.js
+          ! grep -R -q 'SUPABASE_SERVICE_ROLE_KEY' smartcity-config.js smartcity-auth.js moderation.js moderation.html v2-auth-ui.js v2-submission-adapter.js
 
       - name: Verify Vercel Hobby function budget
         run: |

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <meta name="robots" content="noindex,nofollow">
+  <title>SoulFlame · Parking Moderation</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="/moderation.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">SF</span><div>SoulFlame Moderation<br><small>Parking review</small></div></div>
+    <div class="top-actions"><a class="btn" href="/v2">Карта</a><button id="refresh" class="btn" type="button">↻ <span>Обнови</span></button><button id="sign-out" class="btn hidden" type="button">Изход</button></div>
+  </header>
+
+  <section id="login-gate" class="login-gate">
+    <div class="login-card">
+      <h1>Защитен moderator вход</h1>
+      <p>Влез със SoulFlame Google профила си. Само активни parking moderators могат да виждат доказателства и да одобряват зони.</p>
+      <div class="login-actions">
+        <button id="google-login" class="btn primary" type="button">Вход с Google</button>
+        <input id="email" type="email" autocomplete="email" placeholder="Email за magic link">
+        <button id="email-login" class="btn" type="button">Изпрати magic link</button>
+      </div>
+      <div id="login-notice" class="notice">Проверявам текущата сесия…</div>
+    </div>
+  </section>
+
+  <main id="dashboard" class="shell hidden">
+    <aside class="sidebar">
+      <div class="sidebar-head"><h1>Предложения</h1><p id="list-summary">Зареждам…</p></div>
+      <div id="filters" class="filters">
+        <button class="filter active" data-status="pending_soulflame" type="button">Чакащи</button>
+        <button class="filter" data-status="changes_requested" type="button">Промени</button>
+        <button class="filter" data-status="approved" type="button">Одобрени</button>
+        <button class="filter" data-status="rejected" type="button">Отказани</button>
+      </div>
+      <div id="proposal-list" class="proposal-list"></div>
+    </aside>
+
+    <section class="content">
+      <div id="empty" class="empty"><strong>Избери предложение</strong><span>Ще видиш очертанието, доказателствата и историята.</span></div>
+      <article id="detail" class="detail">
+        <div class="detail-grid">
+          <div class="card">
+            <div class="card-head"><div><h2 id="proposal-name">Предложение</h2><small id="proposal-date"></small></div><span id="proposal-status" class="status">—</span></div>
+            <div class="meta"><div><b id="proposal-access">—</b><span>достъп</span></div><div><b id="proposal-capacity">—</b><span>места</span></div><div><b id="proposal-points">—</b><span>точки</span></div></div>
+            <div id="proposal-map" aria-label="Карта на предложението"></div>
+            <div class="section"><h3>Доказателства</h3><div id="evidence" class="evidence"></div></div>
+          </div>
+
+          <div class="card">
+            <div class="section"><h3>История</h3><div id="history" class="history"></div></div>
+            <div class="section moderate">
+              <h3>Решение</h3>
+              <textarea id="reason" maxlength="1000" placeholder="Причина при отказ или искане на промени…"></textarea>
+              <div class="moderation-actions"><button id="approve" class="btn green" type="button">Одобри</button><button id="request-changes" class="btn amber" type="button">Искай промени</button><button id="reject" class="btn red" type="button">Откажи</button></div>
+              <div class="truth">Само „Одобри“ публикува зоната като SoulFlame проверен паркинг. Всяко решение се записва в неизтриваема moderation история.</div>
+              <div id="action-notice" class="notice"></div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/smartcity-config.js"></script>
+  <script src="/smartcity-auth.js"></script>
+  <script src="/moderation.js"></script>
+</body>
+</html>
