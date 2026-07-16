@@ -34,9 +34,11 @@ export default async function handler(req, res) {
   const profile = req.query.profile === 'walking' ? 'walking' : 'driving';
   const coordinates = points.map((point) => `${point.lon},${point.lat}`).join(';');
   const isTable = req.query.mode === 'table' && profile === 'driving';
+  // The routed-car and routed-foot public instances expose their selected
+  // backend through the base URL while retaining OSRM's /driving API slug.
   const path = isTable
     ? `/table/v1/driving/${coordinates}?sources=0&destinations=${points.slice(1).map((_, index) => index + 1).join(';')}&annotations=duration,distance`
-    : `/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
+    : `/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=true`;
 
   let lastError;
   for (const base of PROFILE_BASES[profile]) {

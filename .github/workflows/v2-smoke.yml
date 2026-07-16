@@ -1,0 +1,229 @@
+name: SmartCity V2 smoke
+
+on:
+  push:
+    branches:
+      - smartcity-v2-foundation
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: JavaScript syntax
+        run: |
+          node --check v2.js
+          node --check v2-core.js
+          node --check v2-ui.js
+          node --check v2-parking.js
+          node --check v2-destinations.js
+          node --check v2-parking-engine.js
+          node --check v2-layers.js
+          node --check v2-map-first.js
+          node --check v2-route.js
+          node --check v2-navigation.js
+          node --check v2-proposals.js
+          node --check v2-submission-adapter.js
+          node --check v2-init.js
+          node --check api/geocode.js
+          node --check api/overpass.js
+          node --check api/routing.js
+          node --check api/v2/parkings.js
+          node --check api/v2/nearby.js
+          node --check api/v2/evidence-upload-token.js
+          node --check api/v2/parking-proposals.js
+          node --check api/v2/moderation.js
+          node --check server/v2/evidence-token.js
+          node --check server/v2/moderation-auth.js
+          node --check scripts/build-osm-parking-batch.cjs
+          node --check scripts/import-osm-parking.cjs
+          node --check scripts/test-v2-parking-engine.cjs
+          node --check scripts/test-v2-nearby.cjs
+          node --check scripts/test-v2-contracts.cjs
+          node --check scripts/test-v2-submission-api.cjs
+          node --check scripts/test-v2-evidence-api.cjs
+          node --check scripts/test-v2-moderation-api.cjs
+
+      - name: Verify Waze-style burger menu and five actions
+        run: |
+          grep -q '"source": "/v2"' vercel.json
+          grep -q 'id="menu-btn"' v2.html
+          grep -q 'id="map-menu"' v2.html
+          grep -q 'id="parking-layer-btn"' v2.html
+          grep -q 'id="fuel-layer-btn"' v2.html
+          grep -q 'data-action="search"' v2.html
+          grep -q 'data-action="parkings"' v2.html
+          grep -q 'data-action="navigate"' v2.html
+          grep -q 'data-action="add"' v2.html
+          grep -q 'data-action="profile"' v2.html
+          test "$(grep -o 'nav-action' v2.html | wc -l)" -eq 5
+          grep -q 'aria-current="page"' v2.html
+          test -s v2-waze.css
+          grep -q 'bottom-nav{display:none' v2-waze.css
+          grep -q 'map-menu.open' v2-waze.css
+
+      - name: Verify Waze navigation HUD and drawing surface
+        run: |
+          grep -q 'id="draw-surface"' v2.html
+          grep -q 'id="nav-maneuver"' v2.html
+          grep -q 'id="nav-maneuver-text"' v2.html
+          grep -q 'id="nav-maneuver-distance"' v2.html
+          grep -q 'id="nav-speed-value"' v2.html
+          grep -q 'id="nav-remaining-distance"' v2.html
+          grep -q 'id="nav-remaining-time"' v2.html
+          grep -q 'id="nav-eta"' v2.html
+          grep -q 'app.updateNextManeuver' v2-navigation.js
+          grep -q 'app.requestNavigationReroute' v2-navigation.js
+          grep -q 'app.closeMapMenu' v2-navigation.js
+          grep -q 'steps=true' api/routing.js
+          grep -q 'drawing-mode #draw-surface' v2-waze.css
+          grep -q "drawSurface.addEventListener('pointerdown'" v2-core.js
+          grep -q "drawSurface.addEventListener('touchstart'" v2-core.js
+          grep -q "mapNode.addEventListener('touchstart'" v2-core.js
+          grep -q 'isDuplicateDrawEvent' v2-core.js
+          grep -q 'containerPointToLatLng' v2-core.js
+          ! grep -q "s.map.on('click',event=>appendDrawLatLng" v2-core.js
+
+      - name: Verify automatic nearby map layers
+        run: |
+          grep -q "layers:'sf_v2_map_layers'" v2-core.js
+          grep -q 'watchPosition' v2-layers.js
+          grep -q 'app.onUserPosition' v2-layers.js
+          grep -q 'app.loadNearbyParkings' v2-layers.js
+          grep -q 'app.loadFuelStations' v2-layers.js
+          grep -q '/api/v2/nearby' v2-layers.js
+          grep -q '/api/v2/parkings' v2-parking-engine.js
+          grep -q 'parkingContext' v2-map-first.js
+          grep -q 's.parkingContext' v2-route.js
+          grep -q 'amenity' api/v2/nearby.js
+          grep -q 'fuel' api/v2/nearby.js
+          grep -q 'liveStatus: false' api/v2/nearby.js
+
+      - name: Verify nearby layer behavior
+        run: node scripts/test-v2-nearby.cjs
+
+      - name: Verify interface stability states
+        run: |
+          test -s v2-stability.css
+          grep -q '/v2-stability.css' v2.html
+          grep -q 'id="network-state"' v2.html
+          grep -q 'id="global-retry"' v2.html
+          grep -q "'/v2-ui.js'" v2.js
+          grep -q 'app.setBusy' v2-ui.js
+          grep -q 'app.newRequest' v2-ui.js
+          grep -q 'app.renderParkingMessage' v2-ui.js
+          grep -q 'AbortError' v2-parking.js
+          grep -q 'AbortError' v2-route.js
+
+      - name: Verify Stage 2 destination intelligence
+        run: |
+          test -s v2-search.css
+          test -s v2-destinations.js
+          grep -q '/v2-search.css' v2.html
+          grep -q "'/v2-destinations.js'" v2.js
+          grep -q 'id="save-destination"' v2.html
+          grep -q 'aria-autocomplete="list"' v2.html
+          grep -q 'sf_v2_destination_history' v2-core.js
+          grep -q 'sf_v2_saved_destinations' v2-core.js
+          grep -q 'app.rankSearchResults' v2-destinations.js
+          grep -q 'app.rememberDestination' v2-destinations.js
+          grep -q 'app.toggleSavedDestination' v2-destinations.js
+          grep -q 'setTimeout.*350' v2-destinations.js
+          grep -q 'Изчисти историята' v2-destinations.js
+
+      - name: Verify Stage 3 parking data engine contract
+        run: |
+          test -s contracts/parking-import.schema.json
+          test -s supabase/migrations/20260715223000_parking_data_engine.sql
+          test -s supabase/migrations/20260715224000_parking_search_hardening.sql
+          test -s supabase/migrations/20260715230000_parking_engine_security_hardening.sql
+          grep -q "'/v2-parking-engine.js'" v2.js
+          grep -q '/api/v2/parkings' v2-parking-engine.js
+          grep -q 'SmartCity PostGIS база' v2-parking-engine.js
+          grep -q 'overpass-fallback' api/v2/parkings.js
+          grep -q 'liveOccupancy: false' api/v2/parkings.js
+          grep -q 'mergeParkingRecords' api/v2/parkings.js
+          grep -q 'search_parking_features' api/v2/parkings.js
+          grep -q 'create table public.parking_features' supabase/migrations/20260715223000_parking_data_engine.sql
+          grep -q 'create table public.parking_import_runs' supabase/migrations/20260715223000_parking_data_engine.sql
+          grep -q 'create or replace function public.search_parking_features' supabase/migrations/20260715223000_parking_data_engine.sql
+          grep -q 'create or replace function public.finalize_parking_import' supabase/migrations/20260715223000_parking_data_engine.sql
+          grep -q "feature_type <> 'entrance'" supabase/migrations/20260715224000_parking_search_hardening.sql
+          grep -q 'source_revision' scripts/import-osm-parking.cjs
+          grep -q 'parking_space' scripts/build-osm-parking-batch.cjs
+          grep -q 'parking_entrance' scripts/build-osm-parking-batch.cjs
+          grep -q 'parking:(left|right|both)' scripts/build-osm-parking-batch.cjs
+
+      - name: Verify parking engine security contract
+        run: |
+          grep -q 'finalize_parking_import' supabase/migrations/20260715230000_parking_engine_security_hardening.sql
+          grep -q 'from public, anon, authenticated' supabase/migrations/20260715230000_parking_engine_security_hardening.sql
+          grep -q 'to service_role' supabase/migrations/20260715230000_parking_engine_security_hardening.sql
+          grep -q 'search_path = public, pg_temp' supabase/migrations/20260715230000_parking_engine_security_hardening.sql
+          ! grep -q 'SUPABASE_SERVICE_ROLE_KEY' vercel.json
+
+      - name: Verify parking engine behavior
+        run: node scripts/test-v2-parking-engine.cjs
+
+      - name: Verify destination routing contract
+        run: |
+          grep -q 'parking_space' api/v2/parkings.js
+          grep -q 'parking:(left|right|both)' api/v2/parkings.js
+          grep -q 'parking_entrance' api/v2/parkings.js
+          grep -q '/api/geocode' v2-parking.js
+          grep -q '/api/routing' v2-route.js
+          grep -Eq "profile[[:space:]]*===[[:space:]]*'walking'" api/routing.js
+          grep -q 'hasMappedEntrance' v2-route.js
+
+      - name: Verify proposal moderation truth labels
+        run: |
+          grep -q 'Чака SoulFlame одобрение' v2.html
+          grep -q "status:'pending_soulflame'" v2-proposals.js
+          grep -q 'Не е публикувано като проверен обществен паркинг' v2-proposals.js
+          grep -q 'без live свободни места' v2-core.js
+
+      - name: Verify Vercel Hobby function budget
+        run: |
+          test "$(find api -type f -name '*.js' | wc -l)" -le 12
+          test -f api/v2/moderation.js
+          test -f server/v2/moderation-auth.js
+          test -f server/v2/evidence-token.js
+          test ! -f api/v2/moderation-proposals.js
+          test ! -f api/v2/moderate-parking-proposal.js
+          test ! -f api/v2/moderation-evidence-url.js
+          grep -q 'operation=proposals' vercel.json
+          grep -q 'operation=transition' vercel.json
+          grep -q 'operation=evidence-url' vercel.json
+
+      - name: Verify submission adapter contract
+        run: node scripts/test-v2-contracts.cjs
+
+      - name: Verify submission API contract
+        run: node scripts/test-v2-submission-api.cjs
+
+      - name: Verify evidence upload contract
+        run: node scripts/test-v2-evidence-api.cjs
+
+      - name: Verify SoulFlame moderation contract
+        run: node scripts/test-v2-moderation-api.cjs
+
+      - name: Verify PostGIS moderation and storage guards
+        run: |
+          grep -q "status = 'approved'" supabase/migrations/20260715190000_smartcity_parking_foundation.sql
+          grep -q 'pending_soulflame' supabase/migrations/20260715190000_smartcity_parking_foundation.sql
+          grep -q "const STATUS='pending_soulflame'" v2-submission-adapter.js
+          grep -q "const STATUS = 'pending_soulflame'" api/v2/parking-proposals.js
+          grep -q '^  false,$' supabase/migrations/20260715211500_parking_evidence_storage.sql
+          grep -q "storage.foldername(name)" supabase/migrations/20260715211500_parking_evidence_storage.sql
+          grep -q 'object/sign/parking-evidence' api/v2/moderation.js

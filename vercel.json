@@ -1,14 +1,28 @@
 {
+  "env": {
+    "SUPABASE_URL": "https://frhletkiuupgksmgxoxc.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZyaGxldGtpdXVwZ2tzbWd4b3hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNjcxNzUsImV4cCI6MjA5NTc0MzE3NX0.YQLSLrBn2ckB9ZCcTayk67KbTrAmoT3Kz9faYRxeU2w"
+  },
   "redirects": [
     { "source": "/", "destination": "/intro.html", "permanent": false }
   ],
   "rewrites": [
+    { "source": "/api/v2/moderation-proposals", "destination": "/api/v2/moderation?operation=proposals" },
+    { "source": "/api/v2/moderate-parking-proposal", "destination": "/api/v2/moderation?operation=transition" },
+    { "source": "/api/v2/moderation-evidence-url", "destination": "/api/v2/moderation?operation=evidence-url" },
     { "source": "/app", "destination": "/smart-city.html" },
+    { "source": "/v2", "destination": "/v2.html" },
     { "source": "/map-classic", "destination": "/index.html" }
   ],
   "headers": [
     {
       "source": "/intro.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/v2.html",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
