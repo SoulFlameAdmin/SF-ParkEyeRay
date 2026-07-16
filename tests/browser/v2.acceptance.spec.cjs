@@ -115,9 +115,19 @@ async function openMenu(page) {
 }
 
 async function tapMapPoint(page, testInfo, x, y) {
-  await expect(page.locator('#draw-surface')).toBeVisible();
+  const surface = page.locator('#draw-surface');
+  await expect(surface).toBeVisible();
   if (testInfo.project.name === 'android-phone') {
-    await page.touchscreen.tap(x, y);
+    const box = await surface.boundingBox();
+    if (!box) throw new Error('Drawing surface has no bounding box');
+    await surface.tap({
+      position: {
+        x: Math.max(1, Math.min(box.width - 1, x - box.x)),
+        y: Math.max(1, Math.min(box.height - 1, y - box.y))
+      },
+      force: true
+    });
+    await page.waitForTimeout(120);
   } else {
     await page.mouse.click(x, y);
   }
