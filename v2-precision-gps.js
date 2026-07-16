@@ -11,11 +11,13 @@
   let lastCameraMoveAt=0;
   let visualHeading=0;
   let targetHeading=0;
+  let headingInitialized=false;
   let compassHeading=null;
   let compassUpdatedAt=0;
   let orientationListening=false;
   let orientationPermission='unknown';
   let headingFrame=null;
+  let lastAbsoluteOrientationAt=0;
 
   app.userIcon=L.divIcon({
     className:'sf-user-location-icon',
@@ -25,56 +27,78 @@
 
   const normalizeHeading=value=>((Number(value)||0)%360+360)%360;
   const shortestHeadingDelta=(from,to)=>((to-from+540)%360)-180;
-  const screenAngle=()=>Number(screen.orientation?.angle||window.orientation||0);
+  const screenAngle=()=>normalizeHeading(Number(screen.orientation?.angle??window.orientation??0));
 
-  const setHeadingTarget=(next,source='gps')=>{
+  const setHeadingTarget=next=>{
     if(!Number.isFinite(next))return;
     const normalized=normalizeHeading(next);
-    const delta=shortestHeadingDelta(targetHeading,normalized);
-    const maxJump=source==='compass'?90:150;
-    targetHeading=normalizeHeading(targetHeading+Math.max(-maxJump,Math.min(maxJump,delta)));
+    if(!headingInitialized){
+      headingInitialized=true;
+      visualHeading=normalized;
+      targetHeading=normalized;
+      return;
+    }
+    targetHeading=normalized;
   };
 
   const renderHeading=()=>{
     const marker=s.userMarker?.getElement()?.querySelector('.user-position-marker');
     const delta=shortestHeadingDelta(visualHeading,targetHeading);
     const moving=Number(s.user?.speed||0)>=5;
-    const gain=moving?.22:.16;
-    if(Math.abs(delta)>.08)visualHeading=normalizeHeading(visualHeading+delta*gain);
+    const gain=moving?.34:.28;
+    if(Math.abs(delta)>.06)visualHeading=normalizeHeading(visualHeading+delta*gain);
+    else visualHeading=targetHeading;
     if(marker)marker.style.setProperty('--heading',`${visualHeading}deg`);
     headingFrame=requestAnimationFrame(renderHeading);
   };
 
+  // Converts the compass value to the direction of the physical top-centre
+  // edge of the visible phone screen. The screen-angle subtraction prevents
+  // portrait/landscape changes from adding an unwanted 90/180-degree offset.
   const compassFromEvent=event=>{
-    if(Number.isFinite(event.webkitCompassHeading))return normalizeHeading(event.webkitCompassHeading+screenAngle());
-    if(event.absolute===true&&Number.isFinite(event.alpha))return normalizeHeading(360-event.alpha+screenAngle());
-    if(Number.isFinite(event.alpha))return normalizeHeading(360-event.alpha+screenAngle());
-    return null;
+    let raw=null;
+    if(Number.isFinite(event.webkitCompassHeading))raw=Number(event.webkitCompassHeading);
+    else if(Number.isFinite(event.alpha))raw=360-Number(event.alpha);
+    if(!Number.isFinite(raw))return null;
+    return normalizeHeading(raw-screenAngle());
   };
 
   const handleOrientation=event=>{
+    const now=performance.now();
+    const isAbsolute=event.type==='deviceorientationabsolute'||event.absolute===true||Number.isFinite(event.webkitCompassHeading);
+    if(isAbsolute)lastAbsoluteOrientationAt=now;
+    else if(now-lastAbsoluteOrientationAt<1200)return;
+
     const heading=compassFromEvent(event);
     if(!Number.isFinite(heading))return;
-    const now=performance.now();
     if(Number.isFinite(compassHeading)){
       const delta=shortestHeadingDelta(compassHeading,heading);
-      const weight=Math.abs(delta)>35?.18:.34;
+      const weight=Math.abs(delta)>55?.2:.46;
       compassHeading=normalizeHeading(compassHeading+delta*weight);
     }else compassHeading=heading;
     compassUpdatedAt=now;
+
     const speed=Number(s.user?.speed||0);
     const gpsHeading=Number(s.user?.heading);
-    if(speed>=12&&Number.isFinite(gpsHeading))return;
-    if(speed>=5&&Number.isFinite(gpsHeading)){
-      const fused=normalizeHeading(compassHeading+shortestHeadingDelta(compassHeading,gpsHeading)*.35);
-      setHeadingTarget(fused,'compass');
-    }else setHeadingTarget(compassHeading,'compass');
+    if(speed>=12&&Number.isFinite(gpsHeading))setHeadingTarget(gpsHeading);
+    else if(speed>=6&&Number.isFinite(gpsHeading)){
+      const fused=normalizeHeading(compassHeading+shortestHeadingDelta(compassHeading,gpsHeading)*.28);
+      setHeadingTarget(fused);
+    }else setHeadingTarget(compassHeading);
+  };
+
+  const resetOrientationAlignment=()=>{
+    compassHeading=null;
+    compassUpdatedAt=0;
+    lastAbsoluteOrientationAt=0;
   };
 
   const startOrientationListening=()=>{
     if(orientationListening||!('DeviceOrientationEvent'in window))return;
     window.addEventListener('deviceorientationabsolute',handleOrientation,true);
     window.addEventListener('deviceorientation',handleOrientation,true);
+    screen.orientation?.addEventListener?.('change',resetOrientationAlignment);
+    window.addEventListener('orientationchange',resetOrientationAlignment,true);
     orientationListening=true;
     orientationPermission='granted';
   };
@@ -139,12 +163,12 @@
     if(!marker)return;
     const speed=Number(user.speed||0);
     const compassFresh=Number.isFinite(compassHeading)&&performance.now()-compassUpdatedAt<1800;
-    if(speed>=12&&Number.isFinite(user.heading))setHeadingTarget(user.heading,'gps');
-    else if(speed>=5&&Number.isFinite(user.heading)&&compassFresh){
-      const fused=normalizeHeading(compassHeading+shortestHeadingDelta(compassHeading,user.heading)*.35);
-      setHeadingTarget(fused,'gps');
-    }else if(compassFresh)setHeadingTarget(compassHeading,'compass');
-    else if(Number.isFinite(user.heading))setHeadingTarget(user.heading,'gps');
+    if(speed>=12&&Number.isFinite(user.heading))setHeadingTarget(user.heading);
+    else if(speed>=6&&Number.isFinite(user.heading)&&compassFresh){
+      const fused=normalizeHeading(compassHeading+shortestHeadingDelta(compassHeading,user.heading)*.28);
+      setHeadingTarget(fused);
+    }else if(compassFresh)setHeadingTarget(compassHeading);
+    else if(Number.isFinite(user.heading))setHeadingTarget(user.heading);
     marker.style.setProperty('--accuracy-quality',Number(user.accuracy||999)>20?'0':'1');
     marker.classList.toggle('heading-live',compassFresh||Number.isFinite(user.heading));
     marker.classList.toggle('gps-weak',Number(user.accuracy||999)>25);
