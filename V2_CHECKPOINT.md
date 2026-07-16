@@ -73,6 +73,15 @@ Code commit: `7375ba51841f9659d4d58e2c4831fd8802e5d642`
 - public `navigationHealth()` and `sessionMetrics()` runtime APIs for tests and future UI;
 - health values represent browser sensor confidence only and do not claim hardware-grade certainty.
 
+## Parking refresh stabilization — batch 11
+Code commit: `ca935e6c5b7d2e37e40545384926a425f82821a0`
+
+- viewport parking uses a small prefetch buffer to avoid marker pop-in on screen edges;
+- a late viewport request can no longer overwrite active destination parking results;
+- GPS follow, moveend and zoomend refreshes pause while destination parking context is active;
+- toggling the parking layer during a destination flow restores destination results instead of switching context;
+- the fix preserves the live visible-area behavior and does not claim live occupancy.
+
 ## Movement behavior
 - `stationary`: compass leads, strongest zero lock and stabilization, zoom 18.
 - `walking`: stable decimal speed and compass-led fusion, zoom 18.
@@ -84,10 +93,11 @@ Code commit: `7375ba51841f9659d4d58e2c4831fd8802e5d642`
 These modes remain browser-sensor estimates, not guaranteed transport classification.
 
 ## Current deployment and CI
-- Latest code head before checkpoint: `7375ba51841f9659d4d58e2c4831fd8802e5d642`.
-- Checkpoint commit uses `[skip ci]` to avoid a documentation-only deployment.
-- Exact-head Preview, CI and runtime endpoint verification are required before acceptance.
-- Deployment discipline remains: one finished code batch, tests, one Preview deployment.
+- Navigation Intelligence Preview became READY.
+- SmartCity V2 smoke and parking smoke passed for batch 10.
+- Browser acceptance exposed a real parking refresh race: expected destination results were replaced by viewport results.
+- Batch 11 fixes that race and this checkpoint commit intentionally triggers one fresh CI and Preview cycle.
+- Deployment discipline remains: code commits may use `[skip ci]`; the completed checkpoint commit triggers the single deployment.
 
 ## Required physical acceptance
 1. Fresh entry centers at zoom 18.
@@ -112,7 +122,7 @@ These modes remain browser-sensor estimates, not guaranteed transport classifica
 - Voice and lane guidance are not implemented.
 
 ## Next safe batch
-- Confirm CI and exact-head Preview for Navigation Intelligence.
+- Confirm CI and exact-head Preview after batch 11.
 - Recheck `/v2`, `/api/geocode`, `/api/overpass`, driving and walking `/api/routing`.
 - Perform Android walk/run/vehicle acceptance and record mode-specific failures.
 - Tune only from real device evidence.
