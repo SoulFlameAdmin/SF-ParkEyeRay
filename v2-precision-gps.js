@@ -1,11 +1,13 @@
 (()=>{
   'use strict';
   const app=window.SFV2,s=app.state;
-  const MAX_ZOOM=19;
+  const FOLLOW_ZOOM=18;
   const WATCH_OPTIONS={enableHighAccuracy:true,timeout:20000,maximumAge:0};
   let bestAccuracy=Infinity;
   let firstFixResolved=false;
   let firstFixTimer=null;
+  let programmaticMapMove=false;
+  let releaseProgrammaticTimer=null;
 
   const fromPosition=position=>{
     const coords=position.coords;
@@ -39,12 +41,33 @@
     return {...user,lat:previous.lat*(1-newWeight)+user.lat*newWeight,lon:previous.lon*(1-newWeight)+user.lon*newWeight};
   };
 
-  app.zoomForAccuracy=()=>MAX_ZOOM;
+  const markProgrammaticMove=()=>{
+    programmaticMapMove=true;
+    clearTimeout(releaseProgrammaticTimer);
+    releaseProgrammaticTimer=setTimeout(()=>{programmaticMapMove=false},900);
+  };
+
+  app.zoomForAccuracy=()=>FOLLOW_ZOOM;
   app.centerOnUser=(user,options={})=>{
     if(!s.map)return;
     s.followUser=true;
+    markProgrammaticMove();
     const method=options.animate?'flyTo':'setView';
-    s.map[method]([user.lat,user.lon],MAX_ZOOM,options.animate?{animate:true,duration:.65,noMoveStart:true}:{animate:false});
+    s.map[method]([user.lat,user.lon],FOLLOW_ZOOM,options.animate?{animate:true,duration:.65,noMoveStart:true}:{animate:false});
+  };
+
+  const originalInitMap=app.initMap;
+  app.initMap=()=>{
+    const ready=originalInitMap();
+    if(!ready||!s.map)return ready;
+    const stopAutomaticFollow=()=>{
+      if(programmaticMapMove)return;
+      s.followUser=false;
+      app.setStatus('Автоматичното центриране е изключено. Натисни ◎, за да се върнеш към позицията си.','info');
+    };
+    s.map.on('zoomstart',stopAutomaticFollow);
+    s.map.on('zoomend',()=>{clearTimeout(releaseProgrammaticTimer);programmaticMapMove=false});
+    return ready;
   };
 
   const applyFix=(position,reason='watch')=>{
