@@ -80,17 +80,17 @@
 
     s.pendingGeometry=null;s.drawPoints=[];s.drawingLayer.clearLayers();app.$('proposal-form').reset();app.closeModal('proposal-modal');
     app.renderProposals();app.updateProfile();app.setActiveAction('profile');
-    app.setStatus(window.SmartCityAuth?.user?'Изпращам предложението към SoulFlame…':'Предложението е в локална опашка. Влез в профила, за да го изпратиш.','info',true);
+    app.setStatus(window.SmartCityAuth?.user?'Изпращам предложението към SoulFlame…':'Предложението е в локална опашка. Статус: „Чака SoulFlame одобрение“. Влез в профила, за да го изпратиш.','info',true);
 
     try{
       const result=await window.SFV2SubmissionAdapter.submit(proposal,{file:photo});
       Object.assign(proposal,{serverId:result.delivery==='server'?result.id:null,status:result.status,delivery:result.delivery,source:result.delivery==='server'?'soulflame':'community-local'});
       app.write(app.STORAGE.proposals,s.proposals);app.renderProposals();app.renderProposalList();app.updateProfile();
       app.setStatus(result.delivery==='server'
-        ?'Предложението е изпратено и чака SoulFlame одобрение.'
-        :'Предложението е запазено локално и ще се изпрати след вход/интернет.','success',true);
+        ?'Предложението е изпратено. Статус: „Чака SoulFlame одобрение“.'
+        :'Предложението е запазено локално. Статус: „Чака SoulFlame одобрение“. Ще се изпрати след вход или възстановяване на интернет.','success',true);
     }catch(error){
-      console.error(error);app.setStatus('Предложението остава локално и ще бъде изпратено по-късно.','error',true);
+      console.error(error);app.setStatus('Предложението остава локално със статус „Чака SoulFlame одобрение“ и ще бъде изпратено по-късно.','error',true);
     }
   };
 
