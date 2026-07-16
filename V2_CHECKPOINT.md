@@ -75,6 +75,17 @@
 - A 9-second fallback and explicit GPS error paths prevent the splash from becoming a dead screen.
 - Browser coverage verifies the license copy, hidden splash after readiness, GPS center and initial zoom.
 
+## Precision heading stabilization batch 5
+- The arrow represents the physical top-centre direction of the phone screen.
+- Portrait and landscape screen-angle changes reset compass alignment without rotating the map.
+- Compass and GPS heading are fused by speed and sensor confidence.
+- Small heading changes inside a dead-zone are ignored to prevent visible jitter.
+- Rendering uses `requestAnimationFrame` with bounded angular velocity instead of raw sensor jumps.
+- Suspected 180-degree magnetic reversals while stationary require three consistent samples before acceptance.
+- Absolute orientation samples take priority over duplicate relative orientation events.
+- Heading sensor state is reset after background/foreground transitions.
+- GPS remains the fallback when orientation permission is denied or compass data is stale.
+
 ## Preview deployment recovery
 - Vercel deployment errors were traced to `exceeded_serverless_functions_per_deployment`, not a generic build-rate limit.
 - Hobby permits at most 12 Serverless Functions; helper files under `/api` were being counted as deployable functions.
@@ -101,8 +112,9 @@ Scope: `bg:sliven-core`
 
 ## Runtime and CI verification
 - Runtime error clusters for `/v2`, `/api/geocode`, `/api/overpass` and `/api/routing` previously showed no errors in the checked window.
-- Exact-head Preview and CI for PR #9 must be rechecked after the zoom-control commit.
-- Browser acceptance must cover startup zoom 18, manual zoom disabling follow, and `◎` restoring follow.
+- Exact-head Preview and CI for PR #9 must be rechecked after heading stabilization commit `f51c959c00f2663655f6c5e50a3945e2f0697c55`.
+- Browser acceptance must cover startup zoom 18, manual zoom disabling follow, `◎` restoring follow, and stable shortest-path heading rotation.
+- Physical Android acceptance must verify portrait direction, landscape direction, stationary jitter, walking turns and vehicle GPS-heading takeover.
 
 ## Production safety
 - `/app` is unchanged.
@@ -111,12 +123,14 @@ Scope: `bg:sliven-core`
 
 ## Remaining limitations
 - Leaflet does not currently rotate the road map by bearing; only the heading indicators rotate.
+- Browser compass quality depends on device hardware, calibration and magnetic interference.
 - GPS speed, heading, maneuver timing and rerouting need a physical Android road test outdoors.
 - Route progress is geometric projection, not advanced map matching.
 - Voice guidance and lane guidance are not implemented.
 
 ## Next safe batch
-1. Confirm a READY Vercel deployment for exact head `1492cd33703010975bbf375f1035177c2b64b098` or newer.
+1. Confirm a READY Vercel deployment for exact head `f51c959c00f2663655f6c5e50a3945e2f0697c55` or newer.
 2. Verify `/v2`, `/api/geocode`, `/api/overpass`, driving and walking `/api/routing` on that Preview.
-3. Test on Android: first entry zoom 18 → manual zoom disables follow → `◎` restores zoom 18 and follow.
-4. Continue authenticated submission, evidence upload and internal moderation dashboard work without changing the five phone actions.
+3. Test on Android: portrait top-edge sync, landscape top-edge sync, no stationary flip, smooth 359° → 0° transition.
+4. Add an explicit compass calibration/help state only if the physical test shows device-specific drift.
+5. Continue authenticated submission, evidence upload and internal moderation dashboard work without changing the five phone actions.
