@@ -20,7 +20,7 @@
 - Search → destination → parking list/marker → selected parking → driving route → walking route flow.
 - Polygon drawing → details → pending submission flow.
 - Polygon drawing uses a dedicated transparent `draw-surface` inside the Leaflet map container and above Leaflet panes.
-- Touch, pointer, mouse and synthesized Playwright taps are captured directly on that surface with deduplication.
+- Touch is captured at both the map root and drawing surface; pointer/touch/click fallbacks are deduplicated to exactly one point per physical tap.
 - Conflicting map gestures remain disabled only while drawing.
 
 ## Stage 2 — search and destinations
@@ -100,9 +100,9 @@ Scope: `bg:sliven-core`
 
 ## Runtime and CI verification
 - Runtime error clusters for `/v2`, `/api/geocode`, `/api/overpass` and `/api/routing` previously showed no errors in the checked window.
-- Head `d5f2a213ec2bda2970f69a1a26164c1a292f8f1e`: SmartCity parking smoke and V2 smoke passed; browser acceptance remained red in the polygon drawing flow.
-- The boot and initial GPS center batch adds dedicated browser coverage but exact-head CI and Preview verification are still required.
-- Browser acceptance is not considered resolved until the existing Android polygon flow and the new boot test both pass.
+- Head `9585191c0b6763f4e2bc5baa539617fd503dcefc`: SmartCity parking smoke, SmartCity V2 smoke and Android/desktop browser acceptance all passed.
+- Browser acceptance now covers the SoulFlame boot, initial GPS center/zoom, five primary actions, destination save persistence, driving plus walking route, and polygon → details → `pending_soulflame` submission flow.
+- The newest observed READY Preview was still for an earlier commit, so exact-head deployment and runtime endpoint verification remain required before acceptance is claimed.
 
 ## Production safety
 - `/app` is unchanged.
@@ -116,10 +116,8 @@ Scope: `bg:sliven-core`
 - Voice guidance and lane guidance are not implemented.
 
 ## Next safe batch
-1. Confirm exact-head smoke and browser results for the SoulFlame boot and GPS center flow.
-2. Confirm a READY Vercel deployment for the exact latest head and verify `/v2` runtime.
-3. Reproduce and resolve the remaining Android polygon acceptance failure without weakening real touch handling.
-4. Verify `/api/geocode`, `/api/overpass`, driving and walking `/api/routing` on Preview.
-5. Perform a real phone navigation test of speed, location marker, maneuver timing, ETA and rerouting.
-6. Add voice prompts only after maneuver data is stable.
-7. Continue authenticated submission, evidence upload and internal moderation dashboard work without changing the five phone actions.
+1. Confirm a READY Vercel deployment for the exact latest head.
+2. Verify `/v2`, `/api/geocode`, `/api/overpass`, driving and walking `/api/routing` on that Preview.
+3. Perform a real phone navigation test of speed, location marker, maneuver timing, ETA and rerouting.
+4. Add voice prompts only after maneuver data is stable.
+5. Continue authenticated submission, evidence upload and internal moderation dashboard work without changing the five phone actions.
