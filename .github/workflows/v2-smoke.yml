@@ -88,9 +88,12 @@ jobs:
           grep -q 'app.closeMapMenu' v2-navigation.js
           grep -q 'steps=true' api/routing.js
           grep -q 'drawing-mode #draw-surface' v2-waze.css
-          grep -q "mapNode.addEventListener('touchstart'" v2-core.js
+          grep -q "drawSurface.addEventListener('pointerdown'" v2-core.js
+          grep -q "drawSurface.addEventListener('touchstart'" v2-core.js
+          grep -q 'isDuplicateDrawEvent' v2-core.js
           grep -q 'containerPointToLatLng' v2-core.js
           ! grep -q "s.map.on('click',event=>appendDrawLatLng" v2-core.js
+          ! grep -q "mapNode.addEventListener('touchstart'" v2-core.js
 
       - name: Verify automatic nearby map layers
         run: |
