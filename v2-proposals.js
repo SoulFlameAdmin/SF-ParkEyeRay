@@ -1,6 +1,7 @@
 (()=>{
   'use strict';
   const app=window.SFV2,s=app.state;
+  const statusLabels={pending_soulflame:'Чака SoulFlame одобрение',changes_requested:'Искани промени',approved:'SoulFlame одобрено',rejected:'Отказано'};
 
   const setDrawingMapInteraction=enabled=>{
     if(!s.map)return;
@@ -56,16 +57,19 @@
     app.setDrawingMode(false);app.openModal('proposal-modal');
   };
 
-  app.saveProposal=event=>{
+  app.saveProposal=async event=>{
     event.preventDefault();
     if(!s.pendingGeometry?.length)return app.setStatus('Липсва очертание на зоната.','error');
     const name=app.$('proposal-name').value.trim(),evidence=app.$('proposal-evidence').value.trim();
     if(!name||!evidence)return app.setStatus('Попълни име и начин за потвърждение.','error');
-    const photo=app.$('proposal-photo').files?.[0];
+    const photo=app.$('proposal-photo').files?.[0]||null;
+    if(photo&&(!window.SFV2SubmissionAdapter?.PHOTO_TYPES?.has(photo.type)||photo.size>window.SFV2SubmissionAdapter.MAX_PHOTO_BYTES)){
+      return app.setStatus('Снимката трябва да е JPG, PNG или WebP до 8 MB.','error',true);
+    }
     const proposal={
       id:`proposal-${Date.now()}`,name,access:app.$('proposal-access').value,
-      capacity:Number(app.$('proposal-capacity').value||0)||null,evidence,
-      photoName:photo?.name||null,geometry:s.pendingGeometry,status:'pending_soulflame',createdAt:new Date().toISOString(),source:'community-local'
+      capacity:Number(app.$('proposal-capacity').value||0)||null,evidence,capturedAt:new Date().toISOString(),
+      photoName:photo?.name||null,geometry:s.pendingGeometry,status:'pending_soulflame',createdAt:new Date().toISOString(),source:'community-local',delivery:'local-outbox'
     };
     try{
       s.proposals.unshift(proposal);app.write(app.STORAGE.proposals,s.proposals);
@@ -73,21 +77,34 @@
       s.proposals=s.proposals.filter(item=>item.id!==proposal.id);console.error(error);
       return app.setStatus('Предложението не можа да се запази на устройството.','error',true);
     }
+
     s.pendingGeometry=null;s.drawPoints=[];s.drawingLayer.clearLayers();app.$('proposal-form').reset();app.closeModal('proposal-modal');
     app.renderProposals();app.updateProfile();app.setActiveAction('profile');
-    app.setStatus('Предложението е записано като „Чака SoulFlame одобрение“.','success',true);
+    app.setStatus(window.SmartCityAuth?.user?'Изпращам предложението към SoulFlame…':'Предложението е в локална опашка. Влез в профила, за да го изпратиш.','info',true);
+
+    try{
+      const result=await window.SFV2SubmissionAdapter.submit(proposal,{file:photo});
+      Object.assign(proposal,{serverId:result.delivery==='server'?result.id:null,status:result.status,delivery:result.delivery,source:result.delivery==='server'?'soulflame':'community-local'});
+      app.write(app.STORAGE.proposals,s.proposals);app.renderProposals();app.renderProposalList();app.updateProfile();
+      app.setStatus(result.delivery==='server'
+        ?'Предложението е изпратено и чака SoulFlame одобрение.'
+        :'Предложението е запазено локално и ще се изпрати след вход/интернет.','success',true);
+    }catch(error){
+      console.error(error);app.setStatus('Предложението остава локално и ще бъде изпратено по-късно.','error',true);
+    }
   };
 
   app.polygonCenter=points=>({lat:points.reduce((sum,p)=>sum+p.lat,0)/points.length,lon:points.reduce((sum,p)=>sum+p.lon,0)/points.length});
 
   app.renderProposals=()=>{
     s.proposalLayer?.clearLayers();
-    s.proposals.filter(proposal=>Array.isArray(proposal.geometry)&&proposal.geometry.length>=3).forEach(proposal=>{
+    s.proposals.filter(proposal=>proposal.status!=='approved'&&Array.isArray(proposal.geometry)&&proposal.geometry.length>=3).forEach(proposal=>{
       const coords=proposal.geometry.map(point=>[point.lat,point.lon]);
-      const polygon=L.polygon(coords,{color:'#f59e0b',weight:3,dashArray:'7 7',fillColor:'#f59e0b',fillOpacity:.13}).addTo(s.proposalLayer);
+      const color=proposal.status==='rejected'?'#ef4444':proposal.status==='changes_requested'?'#3b82f6':'#f59e0b';
+      const polygon=L.polygon(coords,{color,weight:3,dashArray:proposal.status==='pending_soulflame'?'7 7':null,fillColor:color,fillOpacity:.13}).addTo(s.proposalLayer);
       const center=app.polygonCenter(proposal.geometry);
-      polygon.bindPopup(`<b>${app.safe(proposal.name)}</b><br>Статус: Чака SoulFlame одобрение<br><small>Не е публикувано като проверен обществен паркинг.</small>`);
-      L.circleMarker([center.lat,center.lon],{radius:5,color:'#fff',weight:2,fillColor:'#f59e0b',fillOpacity:1}).addTo(s.proposalLayer);
+      polygon.bindPopup(`<b>${app.safe(proposal.name)}</b><br>Статус: ${app.safe(statusLabels[proposal.status]||proposal.status)}<br><small>${proposal.delivery==='server'?'Записано в SoulFlame.':'Локално, още не е изпратено.'}</small>`);
+      L.circleMarker([center.lat,center.lon],{radius:5,color:'#fff',weight:2,fillColor:color,fillOpacity:1}).addTo(s.proposalLayer);
     });
   };
 
@@ -96,14 +113,14 @@
     if(!s.proposals.length){root.innerHTML='<div class="empty-card"><div>＋</div><strong>Нямаш предложения</strong><span>Очертаните зони ще се показват тук.</span></div>';return}
     s.proposals.forEach(proposal=>{
       const item=document.createElement('button');item.type='button';item.className='proposal-item';
-      item.innerHTML=`<b>${app.safe(proposal.name)}</b><span>Чака SoulFlame одобрение</span><small>${new Date(proposal.createdAt).toLocaleString('bg-BG')} · ${proposal.geometry.length} точки${proposal.capacity?` · ${proposal.capacity} места`:''}</small>`;
+      item.innerHTML=`<b>${app.safe(proposal.name)}</b><span>${app.safe(statusLabels[proposal.status]||proposal.status)}</span><small>${new Date(proposal.createdAt).toLocaleString('bg-BG')} · ${proposal.geometry.length} точки${proposal.capacity?` · ${proposal.capacity} места`:''} · ${proposal.delivery==='server'?'SoulFlame':'локално'}</small>`;
       item.addEventListener('click',()=>{app.closeModal('proposals-modal');s.map.fitBounds(L.latLngBounds(proposal.geometry.map(point=>[point.lat,point.lon])).pad(.3));app.setStatus(`Показвам предложението „${proposal.name}“.`,'success')});
       root.appendChild(item);
     });
   };
 
   app.clearLocalData=()=>{
-    if(!confirm('Да изтрия ли всички локални запазени места, история и предложения от това устройство?'))return;
+    if(!confirm('Да изтрия ли всички локални запазени места, история и предложения от това устройство? Онлайн изпратените предложения няма да бъдат изтрити.'))return;
     s.saved=[];s.proposals=[];s.destinationHistory=[];s.savedDestinations=[];
     app.write(app.STORAGE.saved,[]);app.write(app.STORAGE.proposals,[]);app.write(app.STORAGE.destinationHistory,[]);app.write(app.STORAGE.savedDestinations,[]);
     app.renderProposals();app.renderParkings?.();app.updateDestinationControls?.();app.updateProfile();
