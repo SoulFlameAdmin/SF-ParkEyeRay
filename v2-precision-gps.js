@@ -9,6 +9,23 @@
   let programmaticMapMove=false;
   let releaseProgrammaticTimer=null;
   let lastCameraMoveAt=0;
+  let visualHeading=0;
+
+  app.userIcon=L.divIcon({
+    className:'sf-user-location-icon',
+    html:'<div class="user-position-marker"><div class="user-direction-cone"></div><div class="user-arrow"><svg viewBox="0 0 48 58" aria-hidden="true"><path class="arrow-shadow" d="M24 3L43 51L24 42L5 51Z"/><path class="arrow-body" d="M24 5L41 48L24 39L7 48Z"/><path class="arrow-core" d="M24 10L34 39L24 34L14 39Z"/></svg></div><div class="user-position-core"></div></div>',
+    iconSize:[58,68],iconAnchor:[29,34]
+  });
+
+  const normalizeHeading=value=>((Number(value)||0)%360+360)%360;
+  const shortestHeadingDelta=(from,to)=>((to-from+540)%360)-180;
+  const smoothHeading=(next,speed)=>{
+    if(!Number.isFinite(next))return visualHeading;
+    const normalized=normalizeHeading(next);
+    const weight=speed>=12?.55:speed>=4?.34:.18;
+    visualHeading=normalizeHeading(visualHeading+shortestHeadingDelta(visualHeading,normalized)*weight);
+    return visualHeading;
+  };
 
   const fromPosition=position=>{
     const coords=position.coords;
@@ -39,20 +56,22 @@
     const jump=app.distance(previous,user);
     const speed=Math.max(0,Number(user.speed||0));
     const noiseRadius=Math.max(6,Math.min(22,Number(user.accuracy||0)*.7));
-
-    // When the device is effectively stationary, keep the marker fixed inside
-    // the reported GPS uncertainty instead of visually chasing every sample.
-    if(speed<3&&jump<=noiseRadius){
-      return {...user,lat:previous.lat,lon:previous.lon,heading:user.heading??previous.heading};
-    }
-
-    // At walking speed use a conservative low-pass filter. At vehicle speed
-    // preserve the fresh coordinates so navigation does not lag behind.
+    if(speed<3&&jump<=noiseRadius)return {...user,lat:previous.lat,lon:previous.lon,heading:user.heading??previous.heading};
     if(speed<10&&jump<=Math.max(30,Number(user.accuracy||0)*1.5)){
       const weight=speed<5?.28:.55;
       return {...user,lat:previous.lat*(1-weight)+user.lat*weight,lon:previous.lon*(1-weight)+user.lon*weight};
     }
     return user;
+  };
+
+  const updateDirectionVisual=user=>{
+    const marker=s.userMarker?.getElement()?.querySelector('.user-position-marker');
+    if(!marker)return;
+    const heading=smoothHeading(user.heading,Number(user.speed||0));
+    marker.style.setProperty('--heading',`${heading}deg`);
+    marker.style.setProperty('--accuracy-quality',Number(user.accuracy||999)>20?'0':'1');
+    marker.classList.toggle('heading-live',Number.isFinite(user.heading)&&(user.speed||0)>=3);
+    marker.classList.toggle('gps-weak',Number(user.accuracy||999)>25);
   };
 
   const markProgrammaticMove=()=>{
@@ -107,6 +126,7 @@
     const first=!s.initialGpsCentered;
     if(!app.applyUserPosition(user,{center:false,animate:false,reason}))return false;
     if(first)s.initialGpsCentered=true;
+    updateDirectionVisual(user);
     followCameraIfNeeded(user,first);
     app.updateNavigationHud?.(user);
     app.updateNavigationProgress?.(user);
@@ -117,10 +137,7 @@
       s.bootRevealTimer=setTimeout(()=>app.finishBoot?.('gps'),360);
     }
     if(!firstFixResolved){
-      firstFixResolved=true;
-      clearTimeout(firstFixTimer);
-      s.locating=false;
-      app.setBusy?.('gps',false);
+      firstFixResolved=true;clearTimeout(firstFixTimer);s.locating=false;app.setBusy?.('gps',false);
       app.setStatus(`GPS е намерен · точност ±${Math.round(user.accuracy)} м`,'success');
     }else if(user.accuracy<=bestAccuracy&&user.accuracy<=15){
       app.setStatus(`GPS висока точност · ±${Math.round(user.accuracy)} м`,'success');
@@ -141,10 +158,7 @@
   };
 
   app.locate=()=>{
-    if(!navigator.geolocation){
-      app.setStatus('GPS не се поддържа. Търсенето и картата остават активни.','error',true);
-      app.finishBoot?.('unsupported');return;
-    }
+    if(!navigator.geolocation){app.setStatus('GPS не се поддържа. Търсенето и картата остават активни.','error',true);app.finishBoot?.('unsupported');return}
     s.followUser=true;
     if(s.user)app.centerOnUser(s.user,{animate:true});
     if(s.locationWatchId!==null)return;
