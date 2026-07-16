@@ -68,6 +68,7 @@
 
   app.loadViewportParkings=async(options={})=>{
     if(!s.layers.parking||!s.ui.online||s.map.getZoom()<13)return;
+    if(s.destination&&s.parkingContext==='destination'&&!options.overrideDestination)return;
     const query=app.viewportParkingQuery();
     if(!app.inBulgaria(query.center.lat,query.center.lon))return;
     const controller=app.newRequest('nearbyParking');
@@ -80,12 +81,14 @@
     try{
       const payload=await app.fetchParkingEngine(query.center,query.radius,controller.signal);
       if(controller.signal.aborted)return;
-      const visible=payload.parkings.filter(record=>query.bounds.contains([Number(record?.point?.lat),Number(record?.point?.lon)]));
+      if(s.destination&&s.parkingContext==='destination'&&!options.overrideDestination)return;
+      const bufferedBounds=query.bounds.pad(.35);
+      const visible=payload.parkings.filter(record=>bufferedBounds.contains([Number(record?.point?.lat),Number(record?.point?.lon)]));
       s.parkings=visible.map(record=>app.engineParking(record,query.center)).filter(Boolean);
       app.sortParkings();app.renderParkingMarkers();app.renderParkings();
       app.$('parking-count').textContent=String(s.parkings.length);
       const origin=payload.meta?.dataSource==='postgis'?'SmartCity база':'OSM fallback';
-      app.$('sheet-subtitle').textContent=`${s.parkings.length} в текущия екран · ${origin} · без live свободни места`;
+      app.$('sheet-subtitle').textContent=`${s.parkings.length} в текущия екран и близкия буфер · ${origin} · без live свободни места`;
       const count=app.$('parking-layer-count');if(count)count.textContent=String(s.parkings.length);
       if(options.announce!==false)app.setStatus(`Показвам ${s.parkings.length} картографирани паркинга в текущия екран.`,'success');
     }catch(error){
@@ -116,7 +119,7 @@
 
   app.refreshMapLayers=(center=app.layerCenter(),options={})=>{
     if(!app.inBulgaria(center.lat,center.lon))return;
-    if(s.layers.parking&&s.map.getZoom()>=13)app.loadViewportParkings({announce:options.announce,force:options.force,keepSelection:options.keepSelection});
+    if(s.layers.parking&&s.map.getZoom()>=13&&!(s.destination&&s.parkingContext==='destination'))app.loadViewportParkings({announce:options.announce,force:options.force,keepSelection:options.keepSelection});
     if(s.layers.fuel){
       const moved=!s.lastLayerCenter||app.distance(center,s.lastLayerCenter)>=Number(options.minimumMove||280);
       if(moved||options.force){s.lastLayerCenter={lat:center.lat,lon:center.lon};app.loadFuelStations(center,{announce:options.announce})}
@@ -128,6 +131,7 @@
     s.layers[name]=Boolean(enabled);app.write(app.STORAGE.layers,s.layers);app.syncLayerControls();
     if(name==='parking'){
       if(!s.layers.parking){app.abortRequest('nearbyParking');s.parkingLayer.clearLayers();app.$('parking-sheet').classList.add('layer-disabled');app.setStatus('Слоят „Паркинги“ е изключен.','info')}
+      else if(s.destination&&s.parkingContext==='destination')app.findParkings?.();
       else app.loadViewportParkings({announce:true,force:true});
     }
     if(name==='fuel'){
@@ -138,7 +142,7 @@
   };
   app.toggleLayer=name=>app.setLayer(name,!s.layers[name]);
 
-  app.onUserPosition=(user,options={})=>{if(!s.locationWatchId)app.startLocationWatch();if((s.followUser||options.center===true)&&s.layers.parking&&s.map.getZoom()>=13){clearTimeout(s.layerTimer);s.layerTimer=setTimeout(()=>app.loadViewportParkings({announce:false,keepSelection:true}),300)}};
+  app.onUserPosition=(user,options={})=>{if(!s.locationWatchId)app.startLocationWatch();if((s.followUser||options.center===true)&&s.layers.parking&&s.map.getZoom()>=13&&!(s.destination&&s.parkingContext==='destination')){clearTimeout(s.layerTimer);s.layerTimer=setTimeout(()=>app.loadViewportParkings({announce:false,keepSelection:true}),300)}};
 
   app.startLocationWatch=()=>{
     if(s.locationWatchId!=null||!navigator.geolocation)return;
@@ -152,10 +156,10 @@
     app.$('fuel-layer-btn').addEventListener('click',()=>app.toggleLayer('fuel'));
     s.map.on('dragstart',()=>{s.followUser=false});
     s.map.on('moveend zoomend',()=>{
-      if(s.drawing||s.map.getZoom()<13||!s.layers.parking)return;
+      if(s.drawing||s.map.getZoom()<13||!s.layers.parking||s.destination&&s.parkingContext==='destination')return;
       clearTimeout(s.layerTimer);s.layerTimer=setTimeout(()=>app.loadViewportParkings({announce:false,keepSelection:true}),260);
     });
     document.addEventListener('click',event=>{if(!event.target.closest('#map-menu')&&!event.target.closest('#menu-btn'))app.closeMapMenu()});
-    window.setTimeout(()=>{if(s.layers.parking&&s.map.getZoom()>=13)app.loadViewportParkings({announce:false,force:true})},1800);
+    window.setTimeout(()=>{if(s.layers.parking&&s.map.getZoom()>=13&&!(s.destination&&s.parkingContext==='destination'))app.loadViewportParkings({announce:false,force:true})},1800);
   };
 })();
