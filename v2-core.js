@@ -189,7 +189,7 @@
     };
     const captureDrawEvent=event=>{
       if(!s.drawing)return;
-      if((event.type==='pointerdown'||event.type==='click')&&event.button!==0)return;
+      if(event.type==='pointerdown'&&event.pointerType==='mouse'&&event.button!==0)return;
       const rect=mapNode.getBoundingClientRect(),{x,y}=eventPoint(event),now=performance.now();
       if(!Number.isFinite(x)||!Number.isFinite(y)||x<rect.left||x>rect.right||y<rect.top||y>rect.bottom||isDuplicateDrawEvent(x,y,now))return;
       if(event.cancelable)event.preventDefault();
@@ -197,9 +197,10 @@
       rememberDrawEvent(x,y,now);
       appendDrawLatLng(s.map.containerPointToLatLng(L.point(x-rect.left,y-rect.top)));
     };
-    mapNode.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
-    mapNode.addEventListener('pointerdown',captureDrawEvent,true);
-    mapNode.addEventListener('click',captureDrawEvent,true);
+    if(drawSurface){
+      drawSurface.addEventListener('pointerdown',captureDrawEvent,true);
+      drawSurface.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
+    }
     return true;
   };
 })();
