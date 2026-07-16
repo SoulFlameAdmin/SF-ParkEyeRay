@@ -8,6 +8,7 @@
   let firstFixTimer=null;
   let programmaticMapMove=false;
   let releaseProgrammaticTimer=null;
+  let lastCameraMoveAt=0;
 
   const fromPosition=position=>{
     const coords=position.coords;
@@ -28,23 +29,36 @@
     if(age>15000)return false;
     const jump=app.distance(s.user,user);
     const elapsed=Math.max(.25,(user.timestamp-Number(s.user.timestamp||user.timestamp-1000))/1000);
-    const possibleMeters=Math.max(80,(Number(user.speed||0)/3.6)*elapsed*4+Number(user.accuracy||0)+Number(s.user.accuracy||0));
-    return jump<=possibleMeters||user.accuracy<Math.min(bestAccuracy,25);
+    const possibleMeters=Math.max(65,(Number(user.speed||0)/3.6)*elapsed*4+Number(user.accuracy||0)+Number(s.user.accuracy||0));
+    return jump<=possibleMeters||user.accuracy<Math.min(bestAccuracy,20);
   };
 
   const stabilize=user=>{
     const previous=s.user;
-    if(!previous||user.speed>=5||user.accuracy<=12)return user;
+    if(!previous)return user;
     const jump=app.distance(previous,user);
-    if(jump>Math.max(18,user.accuracy*1.2))return user;
-    const newWeight=Math.min(.85,Math.max(.3,(Number(previous.accuracy||user.accuracy)+1)/(Number(previous.accuracy||user.accuracy)+user.accuracy+2)));
-    return {...user,lat:previous.lat*(1-newWeight)+user.lat*newWeight,lon:previous.lon*(1-newWeight)+user.lon*newWeight};
+    const speed=Math.max(0,Number(user.speed||0));
+    const noiseRadius=Math.max(6,Math.min(22,Number(user.accuracy||0)*.7));
+
+    // When the device is effectively stationary, keep the marker fixed inside
+    // the reported GPS uncertainty instead of visually chasing every sample.
+    if(speed<3&&jump<=noiseRadius){
+      return {...user,lat:previous.lat,lon:previous.lon,heading:user.heading??previous.heading};
+    }
+
+    // At walking speed use a conservative low-pass filter. At vehicle speed
+    // preserve the fresh coordinates so navigation does not lag behind.
+    if(speed<10&&jump<=Math.max(30,Number(user.accuracy||0)*1.5)){
+      const weight=speed<5?.28:.55;
+      return {...user,lat:previous.lat*(1-weight)+user.lat*weight,lon:previous.lon*(1-weight)+user.lon*weight};
+    }
+    return user;
   };
 
   const markProgrammaticMove=()=>{
     programmaticMapMove=true;
     clearTimeout(releaseProgrammaticTimer);
-    releaseProgrammaticTimer=setTimeout(()=>{programmaticMapMove=false},900);
+    releaseProgrammaticTimer=setTimeout(()=>{programmaticMapMove=false},700);
   };
 
   app.zoomForAccuracy=()=>FOLLOW_ZOOM;
@@ -53,7 +67,22 @@
     s.followUser=true;
     markProgrammaticMove();
     const method=options.animate?'flyTo':'setView';
-    s.map[method]([user.lat,user.lon],FOLLOW_ZOOM,options.animate?{animate:true,duration:.65,noMoveStart:true}:{animate:false});
+    s.map[method]([user.lat,user.lon],FOLLOW_ZOOM,options.animate?{animate:true,duration:.55,noMoveStart:true}:{animate:false});
+    lastCameraMoveAt=Date.now();
+  };
+
+  const followCameraIfNeeded=(user,first)=>{
+    if(!s.map)return;
+    if(first){app.centerOnUser(user,{animate:false});return}
+    if(!s.followUser||s.navigationActive)return;
+    const center=s.map.getCenter();
+    const distanceFromCenter=app.distance({lat:center.lat,lon:center.lng},user);
+    const threshold=Math.max(10,Math.min(28,Number(user.accuracy||0)*.65));
+    const now=Date.now();
+    if(distanceFromCenter<threshold||now-lastCameraMoveAt<900)return;
+    markProgrammaticMove();
+    s.map.panTo([user.lat,user.lon],{animate:true,duration:.35,noMoveStart:true});
+    lastCameraMoveAt=now;
   };
 
   const originalInitMap=app.initMap;
@@ -76,11 +105,17 @@
     user=stabilize(user);
     bestAccuracy=Math.min(bestAccuracy,user.accuracy);
     const first=!s.initialGpsCentered;
-    const shouldCenter=first||(!s.navigationActive&&s.followUser);
-    if(!app.applyUserPosition(user,{center:shouldCenter,animate:!first,reason}))return false;
+    if(!app.applyUserPosition(user,{center:false,animate:false,reason}))return false;
+    if(first)s.initialGpsCentered=true;
+    followCameraIfNeeded(user,first);
     app.updateNavigationHud?.(user);
     app.updateNavigationProgress?.(user);
     app.followNavigationPosition?.(user);
+    if(first&&!s.bootComplete){
+      app.setBootMessage('Opening SoulFlame Navigation');
+      clearTimeout(s.bootRevealTimer);
+      s.bootRevealTimer=setTimeout(()=>app.finishBoot?.('gps'),360);
+    }
     if(!firstFixResolved){
       firstFixResolved=true;
       clearTimeout(firstFixTimer);
@@ -111,7 +146,7 @@
       app.finishBoot?.('unsupported');return;
     }
     s.followUser=true;
-    if(s.user){app.centerOnUser(s.user,{animate:true})}
+    if(s.user)app.centerOnUser(s.user,{animate:true});
     if(s.locationWatchId!==null)return;
     s.locating=true;firstFixResolved=false;bestAccuracy=Infinity;
     app.setBootMessage('Finding your precise location');
