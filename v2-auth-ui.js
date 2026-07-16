@@ -17,7 +17,7 @@
     const stats=modal.querySelector('.profile-stats');
     const panel=document.createElement('section');
     panel.id='profile-auth-panel';panel.className='auth-panel';
-    panel.innerHTML=`<h3>SoulFlame профил</h3><p>Входът позволява реално изпращане на предложения и синхронизация между устройства.</p><div id="profile-auth-guest" class="auth-grid"><button id="profile-google-login" class="auth-button primary" type="button">Вход с Google</button><input id="profile-auth-email" type="email" autocomplete="email" placeholder="Email за magic link"><button id="profile-email-login" class="auth-button" type="button">Изпрати magic link</button></div><div id="profile-auth-user" class="auth-grid" hidden><div id="profile-auth-identity"></div><div class="auth-row"><a id="profile-moderation-link" class="auth-button moderator" href="/moderation" hidden>Модерация</a><button id="profile-sign-out" class="auth-button" type="button">Изход</button></div></div><div id="profile-auth-status" class="auth-status">Проверявам сесията…</div>`;
+    panel.innerHTML=`<h3>SoulFlame профил</h3><p>Входът позволява реално изпращане на предложения и синхронизация между устройства.</p><div id="profile-auth-guest" class="auth-grid"><button id="profile-google-login" class="auth-button primary" type="button">Вход с Google</button><input id="profile-auth-email" type="email" autocomplete="email" placeholder="Email за magic link"><button id="profile-email-login" class="auth-button" type="button">Изпрати magic link</button></div><div id="profile-auth-user" class="auth-grid" hidden><div id="profile-auth-identity"></div><div class="auth-row"><a id="profile-moderation-link" class="auth-button moderator" href="/moderation.html" hidden>Модерация</a><button id="profile-sign-out" class="auth-button" type="button">Изход</button></div></div><div id="profile-auth-status" class="auth-status">Проверявам сесията…</div>`;
     modal.insertBefore(panel,stats);
 
     document.getElementById('profile-google-login').addEventListener('click',async()=>{
@@ -59,13 +59,14 @@
     document.getElementById('profile-moderation-link').hidden=!moderator;
     status(moderator?'Входът е активен · имаш moderator достъп.':'Входът е активен.','success');
     try{
+      const flushed=await window.SFV2SubmissionAdapter?.flushOutbox?.();
       const synced=await window.SFV2SubmissionAdapter?.syncMine?.();
       if(Array.isArray(synced)){
         app.state.proposals=synced;
         app.write(app.STORAGE.proposals,synced);
         app.renderProposals?.();app.renderProposalList?.();app.updateProfile?.();
       }
-      await window.SFV2SubmissionAdapter?.flushOutbox?.();
+      if(flushed?.sent)status(`Изпратени са ${flushed.sent} чакащи предложения.`, 'success');
     }catch(error){console.error(error);status('Входът е активен, но синхронизацията ще се повтори по-късно.','error')}
   }
 
