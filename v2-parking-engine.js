@@ -38,7 +38,7 @@
   };
 
   app.fetchParkingEngine=async(center,radius,signal)=>{
-    const params=new URLSearchParams({lat:String(center.lat),lon:String(center.lon),radius:String(radius),limit:'120'});
+    const params=new URLSearchParams({lat:String(center.lat),lon:String(center.lon),radius:String(radius),limit:'150'});
     const response=await fetch(`/api/v2/parkings?${params}`,{signal});
     const data=await response.json();
     if(!response.ok||!Array.isArray(data.parkings))throw new Error(data.error||'parking_engine_failed');
@@ -106,19 +106,19 @@
   app.renderParkings=()=>{
     const root=app.$('parking-list');root.innerHTML='';
     if(!s.parkings.length){
-      const nearby=s.parkingContext==='nearby';
-      app.renderParkingMessage('🅿️','Няма налични резултати',nearby?'В този район още няма импортирани или OSM картографирани паркинги.':'SmartCity базата може още да няма импортирани всички физически и улични паркинги.',{actionLabel:nearby?'Обнови':s.destination?'Обнови':'Търси място',onAction:nearby?()=>app.loadNearbyParkings(app.layerCenter(),{announce:true,force:true}):s.destination?app.findParkings:()=>app.$('search-input').focus()});
+      const nearby=s.parkingContext!=='destination';
+      app.renderParkingMessage('🅿️','Няма налични резултати',nearby?'В този видим район още няма импортирани или OSM картографирани паркинги.':'SmartCity базата може още да няма импортирани всички физически и улични паркинги.',{actionLabel:nearby?'Обнови':s.destination?'Обнови':'Търси място',onAction:nearby?()=>app.loadViewportParkings?.({announce:true,force:true}):s.destination?app.findParkings:()=>app.$('search-input').focus()});
       return;
     }
-    const nearby=s.parkingContext==='nearby';
+    const nearby=s.parkingContext!=='destination';
     s.parkings.forEach((item,index)=>{
       const saved=s.saved.some(savedItem=>savedItem.id===item.id),card=document.createElement('article');
       card.className=`parking-card${s.selected?.id===item.id?' active':''}`;card.tabIndex=0;card.setAttribute('role','button');card.setAttribute('aria-label',`Избери ${item.name}`);
       const tags=[item.verificationStatus==='approved'?'Одобрен':null,item.covered?'Закрит':null,item.free?'Безплатен':null,item.capacity?`${item.capacity} места`:null,item.lit?'Осветен':null,item.surveillance?'Наблюдение':null,item.hasMappedEntrance?'Вход за автомобил':null].filter(Boolean);
       const firstValue=nearby?app.formatDistance(item.straight):app.formatDistance(item.drive);
-      const firstLabel=nearby?'от теб/картата':'прогнозно с кола';
+      const firstLabel=nearby?'от центъра на екрана':'прогнозно с кола';
       const secondValue=nearby?(item.capacity?`${item.capacity}`:'—'):app.formatDistance(item.walk);
-      const secondLabel=nearby?'известни места':'пеша до обекта';
+      const secondLabel=nearby?'известен капацитет':'пеша до обекта';
       card.innerHTML=`<div class="parking-top"><div><div class="parking-title">${index+1}. ${app.safe(item.name)}</div><div class="parking-source">${app.safe(item.kind)} · ${app.safe(app.parkingSourceLabel(item))}</div></div><div class="parking-score">${item.score}</div></div><div class="parking-metrics"><div><b>${firstValue}</b><span>${firstLabel}</span></div><div><b>${secondValue}</b><span>${secondLabel}</span></div><div><b>${item.free?'Безплатен':'Няма цена'}</b><span>източник на данни</span></div></div><div class="parking-tags">${tags.length?tags.map(tag=>`<span class="parking-tag">${app.safe(tag)}</span>`).join(''):'<span class="parking-tag">Ограничени данни</span>'}</div><div class="parking-actions"><button data-route="${item.id}" type="button">Маршрут</button><button data-save="${item.id}" type="button">${saved?'Запазено ★':'Запази ☆'}</button></div>`;
       const choose=event=>{if(!event.target.closest('button'))app.selectParking(item.id)};
       card.addEventListener('click',choose);card.addEventListener('keydown',event=>{if((event.key==='Enter'||event.key===' ')&&!event.target.closest('button')){event.preventDefault();app.selectParking(item.id)}});root.appendChild(card);
