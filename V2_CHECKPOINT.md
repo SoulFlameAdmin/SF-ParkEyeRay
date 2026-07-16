@@ -52,29 +52,26 @@ Head code commit: `27c75e8c65db23027816a53a3daa883c85c5f0d2`
 ## Live accuracy and stability upgrade — batch 8
 Head code commit: `81208fe1f1769227753a3055352c47ea3a5aa3bd`
 
-`v2-heading-pro.js` now adds:
-
-- rolling median filtering over recent trusted speed samples;
-- confidence-weighted fusion between browser GPS speed and displacement/time speed;
-- adaptive acceleration/deceleration limits that reject low-confidence jumps;
-- stronger stationary zero lock based on displacement, reported speed and GPS accuracy;
-- mode-specific hysteresis bands to stop walking/running/vehicle oscillation near thresholds;
-- separate raw, smoothed, target and visually displayed speed values;
-- requestAnimationFrame speed interpolation for a live meter without numeric jumping;
-- decimal speed during walking/running and integer speed during vehicle modes;
-- speed confidence, acceleration and braking states exposed to the meter;
-- stale GPS decay toward zero instead of leaving an old speed frozen;
-- route-snap enter/exit hysteresis requiring repeated agreement or disagreement;
-- route snap also requires speed confidence, heading confidence and direction agreement;
-- shorter confidence-limited prediction horizon and immediate rejection on stale fixes;
-- dynamic zoom only after the movement mode has remained stable;
-- plausible session-distance accumulation only from trusted movement samples;
-- no raw GPS coordinate is replaced by prediction or route snap.
+- rolling median speed filtering and confidence-weighted GPS/displacement fusion;
+- acceleration/deceleration limits, stationary zero lock and movement hysteresis;
+- smooth requestAnimationFrame speed rendering;
+- stale GPS decay, route-snap hysteresis, short prediction and trusted session distance.
 
 ## Preview root entry — batch 9
 - On branch Preview only, opening `/` redirects directly to `/v2?skipOnboarding=1`.
 - This does not replace production `/app` and does not merge PR #9.
-- The branch alias can now be shared without requiring the user to append `/v2` manually.
+
+## Navigation Intelligence — batch 10
+Code commit: `7375ba51841f9659d4d58e2c4831fd8802e5d642`
+
+- live `Navigation Health` score from GPS accuracy, fix freshness, heading confidence, speed confidence and route state;
+- separate GPS, freshness, speed, heading and route health values;
+- live session distance, moving time, average speed and maximum speed;
+- pace in `min/km` for walking and running;
+- compact phone-first health card without adding a sixth primary action;
+- developer diagnostics via `?debug=1` with GPS age, accuracy, mode, confidence, speed, acceleration, route snap, prediction and FPS;
+- public `navigationHealth()` and `sessionMetrics()` runtime APIs for tests and future UI;
+- health values represent browser sensor confidence only and do not claim hardware-grade certainty.
 
 ## Movement behavior
 - `stationary`: compass leads, strongest zero lock and stabilization, zoom 18.
@@ -87,11 +84,10 @@ Head code commit: `81208fe1f1769227753a3055352c47ea3a5aa3bd`
 These modes remain browser-sensor estimates, not guaranteed transport classification.
 
 ## Current deployment and CI
-- Exact code head `81208fe1f1769227753a3055352c47ea3a5aa3bd` is committed.
-- A single GitHub-triggered Preview retry was requested after the Vercel daily limit window.
-- Deployment discipline from now on: one finished batch, one combined commit including checkpoint, one Preview deployment.
-- Documentation-only follow-ups must not trigger separate deployments unless they are part of the finished batch.
-- Runtime endpoint acceptance must be repeated on the exact READY Preview.
+- Latest code head before checkpoint: `7375ba51841f9659d4d58e2c4831fd8802e5d642`.
+- Checkpoint commit uses `[skip ci]` to avoid a documentation-only deployment.
+- Exact-head Preview, CI and runtime endpoint verification are required before acceptance.
+- Deployment discipline remains: one finished code batch, tests, one Preview deployment.
 
 ## Required physical acceptance
 1. Fresh entry centers at zoom 18.
@@ -104,7 +100,9 @@ These modes remain browser-sensor estimates, not guaranteed transport classifica
 8. Stale GPS makes displayed speed decay instead of freeze.
 9. Prediction stops on stale GPS, stopping or weak confidence.
 10. Route snap enters and exits without rapid flicker.
-11. Parking viewport refresh and both main end-to-end flows remain intact.
+11. Navigation Health reacts sensibly to weak GPS and stale fixes.
+12. Session distance, average, max and pace remain plausible.
+13. Parking viewport refresh and both main end-to-end flows remain intact.
 
 ## Remaining limitations
 - Browser sensor quality depends on phone hardware, permissions, calibration and magnetic interference.
@@ -114,7 +112,8 @@ These modes remain browser-sensor estimates, not guaranteed transport classifica
 - Voice and lane guidance are not implemented.
 
 ## Next safe batch
-- Confirm the exact-head Preview becomes READY.
+- Confirm CI and exact-head Preview for Navigation Intelligence.
 - Recheck `/v2`, `/api/geocode`, `/api/overpass`, driving and walking `/api/routing`.
 - Perform Android walk/run/vehicle acceptance and record mode-specific failures.
+- Tune only from real device evidence.
 - Keep PR #9 draft and `/app` untouched until acceptance succeeds.
