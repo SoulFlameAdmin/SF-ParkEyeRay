@@ -82,11 +82,11 @@ Head code commit: `81208fe1f1769227753a3055352c47ea3a5aa3bd`
 These modes remain browser-sensor estimates, not guaranteed transport classification.
 
 ## Current deployment and CI
-- Exact head `81208fe1f1769227753a3055352c47ea3a5aa3bd` was pushed successfully.
-- GitHub smoke and browser workflows started for the exact head.
-- Vercel Git deployment for the exact head is currently blocked by the account daily free deployment limit, not by a confirmed application build failure.
-- The previous exact deployment `683893b7c756b5540bf78cb241f1372405df572e` remains READY.
-- Runtime endpoint acceptance must be repeated after Vercel can publish the new exact head.
+- Exact code head `81208fe1f1769227753a3055352c47ea3a5aa3bd` is committed.
+- A single GitHub-triggered Preview retry was requested after the Vercel daily limit window.
+- Deployment discipline from now on: one finished batch, one combined commit including checkpoint, one Preview deployment.
+- Documentation-only follow-ups must not trigger separate deployments unless they are part of the finished batch.
+- Runtime endpoint acceptance must be repeated on the exact READY Preview.
 
 ## Required physical acceptance
 1. Fresh entry centers at zoom 18.
@@ -109,8 +109,7 @@ These modes remain browser-sensor estimates, not guaranteed transport classifica
 - Voice and lane guidance are not implemented.
 
 ## Next safe batch
-- Wait for exact-head GitHub workflows to complete.
-- Publish and verify an exact-head Vercel Preview when the deployment quota permits.
+- Confirm the exact-head Preview becomes READY.
 - Recheck `/v2`, `/api/geocode`, `/api/overpass`, driving and walking `/api/routing`.
 - Perform Android walk/run/vehicle acceptance and record mode-specific failures.
 - Keep PR #9 draft and `/app` untouched until acceptance succeeds.
