@@ -10,6 +10,12 @@
   let releaseProgrammaticTimer=null;
   let lastCameraMoveAt=0;
   let visualHeading=0;
+  let targetHeading=0;
+  let compassHeading=null;
+  let compassUpdatedAt=0;
+  let orientationListening=false;
+  let orientationPermission='unknown';
+  let headingFrame=null;
 
   app.userIcon=L.divIcon({
     className:'sf-user-location-icon',
@@ -19,12 +25,76 @@
 
   const normalizeHeading=value=>((Number(value)||0)%360+360)%360;
   const shortestHeadingDelta=(from,to)=>((to-from+540)%360)-180;
-  const smoothHeading=(next,speed)=>{
-    if(!Number.isFinite(next))return visualHeading;
+  const screenAngle=()=>Number(screen.orientation?.angle||window.orientation||0);
+
+  const setHeadingTarget=(next,source='gps')=>{
+    if(!Number.isFinite(next))return;
     const normalized=normalizeHeading(next);
-    const weight=speed>=12?.55:speed>=4?.34:.18;
-    visualHeading=normalizeHeading(visualHeading+shortestHeadingDelta(visualHeading,normalized)*weight);
-    return visualHeading;
+    const delta=shortestHeadingDelta(targetHeading,normalized);
+    const maxJump=source==='compass'?90:150;
+    targetHeading=normalizeHeading(targetHeading+Math.max(-maxJump,Math.min(maxJump,delta)));
+  };
+
+  const renderHeading=()=>{
+    const marker=s.userMarker?.getElement()?.querySelector('.user-position-marker');
+    const delta=shortestHeadingDelta(visualHeading,targetHeading);
+    const moving=Number(s.user?.speed||0)>=5;
+    const gain=moving?.22:.16;
+    if(Math.abs(delta)>.08)visualHeading=normalizeHeading(visualHeading+delta*gain);
+    if(marker)marker.style.setProperty('--heading',`${visualHeading}deg`);
+    headingFrame=requestAnimationFrame(renderHeading);
+  };
+
+  const compassFromEvent=event=>{
+    if(Number.isFinite(event.webkitCompassHeading))return normalizeHeading(event.webkitCompassHeading+screenAngle());
+    if(event.absolute===true&&Number.isFinite(event.alpha))return normalizeHeading(360-event.alpha+screenAngle());
+    if(Number.isFinite(event.alpha))return normalizeHeading(360-event.alpha+screenAngle());
+    return null;
+  };
+
+  const handleOrientation=event=>{
+    const heading=compassFromEvent(event);
+    if(!Number.isFinite(heading))return;
+    const now=performance.now();
+    if(Number.isFinite(compassHeading)){
+      const delta=shortestHeadingDelta(compassHeading,heading);
+      const weight=Math.abs(delta)>35?.18:.34;
+      compassHeading=normalizeHeading(compassHeading+delta*weight);
+    }else compassHeading=heading;
+    compassUpdatedAt=now;
+    const speed=Number(s.user?.speed||0);
+    const gpsHeading=Number(s.user?.heading);
+    if(speed>=12&&Number.isFinite(gpsHeading))return;
+    if(speed>=5&&Number.isFinite(gpsHeading)){
+      const fused=normalizeHeading(compassHeading+shortestHeadingDelta(compassHeading,gpsHeading)*.35);
+      setHeadingTarget(fused,'compass');
+    }else setHeadingTarget(compassHeading,'compass');
+  };
+
+  const startOrientationListening=()=>{
+    if(orientationListening||!('DeviceOrientationEvent'in window))return;
+    window.addEventListener('deviceorientationabsolute',handleOrientation,true);
+    window.addEventListener('deviceorientation',handleOrientation,true);
+    orientationListening=true;
+    orientationPermission='granted';
+  };
+
+  const requestOrientationPermission=async()=>{
+    if(!('DeviceOrientationEvent'in window))return false;
+    if(typeof DeviceOrientationEvent.requestPermission==='function'){
+      try{
+        const result=await DeviceOrientationEvent.requestPermission();
+        orientationPermission=result;
+        if(result==='granted'){startOrientationListening();return true}
+        app.setStatus('Компасът е отказан. Стрелката ще използва GPS посоката при движение.','info');
+        return false;
+      }catch{
+        orientationPermission='denied';
+        return false;
+      }
+    }
+    startOrientationListening();
+    return true;
   };
 
   const fromPosition=position=>{
@@ -67,10 +137,16 @@
   const updateDirectionVisual=user=>{
     const marker=s.userMarker?.getElement()?.querySelector('.user-position-marker');
     if(!marker)return;
-    const heading=smoothHeading(user.heading,Number(user.speed||0));
-    marker.style.setProperty('--heading',`${heading}deg`);
+    const speed=Number(user.speed||0);
+    const compassFresh=Number.isFinite(compassHeading)&&performance.now()-compassUpdatedAt<1800;
+    if(speed>=12&&Number.isFinite(user.heading))setHeadingTarget(user.heading,'gps');
+    else if(speed>=5&&Number.isFinite(user.heading)&&compassFresh){
+      const fused=normalizeHeading(compassHeading+shortestHeadingDelta(compassHeading,user.heading)*.35);
+      setHeadingTarget(fused,'gps');
+    }else if(compassFresh)setHeadingTarget(compassHeading,'compass');
+    else if(Number.isFinite(user.heading))setHeadingTarget(user.heading,'gps');
     marker.style.setProperty('--accuracy-quality',Number(user.accuracy||999)>20?'0':'1');
-    marker.classList.toggle('heading-live',Number.isFinite(user.heading)&&(user.speed||0)>=3);
+    marker.classList.toggle('heading-live',compassFresh||Number.isFinite(user.heading));
     marker.classList.toggle('gps-weak',Number(user.accuracy||999)>25);
   };
 
@@ -115,6 +191,7 @@
     };
     s.map.on('zoomstart',stopAutomaticFollow);
     s.map.on('zoomend',()=>{clearTimeout(releaseProgrammaticTimer);programmaticMapMove=false});
+    if(!headingFrame)headingFrame=requestAnimationFrame(renderHeading);
     return ready;
   };
 
@@ -157,7 +234,8 @@
     s.locationWatchId=navigator.geolocation.watchPosition(position=>applyFix(position,'watch'),handleError,WATCH_OPTIONS);
   };
 
-  app.locate=()=>{
+  app.locate=async()=>{
+    if(orientationPermission==='unknown')await requestOrientationPermission();
     if(!navigator.geolocation){app.setStatus('GPS не се поддържа. Търсенето и картата остават активни.','error',true);app.finishBoot?.('unsupported');return}
     s.followUser=true;
     if(s.user)app.centerOnUser(s.user,{animate:true});
