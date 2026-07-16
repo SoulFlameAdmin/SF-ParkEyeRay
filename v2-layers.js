@@ -4,6 +4,13 @@
   const NEARBY_RADII=[1200,2500,5000];
 
   app.layerCenter=()=>s.user||{lat:s.map.getCenter().lat,lon:s.map.getCenter().lng};
+  app.viewportParkingQuery=()=>{
+    const bounds=s.map.getBounds(),center=s.map.getCenter();
+    const corners=[bounds.getNorthWest(),bounds.getNorthEast(),bounds.getSouthWest(),bounds.getSouthEast()];
+    const origin={lat:center.lat,lon:center.lng};
+    const radius=Math.min(5000,Math.max(350,Math.ceil(Math.max(...corners.map(point=>app.distance(origin,{lat:point.lat,lon:point.lng})))*1.08)));
+    return{bounds,center:origin,radius};
+  };
 
   app.syncLayerControls=()=>{
     const parkingButton=app.$('parking-layer-btn'),fuelButton=app.$('fuel-layer-btn');
@@ -20,14 +27,8 @@
     app.$('parking-sheet')?.classList.toggle('layer-disabled',!s.layers.parking);
   };
 
-  app.openMapMenu=()=>{
-    const menu=app.$('map-menu'),button=app.$('menu-btn');
-    menu.classList.add('open');menu.setAttribute('aria-hidden','false');button.setAttribute('aria-expanded','true');
-  };
-  app.closeMapMenu=()=>{
-    const menu=app.$('map-menu'),button=app.$('menu-btn');
-    menu.classList.remove('open');menu.setAttribute('aria-hidden','true');button.setAttribute('aria-expanded','false');
-  };
+  app.openMapMenu=()=>{const menu=app.$('map-menu'),button=app.$('menu-btn');menu.classList.add('open');menu.setAttribute('aria-hidden','false');button.setAttribute('aria-expanded','true')};
+  app.closeMapMenu=()=>{const menu=app.$('map-menu'),button=app.$('menu-btn');menu.classList.remove('open');menu.setAttribute('aria-hidden','true');button.setAttribute('aria-expanded','false')};
   app.toggleMapMenu=()=>app.$('map-menu').classList.contains('open')?app.closeMapMenu():app.openMapMenu();
 
   app.fetchNearbyFuel=async(center,radius,signal)=>{
@@ -62,50 +63,64 @@
       if(error.name==='AbortError')return;
       console.error(error);s.fuelStations=[];s.fuelLayer.clearLayers();
       if(options.announce!==false)app.setStatus('Бензиностанциите временно не се заредиха.','error');
-    }finally{
-      if(s.requests.fuelLayer===controller)delete s.requests.fuelLayer;
-    }
+    }finally{if(s.requests.fuelLayer===controller)delete s.requests.fuelLayer}
+  };
+
+  app.loadViewportParkings=async(options={})=>{
+    if(!s.layers.parking||!s.ui.online||s.map.getZoom()<13)return;
+    const query=app.viewportParkingQuery();
+    if(!app.inBulgaria(query.center.lat,query.center.lon))return;
+    const controller=app.newRequest('nearbyParking');
+    s.parkingContext='viewport';s.parkingOrigin=query.center;
+    if(!options.keepSelection)s.selected=null;
+    app.$('sheet-eyebrow').textContent='Видим екран';
+    app.$('sheet-title').textContent='Паркинги на картата';
+    app.$('sheet-subtitle').textContent='Обновявам картографираните паркинги в текущия екран…';
+    app.$('parking-sheet').classList.remove('layer-disabled');
+    try{
+      const payload=await app.fetchParkingEngine(query.center,query.radius,controller.signal);
+      if(controller.signal.aborted)return;
+      const visible=payload.parkings.filter(record=>query.bounds.contains([Number(record?.point?.lat),Number(record?.point?.lon)]));
+      s.parkings=visible.map(record=>app.engineParking(record,query.center)).filter(Boolean);
+      app.sortParkings();app.renderParkingMarkers();app.renderParkings();
+      app.$('parking-count').textContent=String(s.parkings.length);
+      const origin=payload.meta?.dataSource==='postgis'?'SmartCity база':'OSM fallback';
+      app.$('sheet-subtitle').textContent=`${s.parkings.length} в текущия екран · ${origin} · без live свободни места`;
+      const count=app.$('parking-layer-count');if(count)count.textContent=String(s.parkings.length);
+      if(options.announce!==false)app.setStatus(`Показвам ${s.parkings.length} картографирани паркинга в текущия екран.`,'success');
+    }catch(error){
+      if(error.name==='AbortError')return;
+      console.error(error);s.parkings=[];s.parkingLayer.clearLayers();app.$('parking-count').textContent='0';
+      if(options.announce!==false)app.setStatus('Паркингите в текущия екран временно не се заредиха.','error');
+    }finally{if(s.requests.nearbyParking===controller)delete s.requests.nearbyParking}
   };
 
   app.loadNearbyParkings=async(center=app.layerCenter(),options={})=>{
+    if(options.viewport!==false&&s.map.getZoom()>=13)return app.loadViewportParkings(options);
     if(!s.layers.parking||!app.inBulgaria(center.lat,center.lon)||!s.ui.online)return;
-    if(s.destination&&s.parkingContext==='destination'&&!options.force)return;
     const controller=app.newRequest('nearbyParking');
     s.parkingContext='nearby';s.parkingOrigin={lat:center.lat,lon:center.lon};s.selected=null;
-    app.$('sheet-eyebrow').textContent=s.user?'Около теб':'Около картата';
-    app.$('sheet-title').textContent='Паркинги наблизо';
-    app.$('sheet-subtitle').textContent='Зареждам автоматично паркингите в района…';
-    app.$('parking-sheet').classList.remove('layer-disabled');
+    app.$('sheet-eyebrow').textContent=s.user?'Около теб':'Около картата';app.$('sheet-title').textContent='Паркинги наблизо';app.$('sheet-subtitle').textContent='Зареждам автоматично паркингите в района…';app.$('parking-sheet').classList.remove('layer-disabled');
     try{
       let payload={parkings:[],meta:{}},usedRadius=NEARBY_RADII.at(-1);
-      for(const radius of NEARBY_RADII){
-        payload=await app.fetchParkingEngine(center,radius,controller.signal);usedRadius=radius;
-        if(controller.signal.aborted)return;
-        if(payload.parkings.length>=8||radius===NEARBY_RADII.at(-1))break;
-      }
-      s.parkings=payload.parkings.map(record=>app.engineParking(record,center)).filter(Boolean);
-      app.sortParkings();app.renderParkingMarkers();app.renderParkings();
+      for(const radius of NEARBY_RADII){payload=await app.fetchParkingEngine(center,radius,controller.signal);usedRadius=radius;if(controller.signal.aborted)return;if(payload.parkings.length>=8||radius===NEARBY_RADII.at(-1))break}
+      s.parkings=payload.parkings.map(record=>app.engineParking(record,center)).filter(Boolean);app.sortParkings();app.renderParkingMarkers();app.renderParkings();
       app.$('parking-count').textContent=String(s.parkings.length);
       const origin=payload.meta?.dataSource==='postgis'?'SmartCity база':'OSM fallback';
       app.$('sheet-subtitle').textContent=`${s.parkings.length} в ${app.formatDistance(usedRadius)} · ${origin} · без live свободни места`;
       const count=app.$('parking-layer-count');if(count)count.textContent=String(s.parkings.length);
       if(options.announce!==false)app.setStatus(`Автоматично показвам ${s.parkings.length} паркинга в района.`,'success');
-    }catch(error){
-      if(error.name==='AbortError')return;
-      console.error(error);s.parkings=[];s.parkingLayer.clearLayers();app.$('parking-count').textContent='0';
-      if(options.announce!==false)app.setStatus('Паркингите в района временно не се заредиха.','error');
-    }finally{
-      if(s.requests.nearbyParking===controller)delete s.requests.nearbyParking;
-    }
+    }catch(error){if(error.name==='AbortError')return;console.error(error);s.parkings=[];s.parkingLayer.clearLayers();app.$('parking-count').textContent='0';if(options.announce!==false)app.setStatus('Паркингите в района временно не се заредиха.','error')}
+    finally{if(s.requests.nearbyParking===controller)delete s.requests.nearbyParking}
   };
 
   app.refreshMapLayers=(center=app.layerCenter(),options={})=>{
     if(!app.inBulgaria(center.lat,center.lon))return;
-    const moved=!s.lastLayerCenter||app.distance(center,s.lastLayerCenter)>=Number(options.minimumMove||280);
-    if(!moved&&!options.force)return;
-    s.lastLayerCenter={lat:center.lat,lon:center.lon};
-    if(s.layers.parking)app.loadNearbyParkings(center,{announce:options.announce,force:options.force});
-    if(s.layers.fuel)app.loadFuelStations(center,{announce:options.announce});
+    if(s.layers.parking&&s.map.getZoom()>=13)app.loadViewportParkings({announce:options.announce,force:options.force,keepSelection:options.keepSelection});
+    if(s.layers.fuel){
+      const moved=!s.lastLayerCenter||app.distance(center,s.lastLayerCenter)>=Number(options.minimumMove||280);
+      if(moved||options.force){s.lastLayerCenter={lat:center.lat,lon:center.lon};app.loadFuelStations(center,{announce:options.announce})}
+    }
   };
 
   app.setLayer=(name,enabled,options={})=>{
@@ -113,8 +128,7 @@
     s.layers[name]=Boolean(enabled);app.write(app.STORAGE.layers,s.layers);app.syncLayerControls();
     if(name==='parking'){
       if(!s.layers.parking){app.abortRequest('nearbyParking');s.parkingLayer.clearLayers();app.$('parking-sheet').classList.add('layer-disabled');app.setStatus('Слоят „Паркинги“ е изключен.','info')}
-      else if(s.destination){s.parkingContext='destination';app.findParkings()}
-      else app.loadNearbyParkings(app.layerCenter(),{announce:true,force:true});
+      else app.loadViewportParkings({announce:true,force:true});
     }
     if(name==='fuel'){
       if(!s.layers.fuel){app.abortRequest('fuelLayer');s.fuelStations=[];s.fuelLayer.clearLayers();const count=app.$('fuel-layer-count');if(count)count.textContent='0';app.setStatus('Слоят „Бензиностанции“ е изключен.','info')}
@@ -124,17 +138,11 @@
   };
   app.toggleLayer=name=>app.setLayer(name,!s.layers[name]);
 
-  app.onUserPosition=(user,options={})=>{
-    if(!s.locationWatchId)app.startLocationWatch();
-    if(s.followUser||options.center===true)app.refreshMapLayers(user,{announce:false,minimumMove:220});
-  };
+  app.onUserPosition=(user,options={})=>{if(!s.locationWatchId)app.startLocationWatch();if((s.followUser||options.center===true)&&s.layers.parking&&s.map.getZoom()>=13){clearTimeout(s.layerTimer);s.layerTimer=setTimeout(()=>app.loadViewportParkings({announce:false,keepSelection:true}),300)}};
 
   app.startLocationWatch=()=>{
     if(s.locationWatchId!=null||!navigator.geolocation)return;
-    s.locationWatchId=navigator.geolocation.watchPosition(position=>{
-      const user={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude),accuracy:Number(position.coords.accuracy||0)};
-      app.applyUserPosition(user,{center:false,reason:'watch'});
-    },()=>{}, {enableHighAccuracy:false,timeout:25000,maximumAge:20000});
+    s.locationWatchId=navigator.geolocation.watchPosition(position=>{const user={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude),accuracy:Number(position.coords.accuracy||0)};app.applyUserPosition(user,{center:false,reason:'watch'})},()=>{}, {enableHighAccuracy:false,timeout:25000,maximumAge:20000});
   };
 
   app.initLayers=()=>{
@@ -143,18 +151,11 @@
     app.$('parking-layer-btn').addEventListener('click',()=>app.toggleLayer('parking'));
     app.$('fuel-layer-btn').addEventListener('click',()=>app.toggleLayer('fuel'));
     s.map.on('dragstart',()=>{s.followUser=false});
-    s.map.on('moveend',()=>{
-      if(s.drawing||s.destination||s.map.getZoom()<13)return;
-      clearTimeout(s.layerTimer);s.layerTimer=setTimeout(()=>{
-        const center={lat:s.map.getCenter().lat,lon:s.map.getCenter().lng};
-        app.refreshMapLayers(center,{announce:false,minimumMove:450});
-      },450);
+    s.map.on('moveend zoomend',()=>{
+      if(s.drawing||s.map.getZoom()<13||!s.layers.parking)return;
+      clearTimeout(s.layerTimer);s.layerTimer=setTimeout(()=>app.loadViewportParkings({announce:false,keepSelection:true}),260);
     });
-    document.addEventListener('click',event=>{
-      if(!event.target.closest('#map-menu')&&!event.target.closest('#menu-btn'))app.closeMapMenu();
-    });
-    window.setTimeout(()=>{
-      if(!s.user&&s.map.getZoom()>=13)app.refreshMapLayers(app.layerCenter(),{announce:false,force:true});
-    },3500);
+    document.addEventListener('click',event=>{if(!event.target.closest('#map-menu')&&!event.target.closest('#menu-btn'))app.closeMapMenu()});
+    window.setTimeout(()=>{if(s.layers.parking&&s.map.getZoom()>=13)app.loadViewportParkings({announce:false,force:true})},1800);
   };
 })();
