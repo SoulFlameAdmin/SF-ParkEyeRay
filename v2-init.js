@@ -68,15 +68,17 @@
   };
 
   app.init=()=>{
+    app.beginBoot?.();
     try{
       app.initUi();
       if(!app.initMap())return;
       app.bind();app.initLayers();app.renderProposals();app.updateProfile();app.updateDestinationControls?.();
       app.renderParkingMessage('◎','Определям района','При разрешен GPS паркингите ще се появят автоматично около теб.');
+      app.setStatus('Подготвям GPS и картата…','info',true);
       app.locate();
-      app.setStatus('SmartCity е готов · Паркингите се зареждат автоматично около теб.','success');
     }catch(error){
       console.error(error);
+      app.finishBoot?.('init-error');
       app.setStatus('SmartCity V2 не можа да се стартира напълно.','error',true);
       app.setRetry(()=>location.reload(),'Презареди приложението');
     }
@@ -84,12 +86,14 @@
 
   window.addEventListener('error',event=>{
     console.error(event.error||event.message);
+    app.finishBoot?.('runtime-error');
     app.setStatus('Възникна интерфейсна грешка. Можеш да презаредиш приложението.','error',true);
     app.setRetry?.(()=>location.reload(),'Презареди приложението');
   });
   window.addEventListener('unhandledrejection',event=>{
     console.error(event.reason);
     if(event.reason?.name!=='AbortError'){
+      app.finishBoot?.('promise-error');
       app.setStatus('Една операция не завърши успешно.','error',true);
       app.setRetry?.(()=>location.reload(),'Презареди приложението');
     }
