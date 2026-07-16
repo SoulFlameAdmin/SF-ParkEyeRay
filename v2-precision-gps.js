@@ -89,7 +89,7 @@
         app.setStatus('Компасът е отказан. Стрелката ще използва GPS посоката при движение.','info');
         return false;
       }catch{
-        orientationPermission='denied';
+        orientationPermission='unknown';
         return false;
       }
     }
