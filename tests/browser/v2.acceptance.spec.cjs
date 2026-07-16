@@ -115,18 +115,9 @@ async function openMenu(page) {
 }
 
 async function tapMapPoint(page, testInfo, x, y) {
+  await expect(page.locator('#draw-surface')).toBeVisible();
   if (testInfo.project.name === 'android-phone') {
-    const surface = page.locator('#draw-surface');
-    await expect(surface).toBeVisible();
-    const surfaceBox = await surface.boundingBox();
-    if (!surfaceBox) throw new Error('Drawing surface has no bounding box');
-    const position = {
-      x: Math.max(1, Math.min(surfaceBox.width - 1, x - surfaceBox.x)),
-      y: Math.max(1, Math.min(surfaceBox.height - 1, y - surfaceBox.y))
-    };
-    const hitTarget = await page.evaluate(({ x: clientX, y: clientY }) => document.elementFromPoint(clientX, clientY)?.id || '', { x, y });
-    expect(hitTarget).toBe('draw-surface');
-    await surface.tap({ position, force: true });
+    await page.touchscreen.tap(x, y);
   } else {
     await page.mouse.click(x, y);
   }
@@ -190,6 +181,11 @@ test('search ranking and saved destination persistence remain available', async 
   await expect(page.locator('.destination-result').first()).toContainText('Мол Ямбол');
   await expect(page.locator('.destination-result').first()).not.toContainText('Паркинг към');
   await page.locator('.destination-result').first().click();
+
+  await expect(page.locator('#parking-sheet')).toHaveClass(/collapsed/);
+  await page.locator('#sheet-handle').click();
+  await expect(page.locator('#parking-sheet')).not.toHaveClass(/collapsed/);
+  await expect(page.locator('#save-destination')).toBeVisible();
   await page.locator('#save-destination').click();
   await expect(page.locator('#save-destination')).toHaveAttribute('aria-pressed', 'true');
 
@@ -216,6 +212,7 @@ test('burger actions support proposal drawing, profile and offline recovery', as
   await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.35, mapBox.y + mapBox.height * 0.36);
   await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.55, mapBox.y + mapBox.height * 0.39);
   await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.48, mapBox.y + mapBox.height * 0.57);
+  await expect(page.locator('#draw-help')).toContainText('Добавени точки: 3');
   await expect(page.locator('#draw-finish')).toBeEnabled();
   await page.locator('#draw-finish').click();
   await page.locator('#proposal-name').fill('Тестова паркинг зона');
