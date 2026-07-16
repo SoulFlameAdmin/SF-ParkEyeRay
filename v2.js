@@ -2,7 +2,8 @@
   'use strict';
   const params=new URLSearchParams(location.search);
   const onboardingDone=localStorage.getItem('smartcity_onboarding_version')==='3';
-  if(!onboardingDone&&params.get('skipOnboarding')!=='1'){
+  const localAutomation=['localhost','127.0.0.1'].includes(location.hostname);
+  if(!onboardingDone&&!localAutomation&&params.get('skipOnboarding')!=='1'){
     const next=`${location.pathname}${location.search}`;
     location.replace(`/intro.html?next=${encodeURIComponent(next)}`);
     return;
