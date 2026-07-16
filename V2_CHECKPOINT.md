@@ -1,8 +1,8 @@
 # SmartCity V2 checkpoint
 
 ## Active work
-- Branch: `smartcity-v2-foundation`
-- Draft PR: `#6`
+- Branch: `smartcity-v2-precision-gps`
+- Draft PR: `#9`
 - Preview route: `/v2`
 - Master plan: issue `#5`
 - Active product direction: **small safe steps toward a working Waze-like navigation experience**
@@ -68,10 +68,11 @@
 - `/v2` opens behind a full-screen fire splash instead of exposing an uncentered map.
 - The English boot copy includes `Licensed by SoulFlame` and GPS progress states.
 - The first valid GPS fix is always centered before the interface is revealed.
-- Initial zoom is GPS-accuracy aware: close city zoom for usable fixes and a safer wider zoom for weak fixes.
+- Initial GPS zoom is fixed at level `18` on every fresh page entry.
+- A manual zoom-in or zoom-out disables automatic GPS camera following.
+- Automatic following and zoom `18` can be restored only through the existing `◎` location button.
 - The last valid position is stored locally for a fast background map while a fresh GPS fix is requested.
 - A 9-second fallback and explicit GPS error paths prevent the splash from becoming a dead screen.
-- Manual location requests still re-center the map after startup.
 - Browser coverage verifies the license copy, hidden splash after readiness, GPS center and initial zoom.
 
 ## Preview deployment recovery
@@ -100,13 +101,12 @@ Scope: `bg:sliven-core`
 
 ## Runtime and CI verification
 - Runtime error clusters for `/v2`, `/api/geocode`, `/api/overpass` and `/api/routing` previously showed no errors in the checked window.
-- Head `9585191c0b6763f4e2bc5baa539617fd503dcefc`: SmartCity parking smoke, SmartCity V2 smoke and Android/desktop browser acceptance all passed.
-- Browser acceptance now covers the SoulFlame boot, initial GPS center/zoom, five primary actions, destination save persistence, driving plus walking route, and polygon → details → `pending_soulflame` submission flow.
-- The newest observed READY Preview was still for an earlier commit, so exact-head deployment and runtime endpoint verification remain required before acceptance is claimed.
+- Exact-head Preview and CI for PR #9 must be rechecked after the zoom-control commit.
+- Browser acceptance must cover startup zoom 18, manual zoom disabling follow, and `◎` restoring follow.
 
 ## Production safety
 - `/app` is unchanged.
-- PR #6 remains draft and unmerged.
+- PR #9 remains draft and unmerged.
 - Acceptance is not claimed until CI, exact-head Preview, phone and desktop checks are green.
 
 ## Remaining limitations
@@ -116,8 +116,7 @@ Scope: `bg:sliven-core`
 - Voice guidance and lane guidance are not implemented.
 
 ## Next safe batch
-1. Confirm a READY Vercel deployment for the exact latest head.
+1. Confirm a READY Vercel deployment for exact head `1492cd33703010975bbf375f1035177c2b64b098` or newer.
 2. Verify `/v2`, `/api/geocode`, `/api/overpass`, driving and walking `/api/routing` on that Preview.
-3. Perform a real phone navigation test of speed, location marker, maneuver timing, ETA and rerouting.
-4. Add voice prompts only after maneuver data is stable.
-5. Continue authenticated submission, evidence upload and internal moderation dashboard work without changing the five phone actions.
+3. Test on Android: first entry zoom 18 → manual zoom disables follow → `◎` restores zoom 18 and follow.
+4. Continue authenticated submission, evidence upload and internal moderation dashboard work without changing the five phone actions.
