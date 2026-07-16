@@ -64,6 +64,16 @@
 - The compact speedometer hides while the parking list, polygon drawing or full navigation HUD is active.
 - A dedicated Playwright test verifies the speedometer, hidden collapsed card content and GPS marker.
 
+## SoulFlame boot and entry batch 4
+- `/v2` opens behind a full-screen fire splash instead of exposing an uncentered map.
+- The English boot copy includes `Licensed by SoulFlame` and GPS progress states.
+- The first valid GPS fix is always centered before the interface is revealed.
+- Initial zoom is GPS-accuracy aware: close city zoom for usable fixes and a safer wider zoom for weak fixes.
+- The last valid position is stored locally for a fast background map while a fresh GPS fix is requested.
+- A 9-second fallback and explicit GPS error paths prevent the splash from becoming a dead screen.
+- Manual location requests still re-center the map after startup.
+- Browser coverage verifies the license copy, hidden splash after readiness, GPS center and initial zoom.
+
 ## Preview deployment recovery
 - Vercel deployment errors were traced to `exceeded_serverless_functions_per_deployment`, not a generic build-rate limit.
 - Hobby permits at most 12 Serverless Functions; helper files under `/api` were being counted as deployable functions.
@@ -90,10 +100,9 @@ Scope: `bg:sliven-core`
 
 ## Runtime and CI verification
 - Runtime error clusters for `/v2`, `/api/geocode`, `/api/overpass` and `/api/routing` previously showed no errors in the checked window.
-- Before map HUD batch 3, SmartCity parking smoke and V2 smoke were green.
-- Browser acceptance was red because `document.elementFromPoint` still reached a Leaflet child instead of the fixed-position drawing surface on Android.
-- The drawing surface is now moved inside `#map` with a z-index above Leaflet panes; exact-head Android and desktop acceptance must confirm the fix.
-- The newest known READY Preview was for an earlier head; an exact-head READY deployment and endpoint runtime checks remain required.
+- Head `d5f2a213ec2bda2970f69a1a26164c1a292f8f1e`: SmartCity parking smoke and V2 smoke passed; browser acceptance remained red in the polygon drawing flow.
+- The boot and initial GPS center batch adds dedicated browser coverage but exact-head CI and Preview verification are still required.
+- Browser acceptance is not considered resolved until the existing Android polygon flow and the new boot test both pass.
 
 ## Production safety
 - `/app` is unchanged.
@@ -107,9 +116,10 @@ Scope: `bg:sliven-core`
 - Voice guidance and lane guidance are not implemented.
 
 ## Next safe batch
-1. Confirm green Android and desktop browser acceptance for the map-contained drawing surface and compact speedometer.
-2. Confirm a READY Vercel deployment for the exact latest head.
-3. Verify runtime `/v2`, `/api/geocode`, `/api/overpass`, driving and walking `/api/routing`.
-4. Perform a real phone navigation test of speed, location marker, maneuver timing, ETA and rerouting.
-5. Add voice prompts only after maneuver data is stable.
-6. Continue authenticated submission, evidence upload and internal moderation dashboard work without changing the five phone actions.
+1. Confirm exact-head smoke and browser results for the SoulFlame boot and GPS center flow.
+2. Confirm a READY Vercel deployment for the exact latest head and verify `/v2` runtime.
+3. Reproduce and resolve the remaining Android polygon acceptance failure without weakening real touch handling.
+4. Verify `/api/geocode`, `/api/overpass`, driving and walking `/api/routing` on Preview.
+5. Perform a real phone navigation test of speed, location marker, maneuver timing, ETA and rerouting.
+6. Add voice prompts only after maneuver data is stable.
+7. Continue authenticated submission, evidence upload and internal moderation dashboard work without changing the five phone actions.
