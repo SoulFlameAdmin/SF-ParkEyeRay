@@ -12,7 +12,17 @@
   <link rel="stylesheet" href="/v2-search.css">
   <link rel="stylesheet" href="/v2-waze.css">
 </head>
-<body>
+<body class="booting">
+  <div id="boot-screen" class="boot-screen" role="status" aria-live="polite" aria-label="Loading SoulFlame Navigation">
+    <div class="boot-brand">
+      <div class="boot-fire" aria-hidden="true">🔥</div>
+      <strong>SoulFlame Navigation</strong>
+      <span id="boot-message">Finding your location</span>
+    </div>
+    <div class="boot-progress" aria-hidden="true"><i></i></div>
+    <small>Licensed by SoulFlame</small>
+  </div>
+
   <div id="map" aria-label="Карта"></div>
   <div id="draw-surface" aria-hidden="true"></div>
 
