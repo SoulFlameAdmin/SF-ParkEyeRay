@@ -198,6 +198,7 @@
       rememberDrawEvent(x,y,now);
       appendDrawLatLng(s.map.containerPointToLatLng(L.point(x-rect.left,y-rect.top)));
     };
+    mapNode.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
     if(drawSurface){
       drawSurface.addEventListener('pointerdown',captureDrawEvent,true);
       drawSurface.addEventListener('touchstart',captureDrawEvent,{capture:true,passive:false});
