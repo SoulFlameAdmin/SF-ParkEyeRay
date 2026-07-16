@@ -114,23 +114,15 @@ async function openMenu(page) {
   await expect(page.locator('#map-menu')).toHaveClass(/open/);
 }
 
-async function tapMapPoint(page, testInfo, x, y) {
-  const surface = page.locator('#draw-surface');
-  await expect(surface).toBeVisible();
+async function tapMapPoint(page, testInfo, x, y, expectedCount) {
+  await expect(page.locator('#draw-surface')).toBeVisible();
   if (testInfo.project.name === 'android-phone') {
-    const box = await surface.boundingBox();
-    if (!box) throw new Error('Drawing surface has no bounding box');
-    await surface.tap({
-      position: {
-        x: Math.max(1, Math.min(box.width - 1, x - box.x)),
-        y: Math.max(1, Math.min(box.height - 1, y - box.y))
-      },
-      force: true
-    });
-    await page.waitForTimeout(120);
+    await page.touchscreen.tap(x, y);
   } else {
     await page.mouse.click(x, y);
   }
+  await expect(page.locator('#draw-help')).toContainText(`Добавени точки: ${expectedCount}`);
+  await page.waitForTimeout(100);
 }
 
 test('GPS automatically shows nearby parking and burger toggles fuel without blocking the map', async ({ page }) => {
@@ -216,13 +208,13 @@ test('burger actions support proposal drawing, profile and offline recovery', as
   await page.locator('[data-action="add"]').click();
   await expect(page.locator('body')).toHaveClass(/drawing-mode/);
   await expect(page.locator('#draw-toolbar')).toHaveClass(/active/);
+  await page.waitForTimeout(150);
 
   const mapBox = await page.locator('#map').boundingBox();
   if (!mapBox) throw new Error('Map has no bounding box');
-  await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.35, mapBox.y + mapBox.height * 0.36);
-  await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.55, mapBox.y + mapBox.height * 0.39);
-  await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.48, mapBox.y + mapBox.height * 0.57);
-  await expect(page.locator('#draw-help')).toContainText('Добавени точки: 3');
+  await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.35, mapBox.y + mapBox.height * 0.36, 1);
+  await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.55, mapBox.y + mapBox.height * 0.39, 2);
+  await tapMapPoint(page, testInfo, mapBox.x + mapBox.width * 0.48, mapBox.y + mapBox.height * 0.57, 3);
   await expect(page.locator('#draw-finish')).toBeEnabled();
   await page.locator('#draw-finish').click();
   await page.locator('#proposal-name').fill('Тестова паркинг зона');
