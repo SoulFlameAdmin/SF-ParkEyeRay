@@ -1,5 +1,12 @@
 (()=>{
   'use strict';
+  const params=new URLSearchParams(location.search);
+  const onboardingDone=localStorage.getItem('smartcity_onboarding_version')==='3';
+  if(!onboardingDone&&params.get('skipOnboarding')!=='1'){
+    const next=`${location.pathname}${location.search}`;
+    location.replace(`/intro.html?next=${encodeURIComponent(next)}`);
+    return;
+  }
   if(!document.querySelector('link[href="/v2-waze.css"]')){
     const style=document.createElement('link');style.rel='stylesheet';style.href='/v2-waze.css';document.head.appendChild(style);
   }
