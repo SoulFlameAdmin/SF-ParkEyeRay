@@ -16,6 +16,12 @@
     listeners.forEach(listener=>{try{listener(session)}catch(error){console.error(error)}});
   }
 
+  function normalizeRedirect(value){
+    const url=new URL(value||location.href,location.origin);
+    if(url.pathname==='/moderation')url.pathname='/moderation.html';
+    return url.toString();
+  }
+
   async function refresh(){
     const {data,error}=await client.auth.getSession();
     if(error)throw error;
@@ -31,7 +37,7 @@
   });
 
   async function signInWithGoogle(redirectTo=location.href){
-    const {data,error}=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo}});
+    const {data,error}=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo:normalizeRedirect(redirectTo)}});
     if(error)throw error;
     return data;
   }
@@ -39,7 +45,7 @@
   async function signInWithEmail(email,redirectTo=location.href){
     const value=String(email||'').trim();
     if(!/^\S+@\S+\.\S+$/.test(value))throw new Error('invalid_email');
-    const {data,error}=await client.auth.signInWithOtp({email:value,options:{emailRedirectTo:redirectTo,shouldCreateUser:false}});
+    const {data,error}=await client.auth.signInWithOtp({email:value,options:{emailRedirectTo:normalizeRedirect(redirectTo),shouldCreateUser:false}});
     if(error)throw error;
     return data;
   }
