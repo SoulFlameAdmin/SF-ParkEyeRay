@@ -3,6 +3,9 @@
   const app=window.SFV2,s=app.state;
   const FOLLOW_ZOOM=18;
   const WATCH_OPTIONS={enableHighAccuracy:true,timeout:20000,maximumAge:0};
+  const HEADING_DEAD_ZONE=0.9;
+  const MAX_TURN_RATE_STILL=150;
+  const MAX_TURN_RATE_MOVING=260;
   let bestAccuracy=Infinity;
   let firstFixResolved=false;
   let firstFixTimer=null;
@@ -14,10 +17,15 @@
   let headingInitialized=false;
   let compassHeading=null;
   let compassUpdatedAt=0;
+  let compassConfidence=0;
   let orientationListening=false;
   let orientationPermission='unknown';
   let headingFrame=null;
+  let lastHeadingFrameAt=0;
   let lastAbsoluteOrientationAt=0;
+  let flipCandidate=null;
+  let flipCandidateCount=0;
+  let pageVisible=!document.hidden;
 
   app.userIcon=L.divIcon({
     className:'sf-user-location-icon',
@@ -28,33 +36,58 @@
   const normalizeHeading=value=>((Number(value)||0)%360+360)%360;
   const shortestHeadingDelta=(from,to)=>((to-from+540)%360)-180;
   const screenAngle=()=>normalizeHeading(Number(screen.orientation?.angle??window.orientation??0));
+  const clamp=(value,min,max)=>Math.min(max,Math.max(min,value));
 
-  const setHeadingTarget=next=>{
-    if(!Number.isFinite(next))return;
+  const resetFlipGuard=()=>{flipCandidate=null;flipCandidateCount=0};
+
+  const acceptHeading=(next,source='compass')=>{
+    if(!Number.isFinite(next))return false;
     const normalized=normalizeHeading(next);
     if(!headingInitialized){
       headingInitialized=true;
       visualHeading=normalized;
       targetHeading=normalized;
-      return;
+      resetFlipGuard();
+      return true;
     }
+
+    const speed=Number(s.user?.speed||0);
+    const delta=shortestHeadingDelta(targetHeading,normalized);
+    if(Math.abs(delta)<HEADING_DEAD_ZONE)return false;
+
+    // Magnetic sensors sometimes jump by ~180 degrees while the phone is still.
+    // Require three consistent samples before accepting such a reversal.
+    if(source==='compass'&&speed<6&&Math.abs(delta)>115){
+      if(!Number.isFinite(flipCandidate)||Math.abs(shortestHeadingDelta(flipCandidate,normalized))>18){
+        flipCandidate=normalized;
+        flipCandidateCount=1;
+        return false;
+      }
+      flipCandidateCount+=1;
+      if(flipCandidateCount<3)return false;
+    }
+
+    resetFlipGuard();
     targetHeading=normalized;
+    return true;
   };
 
-  const renderHeading=()=>{
+  const renderHeading=timestamp=>{
     const marker=s.userMarker?.getElement()?.querySelector('.user-position-marker');
+    const elapsed=lastHeadingFrameAt?Math.min(.05,Math.max(.001,(timestamp-lastHeadingFrameAt)/1000)):.016;
+    lastHeadingFrameAt=timestamp;
     const delta=shortestHeadingDelta(visualHeading,targetHeading);
     const moving=Number(s.user?.speed||0)>=5;
-    const gain=moving?.34:.28;
-    if(Math.abs(delta)>.06)visualHeading=normalizeHeading(visualHeading+delta*gain);
+    const maxStep=(moving?MAX_TURN_RATE_MOVING:MAX_TURN_RATE_STILL)*elapsed;
+    const easedStep=delta*(moving?.26:.20);
+    const step=clamp(easedStep,-maxStep,maxStep);
+    if(Math.abs(delta)>HEADING_DEAD_ZONE*.35)visualHeading=normalizeHeading(visualHeading+step);
     else visualHeading=targetHeading;
-    if(marker)marker.style.setProperty('--heading',`${visualHeading}deg`);
+    if(marker)marker.style.setProperty('--heading',`${visualHeading.toFixed(2)}deg`);
     headingFrame=requestAnimationFrame(renderHeading);
   };
 
-  // Converts the compass value to the direction of the physical top-centre
-  // edge of the visible phone screen. The screen-angle subtraction prevents
-  // portrait/landscape changes from adding an unwanted 90/180-degree offset.
+  // Direction of the physical top-centre edge of the visible phone screen.
   const compassFromEvent=event=>{
     let raw=null;
     if(Number.isFinite(event.webkitCompassHeading))raw=Number(event.webkitCompassHeading);
@@ -63,34 +96,56 @@
     return normalizeHeading(raw-screenAngle());
   };
 
+  const confidenceFromEvent=(event,isAbsolute)=>{
+    const iosAccuracy=Number(event.webkitCompassAccuracy);
+    if(Number.isFinite(iosAccuracy)&&iosAccuracy>=0)return clamp(1-iosAccuracy/90,.15,1);
+    return isAbsolute?.82:.48;
+  };
+
   const handleOrientation=event=>{
+    if(!pageVisible)return;
     const now=performance.now();
     const isAbsolute=event.type==='deviceorientationabsolute'||event.absolute===true||Number.isFinite(event.webkitCompassHeading);
     if(isAbsolute)lastAbsoluteOrientationAt=now;
-    else if(now-lastAbsoluteOrientationAt<1200)return;
+    else if(now-lastAbsoluteOrientationAt<1400)return;
 
     const heading=compassFromEvent(event);
     if(!Number.isFinite(heading))return;
+    const confidence=confidenceFromEvent(event,isAbsolute);
+
     if(Number.isFinite(compassHeading)){
       const delta=shortestHeadingDelta(compassHeading,heading);
-      const weight=Math.abs(delta)>55?.2:.46;
+      if(Math.abs(delta)<HEADING_DEAD_ZONE)return;
+      const baseWeight=confidence>.75?.42:confidence>.5?.28:.16;
+      const weight=Math.abs(delta)>45?baseWeight*.45:baseWeight;
       compassHeading=normalizeHeading(compassHeading+delta*weight);
     }else compassHeading=heading;
-    compassUpdatedAt=now;
 
+    compassConfidence=confidence;
+    compassUpdatedAt=now;
     const speed=Number(s.user?.speed||0);
     const gpsHeading=Number(s.user?.heading);
-    if(speed>=12&&Number.isFinite(gpsHeading))setHeadingTarget(gpsHeading);
+
+    if(speed>=12&&Number.isFinite(gpsHeading))acceptHeading(gpsHeading,'gps');
     else if(speed>=6&&Number.isFinite(gpsHeading)){
-      const fused=normalizeHeading(compassHeading+shortestHeadingDelta(compassHeading,gpsHeading)*.28);
-      setHeadingTarget(fused);
-    }else setHeadingTarget(compassHeading);
+      const gpsWeight=confidence>.7?.32:.52;
+      const fused=normalizeHeading(compassHeading+shortestHeadingDelta(compassHeading,gpsHeading)*gpsWeight);
+      acceptHeading(fused,'compass');
+    }else acceptHeading(compassHeading,'compass');
   };
 
   const resetOrientationAlignment=()=>{
     compassHeading=null;
     compassUpdatedAt=0;
+    compassConfidence=0;
     lastAbsoluteOrientationAt=0;
+    resetFlipGuard();
+  };
+
+  const handleVisibility=()=>{
+    pageVisible=!document.hidden;
+    lastHeadingFrameAt=0;
+    if(pageVisible)resetOrientationAlignment();
   };
 
   const startOrientationListening=()=>{
@@ -99,6 +154,7 @@
     window.addEventListener('deviceorientation',handleOrientation,true);
     screen.orientation?.addEventListener?.('change',resetOrientationAlignment);
     window.addEventListener('orientationchange',resetOrientationAlignment,true);
+    document.addEventListener('visibilitychange',handleVisibility);
     orientationListening=true;
     orientationPermission='granted';
   };
@@ -163,15 +219,17 @@
     if(!marker)return;
     const speed=Number(user.speed||0);
     const compassFresh=Number.isFinite(compassHeading)&&performance.now()-compassUpdatedAt<1800;
-    if(speed>=12&&Number.isFinite(user.heading))setHeadingTarget(user.heading);
+    if(speed>=12&&Number.isFinite(user.heading))acceptHeading(user.heading,'gps');
     else if(speed>=6&&Number.isFinite(user.heading)&&compassFresh){
-      const fused=normalizeHeading(compassHeading+shortestHeadingDelta(compassHeading,user.heading)*.28);
-      setHeadingTarget(fused);
-    }else if(compassFresh)setHeadingTarget(compassHeading);
-    else if(Number.isFinite(user.heading))setHeadingTarget(user.heading);
+      const gpsWeight=compassConfidence>.7?.32:.52;
+      const fused=normalizeHeading(compassHeading+shortestHeadingDelta(compassHeading,user.heading)*gpsWeight);
+      acceptHeading(fused,'compass');
+    }else if(compassFresh)acceptHeading(compassHeading,'compass');
+    else if(Number.isFinite(user.heading))acceptHeading(user.heading,'gps');
     marker.style.setProperty('--accuracy-quality',Number(user.accuracy||999)>20?'0':'1');
     marker.classList.toggle('heading-live',compassFresh||Number.isFinite(user.heading));
     marker.classList.toggle('gps-weak',Number(user.accuracy||999)>25);
+    marker.classList.toggle('compass-weak',compassFresh&&compassConfidence<.5);
   };
 
   const markProgrammaticMove=()=>{
