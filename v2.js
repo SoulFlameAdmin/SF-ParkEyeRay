@@ -11,7 +11,7 @@
   if(!document.querySelector('link[href="/v2-waze.css"]')){
     const style=document.createElement('link');style.rel='stylesheet';style.href='/v2-waze.css';document.head.appendChild(style);
   }
-  const modules=['/v2-core.js','/v2-ui.js','/v2-parking.js','/v2-destinations.js','/v2-parking-engine.js','/v2-layers.js','/v2-map-first.js','/v2-route.js','/v2-navigation.js','/v2-proposals.js','/v2-precision-gps.js','/v2-init.js'];
+  const modules=['/v2-core.js','/v2-ui.js','/v2-parking.js','/v2-destinations.js','/v2-parking-engine.js','/v2-layers.js','/v2-map-first.js','/v2-route.js','/v2-navigation.js','/v2-proposals.js','/v2-precision-gps.js','/v2-heading-pro.js','/v2-init.js'];
   async function load(){
     for(const src of modules){
       await new Promise((resolve,reject)=>{
