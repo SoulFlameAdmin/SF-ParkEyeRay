@@ -8,12 +8,17 @@
     location.replace(`/intro.html?next=${encodeURIComponent(next)}`);
     return;
   }
-  if(!document.querySelector('link[href="/v2-waze.css"]')){
-    const style=document.createElement('link');style.rel='stylesheet';style.href='/v2-waze.css';document.head.appendChild(style);
-  }
-  const modules=['/v2-core.js','/v2-ui.js','/v2-parking.js','/v2-destinations.js','/v2-parking-engine.js','/v2-layers.js','/v2-map-first.js','/v2-route.js','/v2-navigation.js','/v2-proposals.js','/v2-init.js'];
+  ['/v2-waze.css','/v2-auth.css'].forEach(href=>{
+    if(!document.querySelector(`link[href="${href}"]`)){const style=document.createElement('link');style.rel='stylesheet';style.href=href;document.head.appendChild(style)}
+  });
+  const scripts=[
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+    '/smartcity-config.js','/smartcity-auth.js',
+    '/v2-core.js','/v2-ui.js','/v2-parking.js','/v2-destinations.js','/v2-parking-engine.js','/v2-layers.js','/v2-map-first.js','/v2-route.js','/v2-navigation.js',
+    '/v2-submission-adapter.js','/v2-proposals.js','/v2-auth-ui.js','/v2-init.js'
+  ];
   async function load(){
-    for(const src of modules){
+    for(const src of scripts){
       await new Promise((resolve,reject)=>{
         const script=document.createElement('script');script.src=src;script.async=false;script.onload=resolve;script.onerror=()=>reject(new Error(`Failed to load ${src}`));document.body.appendChild(script);
       });
