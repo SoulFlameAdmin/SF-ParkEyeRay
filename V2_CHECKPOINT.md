@@ -71,6 +71,11 @@ Head code commit: `81208fe1f1769227753a3055352c47ea3a5aa3bd`
 - plausible session-distance accumulation only from trusted movement samples;
 - no raw GPS coordinate is replaced by prediction or route snap.
 
+## Preview root entry — batch 9
+- On branch Preview only, opening `/` redirects directly to `/v2?skipOnboarding=1`.
+- This does not replace production `/app` and does not merge PR #9.
+- The branch alias can now be shared without requiring the user to append `/v2` manually.
+
 ## Movement behavior
 - `stationary`: compass leads, strongest zero lock and stabilization, zoom 18.
 - `walking`: stable decimal speed and compass-led fusion, zoom 18.
