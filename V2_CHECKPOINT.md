@@ -86,6 +86,15 @@
 - Heading sensor state is reset after background/foreground transitions.
 - GPS remains the fallback when orientation permission is denied or compass data is stale.
 
+## Heading confidence and route alignment batch 6
+- A compact non-interactive heading confidence indicator reports stable, smoothing or calibration-needed state without adding a sixth primary action.
+- Confidence combines GPS accuracy, available heading source, compass weakness and vehicle GPS-heading availability.
+- Pressing the existing `◎` button while confidence is weak shows a figure-eight calibration instruction.
+- During active navigation only, the displayed arrow may snap to the nearest route segment when GPS accuracy, distance, direction and confidence all pass conservative thresholds.
+- Route snap affects only the visual marker; raw GPS state and the accuracy circle remain untouched.
+- Snap is rejected when direction differs by more than 58 degrees, accuracy is worse than 35 metres or the route is too far from the raw fix.
+- OSM and routing data are still not described as live occupancy or complete physical parking inventory.
+
 ## Preview deployment recovery
 - Vercel deployment errors were traced to `exceeded_serverless_functions_per_deployment`, not a generic build-rate limit.
 - Hobby permits at most 12 Serverless Functions; helper files under `/api` were being counted as deployable functions.
@@ -112,9 +121,9 @@ Scope: `bg:sliven-core`
 
 ## Runtime and CI verification
 - Runtime error clusters for `/v2`, `/api/geocode`, `/api/overpass` and `/api/routing` previously showed no errors in the checked window.
-- Exact-head Preview and CI for PR #9 must be rechecked after heading stabilization commit `f51c959c00f2663655f6c5e50a3945e2f0697c55`.
-- Browser acceptance must cover startup zoom 18, manual zoom disabling follow, `◎` restoring follow, and stable shortest-path heading rotation.
-- Physical Android acceptance must verify portrait direction, landscape direction, stationary jitter, walking turns and vehicle GPS-heading takeover.
+- Exact-head Preview and CI for PR #9 must be rechecked after batch 6 head `9a2853f907850af2f66492bdfad4972fea828874`.
+- Browser acceptance must cover startup zoom 18, manual zoom disabling follow, `◎` restoring follow, confidence indicator states and no dead controls.
+- Physical Android acceptance must verify portrait direction, landscape direction, stationary jitter, calibration hint, walking turns, vehicle GPS-heading takeover and conservative route snap.
 
 ## Production safety
 - `/app` is unchanged.
@@ -124,13 +133,13 @@ Scope: `bg:sliven-core`
 ## Remaining limitations
 - Leaflet does not currently rotate the road map by bearing; only the heading indicators rotate.
 - Browser compass quality depends on device hardware, calibration and magnetic interference.
+- Route snap is conservative visual alignment, not advanced map matching.
 - GPS speed, heading, maneuver timing and rerouting need a physical Android road test outdoors.
-- Route progress is geometric projection, not advanced map matching.
 - Voice guidance and lane guidance are not implemented.
 
 ## Next safe batch
-1. Confirm a READY Vercel deployment for exact head `f51c959c00f2663655f6c5e50a3945e2f0697c55` or newer.
+1. Confirm a READY Vercel deployment for exact head `9a2853f907850af2f66492bdfad4972fea828874` or newer.
 2. Verify `/v2`, `/api/geocode`, `/api/overpass`, driving and walking `/api/routing` on that Preview.
-3. Test on Android: portrait top-edge sync, landscape top-edge sync, no stationary flip, smooth 359° → 0° transition.
-4. Add an explicit compass calibration/help state only if the physical test shows device-specific drift.
+3. Test on Android: portrait/landscape sync, no stationary flip, confidence state transitions, calibration hint and route snap rejection/acceptance.
+4. Add predictive marker interpolation only after route snap is physically stable.
 5. Continue authenticated submission, evidence upload and internal moderation dashboard work without changing the five phone actions.
