@@ -1,0 +1,2 @@
+.user-position-marker{transform:rotate(var(--sf-correct-heading,var(--heading)))!important}
+.user-position-marker::after{transform:translate(-50%,-50%) rotate(calc(-1 * var(--sf-correct-heading,var(--heading))))!important}
