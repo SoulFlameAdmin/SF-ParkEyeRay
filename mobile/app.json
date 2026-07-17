@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "ParkEyeRay",
+    "slug": "parkeyeray",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "scheme": "parkeyeray",
+    "android": {
+      "package": "com.soulflame.parkeyeray",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.soulflame.parkeyeray",
+      "supportsTablet": false
+    },
+    "plugins": [
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "ParkEyeRay използва местоположението ти, за да показва паркинги и да води навигацията."
+        }
+      ]
+    ],
+    "extra": {
+      "parkeyerayApiBaseUrl": "https://sf-parkeyeray.vercel.app"
+    }
+  }
+}
