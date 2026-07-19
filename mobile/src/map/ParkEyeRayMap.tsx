@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Camera, GeoJSONSource, Layer, Map } from '@maplibre/maplibre-react-native';
-import type { CameraMode, Coordinate, ParkingFeature, SensorSnapshot } from '../types';
+import type { CameraMode, Coordinate, ParkingFeature, ParkingRecommendation, SensorSnapshot } from '../types';
 
 const MAP_STYLE = 'https://demotiles.maplibre.org/style.json';
 const DEFAULT_CENTER: Coordinate = { latitude: 42.7339, longitude: 25.4858 };
@@ -10,23 +10,48 @@ type Props = {
   sensor: SensorSnapshot | null;
   cameraMode: CameraMode;
   parkings: ParkingFeature[];
+  recommendations: ParkingRecommendation[];
+  selectedParking: ParkingFeature | null;
 };
 
-export function ParkEyeRayMap({ sensor, cameraMode, parkings }: Props) {
+const pointFeature = (parking: ParkingFeature, properties: GeoJSON.GeoJsonProperties = {}): GeoJSON.Feature<GeoJSON.Point> => ({
+  type: 'Feature',
+  id: parking.id,
+  properties: { id: parking.id, name: parking.name || 'Паркинг', ...properties },
+  geometry: {
+    type: 'Point',
+    coordinates: [parking.point.lon, parking.point.lat],
+  },
+});
+
+export function ParkEyeRayMap({ sensor, cameraMode, parkings, recommendations, selectedParking }: Props) {
   const parkingCollection = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
     () => ({
       type: 'FeatureCollection',
-      features: parkings.map((parking) => ({
-        type: 'Feature',
-        id: parking.id,
-        properties: { id: parking.id, name: parking.name || 'Паркинг' },
-        geometry: {
-          type: 'Point',
-          coordinates: [parking.point.lon, parking.point.lat],
-        },
-      })),
+      features: parkings.map((parking) => pointFeature(parking)),
     }),
     [parkings],
+  );
+
+  const recommendationCollection = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
+    () => ({
+      type: 'FeatureCollection',
+      features: recommendations.map((item) => pointFeature(item.parking, {
+        rank: item.rank,
+        rankLabel: String(item.rank),
+        suitability: item.suitabilityScore,
+        confidence: item.dataConfidence,
+      })),
+    }),
+    [recommendations],
+  );
+
+  const selectedCollection = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
+    () => ({
+      type: 'FeatureCollection',
+      features: selectedParking ? [pointFeature(selectedParking, { selected: true })] : [],
+    }),
+    [selectedParking],
   );
 
   const userCollection = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
@@ -53,11 +78,14 @@ export function ParkEyeRayMap({ sensor, cameraMode, parkings }: Props) {
   );
 
   const userCoordinate = sensor?.coordinate ?? DEFAULT_CENTER;
-  const followsUser = cameraMode !== 'explore' && sensor !== null;
+  const cameraCoordinate = selectedParking
+    ? { latitude: selectedParking.entrance.lat, longitude: selectedParking.entrance.lon }
+    : userCoordinate;
+  const followsUser = cameraMode !== 'explore' && sensor !== null && selectedParking === null;
   const headingUp = cameraMode === 'follow-heading' || cameraMode === 'navigation';
-  const zoom = sensor ? (cameraMode === 'navigation' ? 16.8 : 16) : 7;
-  const bearing = headingUp ? sensor?.displayHeading ?? 0 : 0;
-  const pitch = cameraMode === 'navigation' ? 52 : 0;
+  const zoom = selectedParking ? 17.2 : sensor ? (cameraMode === 'navigation' ? 16.8 : 16) : 7;
+  const bearing = selectedParking ? 0 : headingUp ? sensor?.displayHeading ?? 0 : 0;
+  const pitch = selectedParking ? 28 : cameraMode === 'navigation' ? 52 : 0;
 
   return (
     <View style={styles.container}>
@@ -72,12 +100,12 @@ export function ParkEyeRayMap({ sensor, cameraMode, parkings }: Props) {
         logo
       >
         <Camera
-          center={[userCoordinate.longitude, userCoordinate.latitude]}
+          center={[cameraCoordinate.longitude, cameraCoordinate.latitude]}
           zoom={zoom}
           bearing={bearing}
           pitch={pitch}
-          duration={followsUser ? 420 : 0}
-          easing={followsUser ? 'ease' : undefined}
+          duration={followsUser || selectedParking ? 420 : 0}
+          easing={followsUser || selectedParking ? 'ease' : undefined}
         />
 
         <GeoJSONSource id="parkings" data={parkingCollection}>
@@ -86,8 +114,9 @@ export function ParkEyeRayMap({ sensor, cameraMode, parkings }: Props) {
             type="circle"
             source="parkings"
             paint={{
-              'circle-radius': 10,
+              'circle-radius': 9,
               'circle-color': '#2563eb',
+              'circle-opacity': 0.82,
               'circle-stroke-color': '#ffffff',
               'circle-stroke-width': 2,
             }}
@@ -98,7 +127,81 @@ export function ParkEyeRayMap({ sensor, cameraMode, parkings }: Props) {
             source="parkings"
             layout={{
               'text-field': 'P',
-              'text-size': 12,
+              'text-size': 11,
+              'text-allow-overlap': true,
+            }}
+            paint={{ 'text-color': '#ffffff' }}
+          />
+        </GeoJSONSource>
+
+        <GeoJSONSource id="recommended-parkings" data={recommendationCollection}>
+          <Layer
+            id="recommended-parking-halo"
+            type="circle"
+            source="recommended-parkings"
+            paint={{
+              'circle-radius': 17,
+              'circle-color': '#22c55e',
+              'circle-opacity': 0.2,
+              'circle-stroke-color': '#86efac',
+              'circle-stroke-width': 1,
+            }}
+          />
+          <Layer
+            id="recommended-parking-core"
+            type="circle"
+            source="recommended-parkings"
+            paint={{
+              'circle-radius': 12,
+              'circle-color': '#16a34a',
+              'circle-stroke-color': '#ffffff',
+              'circle-stroke-width': 3,
+            }}
+          />
+          <Layer
+            id="recommended-parking-rank"
+            type="symbol"
+            source="recommended-parkings"
+            layout={{
+              'text-field': ['get', 'rankLabel'],
+              'text-size': 11,
+              'text-allow-overlap': true,
+            }}
+            paint={{ 'text-color': '#ffffff' }}
+          />
+        </GeoJSONSource>
+
+        <GeoJSONSource id="selected-parking" data={selectedCollection}>
+          <Layer
+            id="selected-parking-halo"
+            type="circle"
+            source="selected-parking"
+            paint={{
+              'circle-radius': 22,
+              'circle-color': '#f59e0b',
+              'circle-opacity': 0.24,
+              'circle-stroke-color': '#fcd34d',
+              'circle-stroke-width': 2,
+            }}
+          />
+          <Layer
+            id="selected-parking-core"
+            type="circle"
+            source="selected-parking"
+            paint={{
+              'circle-radius': 15,
+              'circle-color': '#d97706',
+              'circle-stroke-color': '#ffffff',
+              'circle-stroke-width': 4,
+            }}
+          />
+          <Layer
+            id="selected-parking-label"
+            type="symbol"
+            source="selected-parking"
+            layout={{
+              'text-field': 'P',
+              'text-size': 13,
               'text-allow-overlap': true,
             }}
             paint={{ 'text-color': '#ffffff' }}
