@@ -214,7 +214,6 @@
       app.initUi();
       if(!app.initMap())return;
       app.bind();app.initLayers();app.renderProposals();app.updateProfile();app.updateDestinationControls?.();
-      installOrientationLock();
       app.renderParkingMessage('◎','Определям района','При разрешен GPS паркингите ще се появят автоматично около теб.');
       app.setStatus('Подготвям GPS и картата…','info',true);
       app.locate();

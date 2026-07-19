@@ -89,8 +89,36 @@
     controller.compassAt=performance.now();
   };
 
-  window.addEventListener('deviceorientationabsolute',onOrientation,true);
-  window.addEventListener('deviceorientation',onOrientation,true);
+  let orientationListening=false;
+  let orientationPermission='unknown';
+
+  const startOrientationListening=()=>{
+    if(orientationListening||!('DeviceOrientationEvent'in window))return false;
+    window.addEventListener('deviceorientationabsolute',onOrientation,true);
+    window.addEventListener('deviceorientation',onOrientation,true);
+    orientationListening=true;
+    orientationPermission='granted';
+    return true;
+  };
+
+  const requestHeadingPermission=async()=>{
+    if(!('DeviceOrientationEvent'in window))return false;
+    if(typeof DeviceOrientationEvent.requestPermission==='function'){
+      try{
+        const result=await DeviceOrientationEvent.requestPermission();
+        orientationPermission=result;
+        if(result==='granted')return startOrientationListening();
+        return false;
+      }catch{
+        orientationPermission='unknown';
+        return false;
+      }
+    }
+    return startOrientationListening();
+  };
+
+  window.SFRequestHeadingPermission=requestHeadingPermission;
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission!=='function')startOrientationListening();
 
   const distanceMeters=(a,b)=>{
     const latitude1=rad(a.lat),latitude2=rad(b.lat);
@@ -290,11 +318,13 @@
     const app=window.SFV2;
     if(!app)return false;
     app.headingController=controller;
+    app.requestHeadingPermission=requestHeadingPermission;
     app.headingDiagnostics=()=>({
       version:VERSION,source:controller.source,confidence:Math.round(controller.confidence*100),
       absolute:controller.absoluteHeading,relative:controller.relativeHeading,mapBearing:controller.mapBearing,
       compass:controller.compassHeading,movement:controller.movementCourse,gps:controller.gpsReported,
-      calibrationOffset:controller.calibrationOffset,screenAngle:screenAngle()
+      calibrationOffset:controller.calibrationOffset,screenAngle:screenAngle(),
+      orientationListening,orientationPermission
     });
     app.resetHeadingCalibration=()=>{
       try{localStorage.removeItem(CALIBRATION_KEY)}catch{}

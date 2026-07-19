@@ -268,7 +268,7 @@
     const stopAutomaticFollow=()=>{if(programmaticMapMove)return;s.followUser=false;app.setStatus('Автоматичното центриране е изключено. Натисни ◎, за да се върнеш към позицията си.','info')};
     s.map.on('zoomstart',stopAutomaticFollow);
     s.map.on('zoomend',()=>{clearTimeout(releaseProgrammaticTimer);programmaticMapMove=false});
-    if(!headingFrame)headingFrame=requestAnimationFrame(renderHeading);return ready;
+    return ready;
   };
 
   const applyFix=(position,reason='watch')=>{
@@ -293,7 +293,7 @@
 
   app.startLocationWatch=()=>{if(!navigator.geolocation||s.locationWatchId!==null)return;s.locationWatchId=navigator.geolocation.watchPosition(position=>applyFix(position,'watch'),handleError,WATCH_OPTIONS)};
   app.locate=async()=>{
-    if(orientationPermission==='unknown')await requestOrientationPermission();
+    await window.SFRequestHeadingPermission?.();
     if(!navigator.geolocation){app.setStatus('GPS не се поддържа. Търсенето и картата остават активни.','error',true);app.finishBoot?.('unsupported');return}
     s.followUser=true;if(s.user)app.centerOnUser(s.user,{animate:true});if(s.locationWatchId!==null)return;
     s.locating=true;firstFixResolved=false;bestAccuracy=Infinity;app.setBootMessage('Finding your precise location');app.setBusy?.('gps',true,'Търся най-точния GPS сигнал…');app.startLocationWatch();
