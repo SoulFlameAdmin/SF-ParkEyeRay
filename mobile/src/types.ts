@@ -24,6 +24,7 @@ export type ParkingFeature = {
   point: { lat: number; lon: number };
   entrance: { lat: number; lon: number };
   distance: number;
+  access: string | null;
   capacity: number | null;
   fee: string | null;
   covered: boolean | null;
@@ -32,6 +33,25 @@ export type ParkingFeature = {
   source: string;
   verificationStatus: string;
   dataOrigin: string;
+  sourceUpdatedAt?: string | null;
+  sourceRevision?: string | null;
+  sourceRefs?: string[];
+  tags?: Record<string, unknown>;
+};
+
+export type ParkingPreference = 'balanced' | 'nearest' | 'trusted' | 'free' | 'covered';
+export type ParkingRisk = 'low' | 'medium' | 'high';
+
+export type ParkingRecommendation = {
+  parking: ParkingFeature;
+  rank: number;
+  suitabilityScore: number;
+  dataConfidence: number;
+  risk: ParkingRisk;
+  distanceMeters: number;
+  walkingMeters: number | null;
+  reasons: string[];
+  warnings: string[];
 };
 
 export type ParkingResponse = {
