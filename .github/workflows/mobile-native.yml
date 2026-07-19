@@ -32,15 +32,19 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Expo diagnostics
-        id: expo_doctor
-        continue-on-error: true
         shell: bash
-        run: npx expo-doctor 2>&1 | tee expo-doctor.log
+        run: |
+          set +e
+          npx expo-doctor 2>&1 | tee expo-doctor.log
+          printf '%s' "${PIPESTATUS[0]}" > expo-doctor.status
+          exit 0
       - name: TypeScript
-        id: typescript
-        continue-on-error: true
         shell: bash
-        run: npm run typecheck 2>&1 | tee typescript.log
+        run: |
+          set +e
+          npm run typecheck 2>&1 | tee typescript.log
+          printf '%s' "${PIPESTATUS[0]}" > typescript.status
+          exit 0
       - name: Upload validation reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -48,12 +52,18 @@ jobs:
           name: mobile-validation-reports
           path: |
             mobile/expo-doctor.log
+            mobile/expo-doctor.status
             mobile/typescript.log
+            mobile/typescript.status
           if-no-files-found: error
           retention-days: 7
       - name: Enforce validation
-        if: steps.expo_doctor.outcome == 'failure' || steps.typescript.outcome == 'failure'
+        shell: bash
         run: |
-          echo "Mobile validation failed. See mobile-validation-reports artifact."
-          echo "expo-doctor=${{ steps.expo_doctor.outcome }} typescript=${{ steps.typescript.outcome }}"
-          exit 1
+          doctor_status=$(cat expo-doctor.status)
+          typescript_status=$(cat typescript.status)
+          echo "expo-doctor=$doctor_status typescript=$typescript_status"
+          if [ "$doctor_status" -ne 0 ] || [ "$typescript_status" -ne 0 ]; then
+            echo "Mobile validation failed. See mobile-validation-reports artifact."
+            exit 1
+          fi
