@@ -9,11 +9,12 @@
     "ios": "expo run:ios",
     "prebuild": "expo prebuild --clean",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts",
     "doctor": "expo-doctor"
   },
   "dependencies": {
-    "@maplibre/maplibre-react-native": "11.0.0",
-    "expo": "~57.0.1",
+    "@maplibre/maplibre-react-native": "^11.0.0",
+    "expo": "~57.0.0",
     "expo-location": "~57.0.2",
     "expo-status-bar": "~57.0.0",
     "react": "19.2.3",
@@ -21,21 +22,15 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.0",
+    "tsx": "^4.23.1",
     "typescript": "~6.0.3"
   },
   "expo": {
-    "install": {
-      "exclude": [
-        "@maplibre/maplibre-react-native"
-      ]
-    },
     "doctor": {
       "reactNativeDirectoryCheck": {
-        "enabled": true,
         "exclude": [
           "@maplibre/maplibre-react-native"
-        ],
-        "listUnknownPackages": false
+        ]
       }
     }
   }
