@@ -138,21 +138,34 @@ function preferenceScore(parking: ParkingFeature, preference: ParkingPreference)
   return 60;
 }
 
-function reasonList(parking: ParkingFeature, confidence: number, distance: number): string[] {
+function reasonList(
+  parking: ParkingFeature,
+  confidence: number,
+  distance: number,
+  preference: ParkingPreference,
+): string[] {
   const reasons: string[] = [];
   const access = normalizeText(parking.access);
   const fee = normalizeText(parking.fee);
+  const add = (reason: string) => {
+    if (!reasons.includes(reason)) reasons.push(reason);
+  };
 
-  if (distance <= 250) reasons.push('много близо');
-  else if (distance <= 700) reasons.push('близо до теб');
-  if (confidence >= 84) reasons.push('надеждни данни');
-  if (parking.source === 'soulflame' && normalizeText(parking.verificationStatus) === 'approved') reasons.push('одобрен от SoulFlame');
-  if (['yes', 'public', 'permissive', 'designated'].includes(access)) reasons.push('обществен достъп');
-  if (['no', 'false', '0'].includes(fee)) reasons.push('отбелязан като безплатен');
-  if (parking.covered === true) reasons.push('закрит');
-  if (parking.lit === true) reasons.push('осветен');
-  if (parking.surveillance === true) reasons.push('наблюдение');
-  if ((parking.capacity ?? 0) >= 40) reasons.push('по-голям капацитет');
+  if (preference === 'free' && ['no', 'false', '0'].includes(fee)) add('отбелязан като безплатен');
+  if (preference === 'covered' && parking.covered === true) add('закрит');
+  if (preference === 'trusted' && confidence >= 74) add('надеждни данни');
+  if (preference === 'nearest' && distance <= 700) add(distance <= 250 ? 'много близо' : 'близо до теб');
+
+  if (distance <= 250) add('много близо');
+  else if (distance <= 700) add('близо до теб');
+  if (confidence >= 84) add('надеждни данни');
+  if (parking.source === 'soulflame' && normalizeText(parking.verificationStatus) === 'approved') add('одобрен от SoulFlame');
+  if (['yes', 'public', 'permissive', 'designated'].includes(access)) add('обществен достъп');
+  if (['no', 'false', '0'].includes(fee)) add('отбелязан като безплатен');
+  if (parking.covered === true) add('закрит');
+  if (parking.lit === true) add('осветен');
+  if (parking.surveillance === true) add('наблюдение');
+  if ((parking.capacity ?? 0) >= 40) add('по-голям капацитет');
 
   return reasons.slice(0, 3);
 }
@@ -194,7 +207,7 @@ function recommendationFor(parking: ParkingFeature, context: ParkingContext): Pa
     risk: access.risk === 'high' || confidence < 36 ? 'high' : access.risk === 'medium' || confidence < 62 ? 'medium' : 'low',
     distanceMeters: Math.round(distance),
     walkingMeters,
-    reasons: reasonList(parking, confidence, distance),
+    reasons: reasonList(parking, confidence, distance, preference),
     warnings: [...new Set(warnings)].slice(0, 2),
   };
 }
