@@ -41,17 +41,27 @@ jobs:
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit 0
       - name: TypeScript
-        run: npm run typecheck
-      - name: Upload Expo diagnostics
+        id: typescript
+        shell: bash
+        run: |
+          set +e
+          npm run typecheck 2>&1 | tee typescript.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload validation reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: expo-doctor-report
-          path: mobile/expo-doctor.log
+          name: mobile-validation-reports
+          path: |
+            mobile/expo-doctor.log
+            mobile/typescript.log
           if-no-files-found: error
           retention-days: 7
-      - name: Enforce Expo diagnostics
-        if: steps.expo_doctor.outputs.status != '0'
+      - name: Enforce validation
+        if: steps.expo_doctor.outputs.status != '0' || steps.typescript.outputs.status != '0'
         run: |
-          echo "Expo Doctor reported configuration problems. See expo-doctor-report artifact."
+          echo "Mobile validation failed. See mobile-validation-reports artifact."
+          echo "expo-doctor=${{ steps.expo_doctor.outputs.status }} typescript=${{ steps.typescript.outputs.status }}"
           exit 1
