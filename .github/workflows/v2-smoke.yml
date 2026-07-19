@@ -95,6 +95,13 @@ jobs:
           grep -q 'containerPointToLatLng' v2-core.js
           ! grep -q "s.map.on('click',event=>appendDrawLatLng" v2-core.js
 
+      - name: Verify a single active heading controller
+        run: |
+          grep -q 'window.SFRequestHeadingPermission=requestHeadingPermission' v2-heading-map-fix.js
+          grep -q 'await window.SFRequestHeadingPermission' v2-precision-gps.js
+          ! grep -q 'installOrientationLock();' v2-init.js
+          ! grep -q 'headingFrame=requestAnimationFrame(renderHeading)' v2-precision-gps.js
+
       - name: Verify automatic nearby map layers
         run: |
           grep -q "layers:'sf_v2_map_layers'" v2-core.js
