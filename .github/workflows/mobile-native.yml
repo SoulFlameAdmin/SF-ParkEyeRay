@@ -45,6 +45,13 @@ jobs:
           npm run typecheck 2>&1 | tee typescript.log
           printf '%s' "${PIPESTATUS[0]}" > typescript.status
           exit 0
+      - name: Parking intelligence tests
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee tests.log
+          printf '%s' "${PIPESTATUS[0]}" > tests.status
+          exit 0
       - name: Upload validation reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -55,6 +62,8 @@ jobs:
             mobile/expo-doctor.status
             mobile/typescript.log
             mobile/typescript.status
+            mobile/tests.log
+            mobile/tests.status
           if-no-files-found: error
           retention-days: 7
       - name: Enforce validation
@@ -62,8 +71,9 @@ jobs:
         run: |
           doctor_status=$(cat expo-doctor.status)
           typescript_status=$(cat typescript.status)
-          echo "expo-doctor=$doctor_status typescript=$typescript_status"
-          if [ "$doctor_status" -ne 0 ] || [ "$typescript_status" -ne 0 ]; then
+          tests_status=$(cat tests.status)
+          echo "expo-doctor=$doctor_status typescript=$typescript_status tests=$tests_status"
+          if [ "$doctor_status" -ne 0 ] || [ "$typescript_status" -ne 0 ] || [ "$tests_status" -ne 0 ]; then
             echo "Mobile validation failed. See mobile-validation-reports artifact."
             exit 1
           fi
