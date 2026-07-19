@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Camera, CircleLayer, Map, ShapeSource, SymbolLayer } from '@maplibre/maplibre-react-native';
+import { Camera, GeoJSONSource, Layer, Map } from '@maplibre/maplibre-react-native';
 import type { CameraMode, Coordinate, ParkingFeature, SensorSnapshot } from '../types';
 
 const MAP_STYLE = 'https://demotiles.maplibre.org/style.json';
+const DEFAULT_CENTER: Coordinate = { latitude: 42.7339, longitude: 25.4858 };
 
 type Props = {
   sensor: SensorSnapshot | null;
@@ -12,78 +13,124 @@ type Props = {
 };
 
 export function ParkEyeRayMap({ sensor, cameraMode, parkings }: Props) {
-  const parkingCollection = useMemo(() => ({
-    type: 'FeatureCollection' as const,
-    features: parkings.map((parking) => ({
-      type: 'Feature' as const,
-      id: parking.id,
-      properties: { id: parking.id, name: parking.name || 'Паркинг' },
-      geometry: {
-        type: 'Point' as const,
-        coordinates: [parking.point.lon, parking.point.lat],
-      },
-    })),
-  }), [parkings]);
+  const parkingCollection = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
+    () => ({
+      type: 'FeatureCollection',
+      features: parkings.map((parking) => ({
+        type: 'Feature',
+        id: parking.id,
+        properties: { id: parking.id, name: parking.name || 'Паркинг' },
+        geometry: {
+          type: 'Point',
+          coordinates: [parking.point.lon, parking.point.lat],
+        },
+      })),
+    }),
+    [parkings],
+  );
 
-  const userCoordinate: Coordinate = sensor?.coordinate ?? { latitude: 42.7339, longitude: 25.4858 };
-  const followsUser = cameraMode !== 'explore' && sensor !== null;
-  const headingUp = cameraMode === 'follow-heading' || cameraMode === 'navigation';
-
-  return (
-    <View style={styles.container}>
-      <Map style={styles.map} mapStyle={MAP_STYLE} compassEnabled rotateEnabled pitchEnabled>
-        <Camera
-          centerCoordinate={[userCoordinate.longitude, userCoordinate.latitude]}
-          zoomLevel={sensor ? (cameraMode === 'navigation' ? 16.8 : 16) : 7}
-          heading={headingUp ? sensor?.displayHeading ?? 0 : 0}
-          pitch={cameraMode === 'navigation' ? 52 : 0}
-          animationDuration={followsUser ? 420 : 0}
-        />
-
-        <ShapeSource id="parkings" shape={parkingCollection}>
-          <CircleLayer
-            id="parking-circles"
-            style={{
-              circleRadius: 10,
-              circleColor: '#2563eb',
-              circleStrokeColor: '#ffffff',
-              circleStrokeWidth: 2,
-            }}
-          />
-          <SymbolLayer
-            id="parking-labels"
-            style={{
-              textField: 'P',
-              textSize: 12,
-              textColor: '#ffffff',
-              textAllowOverlap: true,
-            }}
-          />
-        </ShapeSource>
-
-        {sensor && (
-          <ShapeSource
-            id="user-location"
-            shape={{
+  const userCollection = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
+    () => ({
+      type: 'FeatureCollection',
+      features: sensor
+        ? [
+            {
               type: 'Feature',
-              properties: {},
+              properties: {
+                heading: sensor.displayHeading,
+                confidence: sensor.confidence,
+                source: sensor.headingSource,
+              },
               geometry: {
                 type: 'Point',
                 coordinates: [sensor.coordinate.longitude, sensor.coordinate.latitude],
               },
+            },
+          ]
+        : [],
+    }),
+    [sensor],
+  );
+
+  const userCoordinate = sensor?.coordinate ?? DEFAULT_CENTER;
+  const followsUser = cameraMode !== 'explore' && sensor !== null;
+  const headingUp = cameraMode === 'follow-heading' || cameraMode === 'navigation';
+  const zoom = sensor ? (cameraMode === 'navigation' ? 16.8 : 16) : 7;
+  const bearing = headingUp ? sensor?.displayHeading ?? 0 : 0;
+  const pitch = cameraMode === 'navigation' ? 52 : 0;
+
+  return (
+    <View style={styles.container}>
+      <Map
+        style={styles.map}
+        mapStyle={MAP_STYLE}
+        compass
+        compassHiddenFacingNorth={false}
+        touchRotate
+        touchPitch
+        attribution
+        logo
+      >
+        <Camera
+          center={[userCoordinate.longitude, userCoordinate.latitude]}
+          zoom={zoom}
+          bearing={bearing}
+          pitch={pitch}
+          duration={followsUser ? 420 : 0}
+          easing={followsUser ? 'ease' : undefined}
+        />
+
+        <GeoJSONSource id="parkings" data={parkingCollection}>
+          <Layer
+            id="parking-circles"
+            type="circle"
+            source="parkings"
+            paint={{
+              'circle-radius': 10,
+              'circle-color': '#2563eb',
+              'circle-stroke-color': '#ffffff',
+              'circle-stroke-width': 2,
             }}
-          >
-            <CircleLayer
-              id="user-location-core"
-              style={{
-                circleRadius: 9,
-                circleColor: '#0f172a',
-                circleStrokeColor: '#ffffff',
-                circleStrokeWidth: 3,
-              }}
-            />
-          </ShapeSource>
-        )}
+          />
+          <Layer
+            id="parking-labels"
+            type="symbol"
+            source="parkings"
+            layout={{
+              'text-field': 'P',
+              'text-size': 12,
+              'text-allow-overlap': true,
+            }}
+            paint={{ 'text-color': '#ffffff' }}
+          />
+        </GeoJSONSource>
+
+        <GeoJSONSource id="user-location" data={userCollection}>
+          <Layer
+            id="user-location-accuracy"
+            type="circle"
+            source="user-location"
+            paint={{
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 7, 18, 18],
+              'circle-color': '#3b82f6',
+              'circle-opacity': 0.16,
+              'circle-stroke-color': '#60a5fa',
+              'circle-stroke-opacity': 0.36,
+              'circle-stroke-width': 1,
+            }}
+          />
+          <Layer
+            id="user-location-core"
+            type="circle"
+            source="user-location"
+            paint={{
+              'circle-radius': 9,
+              'circle-color': '#0f172a',
+              'circle-stroke-color': '#ffffff',
+              'circle-stroke-width': 3,
+            }}
+          />
+        </GeoJSONSource>
       </Map>
     </View>
   );
