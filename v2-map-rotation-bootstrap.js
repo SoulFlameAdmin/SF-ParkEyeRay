@@ -33,12 +33,12 @@
     document.head.appendChild(script);
   };
 
-  addStyle('/v2-social-map.css?v=4.0.0','sf-social-map-css');
-  addStyle('/v2-social-map-focus.css?v=4.0.0','sf-social-map-focus-css');
-  addStyle('/v2-social-map-contacts.css?v=4.0.0','sf-social-map-contacts-css');
+  addStyle('/v2-social-map.css?v=4.1.0','sf-social-map-css');
+  addStyle('/v2-social-map-focus.css?v=4.1.0','sf-social-map-focus-css');
+  addStyle('/v2-social-map-contacts.css?v=4.1.0','sf-social-map-contacts-css');
   addScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2','sf-supabase-js',()=>{
-    addScript('/v2-social-map.js?v=4.0.0','sf-social-map-js',()=>{
-      addScript('/v2-social-map-contacts.js?v=4.0.0','sf-social-map-contacts-js');
+    addScript('/v2-social-map.js?v=4.1.0','sf-social-map-js',()=>{
+      addScript('/v2-social-map-contacts.js?v=4.1.0','sf-social-map-contacts-js');
     });
   });
 })();
