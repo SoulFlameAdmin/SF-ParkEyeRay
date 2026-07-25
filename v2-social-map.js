@@ -16,6 +16,13 @@
   };
   const safe=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
   const initials=value=>String(value||'SF').trim().split(/\s+/).slice(0,2).map(part=>part[0]||'').join('').toUpperCase()||'SF';
+  const hasKnownPosition=person=>{
+    if(!person||person.latitude===null||person.latitude===undefined||person.latitude===''||
+      person.longitude===null||person.longitude===undefined||person.longitude==='')return false;
+    const lat=Number(person.latitude);
+    const lng=Number(person.longitude);
+    return Number.isFinite(lat)&&Number.isFinite(lng)&&lat>=-90&&lat<=90&&lng>=-180&&lng<=180;
+  };
   const waitForApp=()=>new Promise(resolve=>{
     const timer=setInterval(()=>{
       if(window.SFV2?.state?.map&&window.supabase?.createClient){clearInterval(timer);resolve(window.SFV2)}
@@ -101,51 +108,79 @@
       return url.toString();
     };
     const ageLabel=date=>{
-      const ms=Date.now()-new Date(date||0).getTime();
-      if(!Number.isFinite(ms)||ms<0)return'сега';
+      if(!date)return'няма GPS запис';
+      const timestamp=Date.parse(date);
+      if(!Number.isFinite(timestamp))return'няма GPS запис';
+      const ms=Date.now()-timestamp;
+      if(ms<0)return'сега';
       const seconds=Math.floor(ms/1000);
       if(seconds<15)return'сега';
       if(seconds<60)return`преди ${seconds} сек`;
       const minutes=Math.floor(seconds/60);
-      return minutes<60?`преди ${minutes} мин`:`преди ${Math.floor(minutes/60)} ч`;
+      if(minutes<60)return`преди ${minutes} мин`;
+      const hours=Math.floor(minutes/60);
+      if(hours<24)return`преди ${hours} ч`;
+      const days=Math.floor(hours/24);
+      if(days<30)return`преди ${days} дни`;
+      const months=Math.floor(days/30);
+      if(months<12)return`преди ${months} мес`;
+      return`преди ${Math.floor(months/12)} г`;
     };
     const personIcon=person=>{
       const category=normalizeCircle(person.circle);
+      const freshness=person.is_live?'live':'last-known';
       const avatar=person.twin_avatar_url||person.avatar_url;
       const photo=avatar?`<img src="${safe(avatar)}" alt="">`:safe(initials(person.twin_name||person.full_name));
-      return L.divIcon({className:'',iconSize:[48,58],iconAnchor:[24,54],popupAnchor:[0,-52],html:`<div class="people-marker ${category}"><div class="people-marker-avatar">${photo}</div><span class="people-marker-label">${safe(person.twin_name||person.full_name)}</span></div>`});
+      return L.divIcon({
+        className:'',
+        iconSize:[48,58],
+        iconAnchor:[24,54],
+        popupAnchor:[0,-52],
+        html:`<div class="people-marker ${category} ${freshness}"><div class="people-marker-avatar">${photo}</div><span class="people-marker-label">${safe(person.twin_name||person.full_name)}</span></div>`
+      });
     };
     const popupHtml=person=>{
       const avatar=person.twin_avatar_url||person.avatar_url;
       const photo=avatar?`<img src="${safe(avatar)}" alt="">`:safe(initials(person.twin_name||person.full_name));
-      const speed=Number.isFinite(Number(person.speed_kmh))?` · ${Math.round(Number(person.speed_kmh))} km/h`:'';
-      return `<div class="people-popup"><div class="people-popup-head"><div class="people-popup-avatar">${photo}</div><div><b>${safe(person.twin_name||person.full_name)}</b><small>${safe(CATEGORY[normalizeCircle(person.circle)])}${person.profile_type==='business'?' · Business Twin':''}</small></div></div><div class="people-popup-meta">Обновено ${safe(ageLabel(person.location_updated_at))}${speed}</div><div class="people-popup-actions"><a href="${safe(profileUrl(person.user_id))}">Twin профил</a><a class="secondary" href="${safe(mapUrl(person))}">Сподели картата</a></div></div>`;
+      const status=person.is_live?'LIVE':'Последна известна';
+      const speed=person.is_live&&Number.isFinite(Number(person.speed_kmh))?` · ${Math.round(Number(person.speed_kmh))} km/h`:'';
+      return `<div class="people-popup"><div class="people-popup-head"><div class="people-popup-avatar">${photo}</div><div><b>${safe(person.twin_name||person.full_name)}</b><small>${safe(CATEGORY[normalizeCircle(person.circle)])}${person.profile_type==='business'?' · Business Twin':''}</small></div></div><div class="people-popup-meta"><b>${safe(status)}</b> · ${safe(ageLabel(person.location_updated_at))}${speed}</div><div class="people-popup-actions"><a href="${safe(profileUrl(person.user_id))}">Twin профил</a><a class="secondary" href="${safe(mapUrl(person))}">Сподели картата</a></div></div>`;
     };
 
     const showFocusUnavailable=()=>{
       if(!state.focusTarget||!state.user){focusNotice.hidden=true;return}
       focusNotice.hidden=false;
-      focusNotice.innerHTML=`<b>Човекът не е видим на картата</b><small>Локацията му е изключена, не е активна или още не ти е разрешен достъп.</small><a href="${safe(profileUrl(state.focusTarget))}">Отвори Twins профила</a><button type="button" data-close-focus>Затвори</button>`;
+      focusNotice.innerHTML=`<b>Няма позиция за този човек</b><small>Няма записан GPS сигнал или споделянето е изключено.</small><a href="${safe(profileUrl(state.focusTarget))}">Отвори Twins профила</a><button type="button" data-close-focus>Затвори</button>`;
     };
 
     const filteredPeople=()=>state.filter==='all'?state.people:state.people.filter(person=>normalizeCircle(person.circle)===state.filter);
     const render=()=>{
       const visible=filteredPeople();
-      const visibleIds=new Set(visible.map(person=>person.user_id));
+      const withPosition=visible.filter(hasKnownPosition);
+      const markerIds=new Set(withPosition.map(person=>person.user_id));
+
       state.markers.forEach((marker,id)=>{
-        if(!visibleIds.has(id)){state.layer.removeLayer(marker);state.markers.delete(id)}
-      });
-      visible.forEach(person=>{
-        const point=[Number(person.latitude),Number(person.longitude)];
-        if(!Number.isFinite(point[0])||!Number.isFinite(point[1]))return;
-        let marker=state.markers.get(person.user_id);
-        if(!marker){
-          marker=L.marker(point,{icon:personIcon(person),zIndexOffset:1500}).bindPopup(popupHtml(person));
-          marker.addTo(state.layer);state.markers.set(person.user_id,marker);
-        }else{
-          marker.setLatLng(point);marker.setIcon(personIcon(person));marker.setPopupContent(popupHtml(person));
+        if(!markerIds.has(id)){
+          state.layer.removeLayer(marker);
+          state.markers.delete(id);
         }
       });
+
+      withPosition.forEach(person=>{
+        const point=[Number(person.latitude),Number(person.longitude)];
+        let marker=state.markers.get(person.user_id);
+        if(!marker){
+          marker=L.marker(point,{icon:personIcon(person),zIndexOffset:person.is_live?1700:1400}).bindPopup(popupHtml(person));
+          marker.addTo(state.layer);
+          state.markers.set(person.user_id,marker);
+        }else{
+          marker.setLatLng(point);
+          marker.setIcon(personIcon(person));
+          marker.setZIndexOffset(person.is_live?1700:1400);
+          marker.setPopupContent(popupHtml(person));
+        }
+      });
+
       countNode.textContent=String(visible.length);
       if(state.focusTarget&&!state.focusHandled){
         const marker=state.markers.get(state.focusTarget);
@@ -183,14 +218,20 @@
 
     const publishPosition=async position=>{
       if(!state.user||!state.shareLocation||!position?.coords)return;
-      const now=Date.now();if(now-state.lastPublishAt<5000)return;state.lastPublishAt=now;
+      const now=Date.now();
+      if(now-state.lastPublishAt<5000)return;
+      state.lastPublishAt=now;
       const coords=position.coords;
       const payload={
-        user_id:state.user.id,share_location:true,
-        latitude:Number(coords.latitude),longitude:Number(coords.longitude),location_accuracy:Number(coords.accuracy||0),
+        user_id:state.user.id,
+        share_location:true,
+        latitude:Number(coords.latitude),
+        longitude:Number(coords.longitude),
+        location_accuracy:Number(coords.accuracy||0),
         speed_kmh:Number.isFinite(coords.speed)?Math.max(0,coords.speed*3.6):null,
         vehicle_detected:Number.isFinite(coords.speed)&&coords.speed*3.6>=12,
-        location_updated_at:new Date().toISOString(),updated_at:new Date().toISOString()
+        location_updated_at:new Date().toISOString(),
+        updated_at:new Date().toISOString()
       };
       const {error}=await client.from('sf_live_presence').upsert(payload,{onConflict:'user_id'});
       if(error)console.error('[SF people presence]',error);
@@ -227,14 +268,16 @@
           startSharing();
           navigator.geolocation?.getCurrentPosition(
             publishPosition,
-            ()=>app.setStatus('Натисни „Локация: вкл.“ и разреши GPS.','error'),
+            ()=>app.setStatus('Разреши точно местоположение за realtime.','error'),
             {enableHighAccuracy:true,maximumAge:0,timeout:15000}
           );
         }else stopSharing();
       }catch(error){
         console.error(error);
         app.setStatus('Не успях да променя споделянето на локация.','error');
-      }finally{shareButton.disabled=false}
+      }finally{
+        shareButton.disabled=false;
+      }
     };
 
     const subscribe=()=>{
@@ -280,7 +323,10 @@
       if(event.target.closest('#people-map-share'))setSharing(!state.shareLocation);
     });
     focusNotice.addEventListener('click',event=>{
-      if(event.target.closest('[data-close-focus]')){focusNotice.hidden=true;state.focusHandled=true}
+      if(event.target.closest('[data-close-focus]')){
+        focusNotice.hidden=true;
+        state.focusHandled=true;
+      }
     });
     login.querySelector('button').addEventListener('click',()=>{
       if(location.origin===TWINS_URL){
