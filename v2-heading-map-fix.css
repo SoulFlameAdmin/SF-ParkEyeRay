@@ -1,2 +1,13 @@
-.user-position-marker{transform:rotate(var(--sf-correct-heading,var(--heading)))!important}
-.user-position-marker::after{transform:translate(-50%,-50%) rotate(calc(-1 * var(--sf-correct-heading,var(--heading))))!important}
+.user-position-marker.sf-heading-up{
+  transform:rotate(0deg)!important;
+  transition:none!important;
+}
+.user-position-marker.sf-heading-up::after{
+  transform:translate(-50%,-50%) rotate(0deg)!important;
+}
+.heading-up-map #nav-heading-arrow{
+  transform:rotate(-90deg)!important;
+}
+.user-position-marker.sf-heading-weak{
+  filter:saturate(.45) drop-shadow(0 5px 9px #0008);
+}
