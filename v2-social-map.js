@@ -4,12 +4,14 @@
   const SUPABASE_URL='https://frhletkiuupgksmgxoxc.supabase.co';
   const SUPABASE_KEY='sb_publishable_JQPnalB8jOs639_PWoR6mA_AOk11xWC';
   const TWINS_URL='https://soulflame-twins.vercel.app';
+  const AUTH_STORAGE_KEY='soulflame-auth';
   const REFRESH_MS=30000;
-  const CATEGORY={family:'Семейство',friends:'Приятели',business:'Бизнес',all:'Всички'};
+  const CATEGORY={family:'Семейство',friends:'Приятели',work:'Работа',business:'Бизнес',all:'Всички'};
   const normalizeCircle=value=>{
     const circle=String(value||'friends').toLowerCase();
     if(circle==='family')return'family';
-    if(['business','work','project'].includes(circle))return'business';
+    if(circle==='work')return'work';
+    if(['business','project'].includes(circle))return'business';
     return'friends';
   };
   const safe=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
@@ -22,15 +24,22 @@
 
   waitForApp().then(async app=>{
     const s=app.state;
+    const query=new URLSearchParams(location.search);
     const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
-      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+      auth:{
+        persistSession:true,
+        autoRefreshToken:true,
+        detectSessionInUrl:true,
+        flowType:'pkce',
+        storageKey:AUTH_STORAGE_KEY
+      }
     });
-    const focusTarget=new URLSearchParams(location.search).get('person');
     const state={
       client,user:null,filter:'all',people:[],markers:new Map(),
       layer:L.layerGroup().addTo(s.map),channel:null,watchId:null,
       shareLocation:false,lastPublishAt:0,refreshTimer:null,
-      focusTarget,focusHandled:false
+      focusTarget:query.get('person'),focusHandled:false,
+      autoShareRequested:query.get('sharing')==='1'
     };
     app.socialMap=state;
 
@@ -40,6 +49,7 @@
       <button class="people-map-filter active" data-people-filter="all" type="button">Всички</button>
       <button class="people-map-filter" data-people-filter="family" type="button">Семейство</button>
       <button class="people-map-filter" data-people-filter="friends" type="button">Приятели</button>
+      <button class="people-map-filter" data-people-filter="work" type="button">Работа</button>
       <button class="people-map-filter" data-people-filter="business" type="button">Бизнес</button>
       <span class="people-map-count" id="people-map-count">0</span>
       <button class="people-map-share" id="people-map-share" type="button">Локация: изкл.</button>`;
@@ -48,7 +58,7 @@
     const login=document.createElement('div');
     login.className='people-map-login';
     login.hidden=true;
-    login.innerHTML='<b>Влез в Twins, за да виждаш хората си на картата</b><br><small>Показват се само приети приятели, които са ти разрешили live достъп.</small><br><button type="button">Вход с Google</button>';
+    login.innerHTML='<b>Влез веднъж в Twins</b><br><small>Картата използва същия Google профил и същата Supabase сесия.</small><br><button type="button">Отвори Twins входа</button>';
     document.body.appendChild(login);
 
     const focusNotice=document.createElement('div');
@@ -86,7 +96,7 @@
       return url.toString();
     };
     const mapUrl=person=>{
-      const url=new URL(location.pathname,location.origin);
+      const url=new URL('/map',TWINS_URL);
       url.searchParams.set('person',person.user_id);
       return url.toString();
     };
@@ -109,7 +119,7 @@
       const avatar=person.twin_avatar_url||person.avatar_url;
       const photo=avatar?`<img src="${safe(avatar)}" alt="">`:safe(initials(person.twin_name||person.full_name));
       const speed=Number.isFinite(Number(person.speed_kmh))?` · ${Math.round(Number(person.speed_kmh))} km/h`:'';
-      return `<div class="people-popup"><div class="people-popup-head"><div class="people-popup-avatar">${photo}</div><div><b>${safe(person.twin_name||person.full_name)}</b><small>${safe(CATEGORY[normalizeCircle(person.circle)])}${person.profile_type==='business'?' · Business Twin':''}</small></div></div><div class="people-popup-meta">Обновено ${safe(ageLabel(person.location_updated_at))}${speed}</div><div class="people-popup-actions"><a href="${safe(profileUrl(person.user_id))}" target="_blank" rel="noopener">Twin профил</a><a class="secondary" href="${safe(mapUrl(person))}">Сподели картата</a></div></div>`;
+      return `<div class="people-popup"><div class="people-popup-head"><div class="people-popup-avatar">${photo}</div><div><b>${safe(person.twin_name||person.full_name)}</b><small>${safe(CATEGORY[normalizeCircle(person.circle)])}${person.profile_type==='business'?' · Business Twin':''}</small></div></div><div class="people-popup-meta">Обновено ${safe(ageLabel(person.location_updated_at))}${speed}</div><div class="people-popup-actions"><a href="${safe(profileUrl(person.user_id))}">Twin профил</a><a class="secondary" href="${safe(mapUrl(person))}">Сподели картата</a></div></div>`;
     };
 
     const showFocusUnavailable=()=>{
@@ -137,7 +147,6 @@
         }
       });
       countNode.textContent=String(visible.length);
-
       if(state.focusTarget&&!state.focusHandled){
         const marker=state.markers.get(state.focusTarget);
         if(marker){
@@ -173,7 +182,7 @@
     };
 
     const publishPosition=async position=>{
-      if(!state.user||!state.shareLocation)return;
+      if(!state.user||!state.shareLocation||!position?.coords)return;
       const now=Date.now();if(now-state.lastPublishAt<5000)return;state.lastPublishAt=now;
       const coords=position.coords;
       const payload={
@@ -190,7 +199,10 @@
       if(state.watchId!==null||!navigator.geolocation)return;
       state.watchId=navigator.geolocation.watchPosition(
         publishPosition,
-        error=>console.warn('[SF people GPS]',error),
+        error=>{
+          console.warn('[SF people GPS]',error);
+          app.setStatus('Разреши точно местоположение за realtime.','error');
+        },
         {enableHighAccuracy:true,maximumAge:2000,timeout:20000}
       );
     };
@@ -215,18 +227,14 @@
           startSharing();
           navigator.geolocation?.getCurrentPosition(
             publishPosition,
-            ()=>app.setStatus('Разреши GPS, за да споделяш live локация.','error'),
+            ()=>app.setStatus('Натисни „Локация: вкл.“ и разреши GPS.','error'),
             {enableHighAccuracy:true,maximumAge:0,timeout:15000}
           );
-        }else{
-          stopSharing();
-        }
+        }else stopSharing();
       }catch(error){
         console.error(error);
         app.setStatus('Не успях да променя споделянето на локация.','error');
-      }finally{
-        shareButton.disabled=false;
-      }
+      }finally{shareButton.disabled=false}
     };
 
     const subscribe=()=>{
@@ -237,7 +245,6 @@
         .on('postgres_changes',{event:'*',schema:'public',table:'sf_friend_circle_memberships'},refreshPeople)
         .subscribe();
     };
-
     const clearLiveSession=()=>{
       clearInterval(state.refreshTimer);
       state.refreshTimer=null;
@@ -245,7 +252,6 @@
       state.channel=null;
       stopSharing();
     };
-
     const applySession=async session=>{
       clearLiveSession();
       state.user=session?.user||null;
@@ -255,7 +261,8 @@
       state.focusHandled=false;
       if(!state.user){state.people=[];render();return}
       await readOwnShare();
-      if(state.shareLocation)startSharing();
+      if(state.autoShareRequested&&!state.shareLocation)await setSharing(true);
+      else if(state.shareLocation)startSharing();
       subscribe();
       await refreshPeople();
       state.refreshTimer=setInterval(refreshPeople,REFRESH_MS);
@@ -273,13 +280,14 @@
       if(event.target.closest('#people-map-share'))setSharing(!state.shareLocation);
     });
     focusNotice.addEventListener('click',event=>{
-      if(event.target.closest('[data-close-focus]')){
-        focusNotice.hidden=true;
-        state.focusHandled=true;
-      }
+      if(event.target.closest('[data-close-focus]')){focusNotice.hidden=true;state.focusHandled=true}
     });
-    login.querySelector('button').addEventListener('click',async()=>{
-      await client.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href}});
+    login.querySelector('button').addEventListener('click',()=>{
+      if(location.origin===TWINS_URL){
+        location.href='/frontend/FRONTEND/second_login_desing/index.html';
+      }else{
+        location.href=`${TWINS_URL}/map${location.search}`;
+      }
     });
     document.addEventListener('visibilitychange',()=>{
       if(!document.hidden&&state.user)refreshPeople();
