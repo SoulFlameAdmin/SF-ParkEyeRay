@@ -44,9 +44,10 @@
     const personName=person=>person.twin_name||person.full_name||'SoulFlame потребител';
     const statusOf=person=>{
       if(person.is_live)return{key:'live',label:'LIVE',detail:'Обновява се сега'};
+      if(person.location_state==='last_known')return{key:'last-known',label:'Последна известна',detail:'Показва последния разрешен GPS сигнал'};
       if(person.location_state==='needs_permission')return{key:'needs-permission',label:'Чака разрешение',detail:'Поискай live достъп'};
       if(person.location_state==='sharing_off')return{key:'sharing-off',label:'Локацията е изключена',detail:'Човекът трябва да я включи'};
-      return{key:'offline',label:'Офлайн',detail:'Няма свеж GPS сигнал'};
+      return{key:'offline',label:'Офлайн',detail:'Няма записана GPS позиция'};
     };
     const visiblePeople=()=>{
       const filter=state.filter||'all';
@@ -62,17 +63,19 @@
       if(!state.user)return;
       const people=visiblePeople();
       const liveCount=people.filter(person=>person.is_live).length;
-      summary.textContent=`${people.length} добавени · ${liveCount} live`;
+      const knownCount=people.filter(person=>person.location_state==='last_known').length;
+      summary.textContent=`${people.length} добавени · ${liveCount} live${knownCount?` · ${knownCount} последни`:''}`;
       list.innerHTML=people.length?people.map(person=>{
         const status=statusOf(person);
         const circle=normalizeCircle(person.circle);
+        const canLocate=person.is_live||person.location_state==='last_known';
         return `<article class="people-contact-card ${circle} ${status.key}" data-contact-id="${safe(person.user_id)}">
-          <button class="people-contact-main" type="button" data-contact-open="${safe(person.user_id)}">
+          <button class="people-contact-main" type="button" data-contact-open="${safe(person.user_id)}" title="${safe(status.detail)}">
             <span class="people-contact-avatar">${avatarHtml(person)}<i></i></span>
             <span class="people-contact-copy"><b>${safe(personName(person))}</b><small>${safe(CATEGORY[circle])}</small><em>${safe(status.label)}</em></span>
           </button>
-          ${person.is_live
-            ? '<button class="people-contact-action live" type="button" data-contact-locate>Покажи</button>'
+          ${canLocate
+            ? `<button class="people-contact-action ${person.is_live?'live':'last-known'}" type="button" data-contact-locate>${person.is_live?'Покажи LIVE':'Покажи последна'}</button>`
             : person.location_state==='needs_permission'
               ? '<button class="people-contact-action" type="button" data-contact-request>Поискай live</button>'
               : `<a class="people-contact-action" href="${safe(profileUrl(person.user_id))}">Профил</a>`}
@@ -138,7 +141,8 @@
         filter:state.filter,
         people:state.people.map(person=>[
           person.user_id,person.full_name,person.twin_name,person.circle,
-          person.location_state,person.is_live,person.location_updated_at
+          person.location_state,person.is_live,person.location_updated_at,
+          person.latitude,person.longitude
         ])
       });
       if(signature!==lastSignature){lastSignature=signature;render()}
