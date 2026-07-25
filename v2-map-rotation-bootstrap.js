@@ -8,15 +8,33 @@
 
   if(!rotationSupported){
     console.error('[SF map rotation] leaflet-rotate did not load');
-    return;
+  }else{
+    L.Map.mergeOptions({
+      rotate:true,
+      bearing:0,
+      touchRotate:false,
+      shiftKeyRotate:false,
+      rotateControl:false,
+      trackContainerMutation:true
+    });
   }
 
-  L.Map.mergeOptions({
-    rotate:true,
-    bearing:0,
-    touchRotate:false,
-    shiftKeyRotate:false,
-    rotateControl:false,
-    trackContainerMutation:true
+  const addStyle=(href,id)=>{
+    if(document.getElementById(id))return;
+    const link=document.createElement('link');
+    link.id=id;link.rel='stylesheet';link.href=href;
+    document.head.appendChild(link);
+  };
+  const addScript=(src,id,onload)=>{
+    if(document.getElementById(id)){onload?.();return}
+    const script=document.createElement('script');
+    script.id=id;script.src=src;script.defer=true;
+    if(onload)script.addEventListener('load',onload,{once:true});
+    document.head.appendChild(script);
+  };
+
+  addStyle('/v2-social-map.css?v=1.0.0','sf-social-map-css');
+  addScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2','sf-supabase-js',()=>{
+    addScript('/v2-social-map.js?v=1.0.0','sf-social-map-js');
   });
 })();
