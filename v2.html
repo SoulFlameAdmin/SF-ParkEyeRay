@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/v2-stability.css">
   <link rel="stylesheet" href="/v2-search.css">
   <link rel="stylesheet" href="/v2-waze.css">
-  <link rel="stylesheet" href="/v2-heading-map-fix.css">
+  <link rel="stylesheet" href="/v2-heading-map-fix.css?v=5.0.0">
 </head>
 <body class="booting">
   <div id="boot-screen" class="boot-screen" role="status" aria-live="polite" aria-label="Loading SoulFlame Navigation">
@@ -120,7 +120,9 @@
   <div id="proposals-modal" class="modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h2>Моите предложения</h2><button data-close="proposals-modal" type="button" aria-label="Затвори">✕</button></div><div id="proposal-list"></div></div></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
+  <script src="/v2-map-rotation-bootstrap.js?v=1.0.0"></script>
   <script src="/v2.js"></script>
-  <script src="/v2-heading-map-fix.js"></script>
+  <script src="/v2-heading-map-fix.js?v=5.0.0"></script>
 </body>
 </html>
