@@ -33,8 +33,9 @@
     document.head.appendChild(script);
   };
 
-  addStyle('/v2-social-map.css?v=1.0.0','sf-social-map-css');
+  addStyle('/v2-social-map.css?v=2.0.0','sf-social-map-css');
+  addStyle('/v2-social-map-focus.css?v=2.0.0','sf-social-map-focus-css');
   addScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2','sf-supabase-js',()=>{
-    addScript('/v2-social-map.js?v=1.0.0','sf-social-map-js');
+    addScript('/v2-social-map.js?v=2.0.0','sf-social-map-js');
   });
 })();
