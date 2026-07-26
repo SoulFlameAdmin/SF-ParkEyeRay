@@ -13,6 +13,18 @@ const PROFILE_BASES = {
 
 const MAX_ROUTE_POINTS = 12;
 const MAX_MATCH_POINTS = 40;
+const ALLOWED_ORIGINS = new Set([
+  'https://soulflame-twins.vercel.app',
+  'https://sf-parkeyeray.vercel.app'
+]);
+
+function applyCors(req, res) {
+  const origin = String(req.headers.origin || '');
+  if (ALLOWED_ORIGINS.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
 
 function validPoint(point) {
   return point && Number.isFinite(point.lat) && Number.isFinite(point.lon)
@@ -65,6 +77,8 @@ function matchPath(coordinates, query) {
 }
 
 export default async function handler(req, res) {
+  applyCors(req, res);
+  if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error:'Method not allowed' });
 
   const points = parsePoints(req.query.points);
