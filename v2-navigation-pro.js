@@ -4,6 +4,7 @@
   const app=window.SFV2;
   if(!app?.state||!app.startNavigation||!app.buildRoute||app.realNavigation)return;
   const s=app.state;
+  const ROUTING_API='https://sf-parkeyeray.vercel.app/api/routing';
   const VOICE_KEY='sf_real_navigation_voice_v1';
   const MATCH_INTERVAL=12000;
   const routeColors=['#2f80ed','#7c3aed','#0891b2'];
@@ -54,7 +55,7 @@
         button.classList.toggle('off',!state.voiceEnabled);
         button.setAttribute('aria-pressed',String(state.voiceEnabled));
         if(state.voiceEnabled)speak('Гласовите инструкции са включени.',true);
-        else speechSynthesis?.cancel?.();
+        else window.speechSynthesis?.cancel?.();
       });
     }
 
@@ -91,21 +92,21 @@
   };
 
   const getBgVoice=()=>{
-    const voices=speechSynthesis?.getVoices?.()||[];
+    const voices=window.speechSynthesis?.getVoices?.()||[];
     return voices.find(voice=>String(voice.lang||'').toLowerCase().startsWith('bg'))
       ||voices.find(voice=>String(voice.lang||'').toLowerCase().startsWith('en'))||null;
   };
 
   function speak(text,force=false){
-    if(!state.voiceEnabled||!text||!('speechSynthesis'in window))return;
+    if(!state.voiceEnabled||!text||!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;
     const now=Date.now();
     if(!force&&now-state.lastSpokenAt<2200)return;
     state.lastSpokenAt=now;
-    if(force)speechSynthesis.cancel();
-    const utterance=new SpeechSynthesisUtterance(String(text));
+    if(force)window.speechSynthesis.cancel();
+    const utterance=new window.SpeechSynthesisUtterance(String(text));
     utterance.lang='bg-BG';utterance.rate=1.02;utterance.pitch=1;utterance.volume=1;
     const voice=getBgVoice();if(voice)utterance.voice=voice;
-    speechSynthesis.speak(utterance);
+    window.speechSynthesis.speak(utterance);
   }
 
   const parseDistance=text=>{
@@ -171,17 +172,21 @@
     renderAlternatives(item);
   };
 
+  const routeOptionsFor=item=>{
+    const source=item?._routeOptions?.length?item._routeOptions:[item?.route,...(item?.route?._alternatives||[])];
+    const unique=[];
+    for(const route of source.filter(route=>route?.geometry?.coordinates?.length)){
+      if(!unique.some(other=>Math.abs(Number(other.distance)-Number(route.distance))<15&&Math.abs(Number(other.duration)-Number(route.duration))<10))unique.push(route);
+    }
+    return unique.slice(0,3);
+  };
+
   const renderAlternatives=item=>{
     ensureUi();
     const root=document.getElementById('sf-route-alternatives');
     if(!root)return;
-    const primary=item?.route;
-    const options=[primary,...(primary?._alternatives||[])].filter(route=>route?.geometry?.coordinates?.length);
-    const unique=[];
-    for(const route of options){
-      if(!unique.some(other=>Math.abs(Number(other.distance)-Number(route.distance))<15&&Math.abs(Number(other.duration)-Number(route.duration))<10))unique.push(route);
-    }
-    state.routeOptions=unique.slice(0,3);
+    state.routeOptions=routeOptionsFor(item);
+    item._routeOptions=state.routeOptions;
     if(state.routeOptions.length<2){root.hidden=true;root.innerHTML='';return}
     root.hidden=false;
     root.innerHTML=state.routeOptions.map((route,index)=>{
@@ -195,11 +200,10 @@
     };
   };
 
-  const originalRouteBetween=app.routeBetween;
   app.routeBetween=async(from,to,profile,signal)=>{
     const points=`${from.lat},${from.lon}|${to.lat},${to.lon}`;
     const query=new URLSearchParams({mode:'route',profile,points,steps:'true',alternatives:profile==='driving'?'true':'false'});
-    const response=await fetch(`/api/routing?${query.toString()}`,{signal,cache:'no-store'});
+    const response=await fetch(`${ROUTING_API}?${query.toString()}`,{signal,cache:'no-store',mode:'cors'});
     const data=await response.json();
     if(!response.ok||!data.routes?.[0])throw new Error(data.error||'Route error');
     const route=data.routes[0];
@@ -215,7 +219,10 @@
     const result=await originalBuildRoute(item,userStarted);
     state.activeRouteIndex=0;
     updateExternalLinks();
-    if(item?.route)renderAlternatives(item);
+    if(item?.route){
+      item._routeOptions=[item.route,...(item.route._alternatives||[])];
+      renderAlternatives(item);
+    }
     return result;
   };
 
@@ -243,7 +250,7 @@
   const originalStop=app.stopNavigation;
   app.stopNavigation=(...args)=>{
     const result=originalStop(...args);
-    releaseWakeLock();speechSynthesis?.cancel?.();state.trace=[];state.match=null;
+    releaseWakeLock();window.speechSynthesis?.cancel?.();state.trace=[];state.match=null;
     return result;
   };
 
@@ -255,7 +262,7 @@
       const points=trace.map(point=>`${point.lat},${point.lon}`).join('|');
       const timestamps=trace.map(point=>Math.round(point.timestamp/1000)).join(';');
       const query=new URLSearchParams({mode:'match',profile:'driving',points,timestamps});
-      const response=await fetch(`/api/routing?${query.toString()}`,{cache:'no-store'});
+      const response=await fetch(`${ROUTING_API}?${query.toString()}`,{cache:'no-store',mode:'cors'});
       const data=await response.json();
       if(!response.ok||!data.matchings?.[0])return;
       const last=[...(data.tracepoints||[])].reverse().find(Boolean);
@@ -285,12 +292,12 @@
     else if(s.navigationActive)acquireWakeLock();
   });
   window.addEventListener('online',()=>{if(s.navigationActive&&s.selected)app.buildRoute(s.selected,false)});
-  speechSynthesis?.addEventListener?.('voiceschanged',()=>getBgVoice());
+  window.speechSynthesis?.addEventListener?.('voiceschanged',()=>getBgVoice());
 
   app.realNavigationDiagnostics=()=>({
     voiceEnabled:state.voiceEnabled,wakeLock:Boolean(state.wakeLock),
     routeOptions:state.routeOptions.length,activeRouteIndex:state.activeRouteIndex,
-    mapMatch:state.match,engine:state.engine
+    mapMatch:state.match,engine:state.engine,routingApi:ROUTING_API
   });
 
   ensureUi();
