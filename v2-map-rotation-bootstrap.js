@@ -39,7 +39,7 @@
       attempts+=1;
       if(window.SFV2?.startNavigation&&window.SFV2?.buildRoute&&window.SFV2?.routeBetween){
         clearInterval(timer);
-        addScript('/v2-navigation-pro.js?v=1.0.0','sf-real-navigation-js');
+        addScript('https://sf-parkeyeray.vercel.app/v2-navigation-pro.js?v=1.1.0','sf-real-navigation-js');
       }else if(attempts>300){
         clearInterval(timer);
         console.error('[SF real navigation] core modules did not become ready');
