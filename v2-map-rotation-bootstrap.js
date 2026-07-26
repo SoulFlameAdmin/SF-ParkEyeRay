@@ -33,6 +33,20 @@
     document.head.appendChild(script);
   };
 
+  const loadRealNavigation=()=>{
+    let attempts=0;
+    const timer=setInterval(()=>{
+      attempts+=1;
+      if(window.SFV2?.startNavigation&&window.SFV2?.buildRoute&&window.SFV2?.routeBetween){
+        clearInterval(timer);
+        addScript('/v2-navigation-pro.js?v=1.0.0','sf-real-navigation-js');
+      }else if(attempts>300){
+        clearInterval(timer);
+        console.error('[SF real navigation] core modules did not become ready');
+      }
+    },50);
+  };
+
   addStyle('/v2-social-map.css?v=4.3.0','sf-social-map-css');
   addStyle('/v2-social-map-focus.css?v=4.3.0','sf-social-map-focus-css');
   addStyle('/v2-social-map-contacts.css?v=4.3.0','sf-social-map-contacts-css');
@@ -41,4 +55,5 @@
       addScript('/v2-social-map-contacts.js?v=4.3.0','sf-social-map-contacts-js');
     });
   });
+  loadRealNavigation();
 })();
