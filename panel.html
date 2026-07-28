@@ -1,34 +1,42 @@
 <!DOCTYPE html>
-<html>
+<html lang="bg">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       padding: 10px;
       font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
+      background: #f4f4f4;
     }
     button {
       display: block;
       width: 100%;
+      min-height: 42px;
       margin: 8px 0;
       padding: 10px;
-      font-size: 16px;
-      background-color: #333;
-      color: white;
       border: none;
-      border-radius: 5px;
+      border-radius: 8px;
+      background: #333;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
       cursor: pointer;
     }
-    button:hover {
-      background-color: #555;
+    button:hover { background: #555; }
+    .smartcar-button {
+      background: linear-gradient(135deg, #0284c7, #4f46e5);
+      box-shadow: 0 8px 22px rgba(37, 99, 235, .28);
     }
+    .smartcar-button:hover { background: linear-gradient(135deg, #0369a1, #4338ca); }
   </style>
 </head>
 <body>
   <button onclick="window.open('QR.html', '_blank')">📷 QR Скенер</button>
-  <button onclick="window.open('parkomesta.html', '_blank')">🅿️ Паркоместа</button>
+  <button onclick="window.open('parkomesta.html', '_blank')">🅿️ Паркирай</button>
+  <button class="smartcar-button" onclick="window.open('smartcar.html', '_blank')">🚘 SmartCar</button>
   <button>🟢 Свободни</button>
   <button>🔴 Заети</button>
   <button>⚙️ Настройки</button>
