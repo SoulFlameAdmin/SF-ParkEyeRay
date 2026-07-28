@@ -4,370 +4,398 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#07111f" />
-  <title>SmartCar — направи колата си смарт</title>
+  <title>SmartCar — DAVID, NFC и ParkEyeRay</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
   <style>
     :root {
-      --bg: #07111f;
-      --surface: rgba(15, 29, 48, .88);
-      --surface-2: #10243b;
-      --line: rgba(148, 163, 184, .22);
-      --text: #f8fafc;
-      --muted: #a7b5c7;
-      --blue: #38bdf8;
-      --green: #34d399;
-      --violet: #a78bfa;
-      --shadow: 0 20px 60px rgba(0, 0, 0, .35);
+      --bg:#07111f; --surface:rgba(15,29,48,.9); --surface-2:#10243b;
+      --line:rgba(148,163,184,.23); --text:#f8fafc; --muted:#a7b5c7;
+      --blue:#38bdf8; --green:#34d399; --violet:#a78bfa; --amber:#fbbf24;
+      --shadow:0 20px 60px rgba(0,0,0,.35);
     }
-
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
     body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(circle at 85% 5%, rgba(56, 189, 248, .20), transparent 32%),
-        radial-gradient(circle at 10% 30%, rgba(167, 139, 250, .14), transparent 30%),
-        var(--bg);
+      margin:0; min-height:100vh; color:var(--text);
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:radial-gradient(circle at 85% 5%,rgba(56,189,248,.2),transparent 32%),
+                 radial-gradient(circle at 10% 30%,rgba(167,139,250,.14),transparent 30%),var(--bg);
     }
-
-    button, a { font: inherit; }
-    a { color: inherit; }
-
-    .shell { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding: 18px 0 54px; }
-
+    button,a { font:inherit; }
+    a { color:inherit; }
+    .shell { width:min(1120px,calc(100% - 28px)); margin:0 auto; padding:18px 0 54px; }
     .topbar {
-      position: sticky;
-      top: 10px;
-      z-index: 20;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 14px;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(7, 17, 31, .82);
-      backdrop-filter: blur(18px);
-      box-shadow: var(--shadow);
+      position:sticky; top:10px; z-index:1000; display:flex; align-items:center;
+      justify-content:space-between; gap:12px; padding:12px 14px; border:1px solid var(--line);
+      border-radius:18px; background:rgba(7,17,31,.84); backdrop-filter:blur(18px); box-shadow:var(--shadow);
     }
-
-    .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
-    .brand-icon {
-      display: grid;
-      place-items: center;
-      width: 42px;
-      height: 42px;
-      flex: 0 0 auto;
-      border-radius: 14px;
-      background: linear-gradient(135deg, var(--blue), var(--violet));
-      font-size: 22px;
-      box-shadow: 0 10px 30px rgba(56, 189, 248, .25);
+    .brand { display:flex; align-items:center; gap:11px; min-width:0; }
+    .brand-icon { display:grid; place-items:center; width:42px; height:42px; flex:0 0 auto; border-radius:14px;
+      background:linear-gradient(135deg,var(--blue),var(--violet)); font-size:22px; box-shadow:0 10px 30px rgba(56,189,248,.25); }
+    .brand strong { display:block; font-size:17px; }
+    .brand small { display:block; margin-top:2px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .back-link { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:0 14px;
+      border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.05); text-decoration:none; font-weight:800; }
+    .hero { display:grid; grid-template-columns:1.25fr .75fr; gap:20px; align-items:stretch; margin-top:22px; }
+    .hero-copy,.car-core,.section-card,.tracker-card { border:1px solid var(--line); border-radius:26px;
+      background:linear-gradient(145deg,rgba(16,36,59,.94),rgba(8,22,39,.92)); box-shadow:var(--shadow); }
+    .hero-copy { padding:clamp(24px,5vw,52px); }
+    .eyebrow { display:inline-flex; padding:7px 11px; border:1px solid rgba(56,189,248,.35); border-radius:999px;
+      background:rgba(56,189,248,.08); color:#7dd3fc; font-size:12px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+    h1 { max-width:760px; margin:18px 0 14px; font-size:clamp(36px,7vw,70px); line-height:.98; letter-spacing:-.045em; }
+    .hero-copy p { max-width:720px; margin:0; color:var(--muted); font-size:clamp(16px,2.2vw,20px); line-height:1.6; }
+    .hero-actions,.tracker-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:24px; }
+    .primary-button,.secondary-button,.danger-button,.order-button {
+      min-height:46px; padding:0 17px; border-radius:14px; border:0; cursor:pointer; font-weight:900;
     }
-    .brand strong { display: block; font-size: 17px; }
-    .brand small { display: block; margin-top: 2px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 42px;
-      padding: 0 14px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: rgba(255,255,255,.05);
-      text-decoration: none;
-      font-weight: 800;
+    .primary-button { background:linear-gradient(135deg,var(--blue),#2563eb); color:#03111d; }
+    .secondary-button { border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--text); }
+    .danger-button { border:1px solid rgba(248,113,113,.35); background:rgba(127,29,29,.22); color:#fecaca; }
+    .car-core { display:grid; place-items:center; min-height:340px; padding:22px; overflow:hidden; }
+    .core-visual { position:relative; display:grid; place-items:center; width:min(280px,78vw); aspect-ratio:1; }
+    .ring { position:absolute; inset:4%; border:1px solid rgba(56,189,248,.34); border-radius:50%; animation:spin 18s linear infinite; }
+    .ring::before,.ring::after { content:''; position:absolute; width:10px; height:10px; border-radius:50%; background:var(--blue); box-shadow:0 0 20px var(--blue); }
+    .ring::before { top:9%; left:18%; }
+    .ring::after { right:3%; bottom:30%; background:var(--green); box-shadow:0 0 20px var(--green); }
+    .car-bubble { display:grid; place-items:center; width:62%; aspect-ratio:1; border-radius:36%;
+      background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.3),transparent 22%),linear-gradient(135deg,#0ea5e9,#4f46e5 58%,#7c3aed);
+      font-size:clamp(58px,11vw,92px); box-shadow:0 0 55px rgba(56,189,248,.28); }
+    .core-label { position:absolute; bottom:4%; padding:7px 12px; border:1px solid var(--line); border-radius:999px;
+      background:rgba(7,17,31,.88); color:#dbeafe; font-size:12px; font-weight:900; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .nfc-banner { display:none; margin-top:16px; padding:12px 14px; border:1px solid rgba(52,211,153,.4); border-radius:15px;
+      background:rgba(6,78,59,.22); color:#d1fae5; font-weight:800; line-height:1.45; }
+    .nfc-banner.active { display:block; }
+    .section { margin-top:24px; }
+    .section-heading { display:flex; justify-content:space-between; align-items:end; gap:14px; margin-bottom:13px; }
+    .section-heading h2 { margin:0; font-size:clamp(24px,4vw,38px); letter-spacing:-.03em; }
+    .section-heading p { max-width:620px; margin:0; color:var(--muted); line-height:1.55; }
+    .product-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(235px,1fr)); gap:14px; }
+    .product-card { display:flex; flex-direction:column; min-height:100%; padding:20px; border:1px solid var(--line); border-radius:22px;
+      background:var(--surface); box-shadow:0 14px 34px rgba(0,0,0,.22); }
+    .product-card.featured { border-color:rgba(52,211,153,.6); box-shadow:0 18px 45px rgba(52,211,153,.11); }
+    .product-icon { display:grid; place-items:center; width:52px; height:52px; border-radius:16px; background:var(--surface-2); font-size:27px; }
+    .product-card h3 { margin:16px 0 6px; font-size:21px; }
+    .product-card p { margin:0; color:var(--muted); line-height:1.55; }
+    .product-card ul { display:grid; gap:9px; margin:18px 0 22px; padding:0; list-style:none; color:#d8e5f3; }
+    .product-card li::before { content:'✓'; margin-right:8px; color:var(--green); font-weight:900; }
+    .product-footer { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:auto; }
+    .price { font-size:13px; color:var(--muted); }
+    .price strong { display:block; color:var(--text); font-size:17px; }
+    .order-button { min-height:42px; padding:0 13px; border-radius:12px; background:#e2e8f0; color:#0f172a; }
+    .flow-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    .flow-step { padding:18px; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.04); }
+    .flow-number { display:grid; place-items:center; width:34px; height:34px; border-radius:11px; background:rgba(56,189,248,.12); color:var(--blue); font-weight:950; }
+    .flow-step h3 { margin:14px 0 7px; font-size:16px; }
+    .flow-step p { margin:0; color:var(--muted); font-size:14px; line-height:1.5; }
+    .tracker-card { padding:clamp(18px,4vw,30px); }
+    .tracker-layout { display:grid; grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr); gap:18px; align-items:stretch; }
+    .status-box { padding:18px; border:1px solid var(--line); border-radius:20px; background:rgba(255,255,255,.035); }
+    .status-line { display:flex; align-items:center; gap:10px; }
+    .status-dot { width:12px; height:12px; border-radius:50%; background:#64748b; box-shadow:0 0 16px currentColor; }
+    .status-dot.driving { background:var(--blue); }
+    .status-dot.waiting { background:var(--amber); }
+    .status-dot.parked { background:var(--green); }
+    .status-title { font-size:20px; font-weight:950; }
+    .status-copy { margin:9px 0 0; color:var(--muted); line-height:1.55; }
+    .metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:16px; }
+    .metric { padding:12px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.035); }
+    .metric span { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+    .metric strong { display:block; margin-top:5px; font-size:17px; }
+    .saved-place { margin-top:14px; padding:13px; border:1px solid rgba(52,211,153,.25); border-radius:14px; background:rgba(6,78,59,.14); color:#d1fae5; line-height:1.5; }
+    .saved-place strong { display:block; margin-bottom:3px; }
+    #car-map { width:100%; min-height:360px; border-radius:20px; overflow:hidden; background:#dbeafe; }
+    .leaflet-container { font-family:inherit; }
+    .connection-card { display:grid; grid-template-columns:1fr auto; gap:20px; align-items:center; padding:clamp(20px,4vw,34px); }
+    .connection-card h2 { margin:0 0 8px; font-size:clamp(26px,4vw,42px); }
+    .connection-card p { max-width:760px; margin:0; color:var(--muted); line-height:1.6; }
+    .privacy-note { margin-top:14px; color:#93a4ba; font-size:12px; line-height:1.55; }
+    #toast { position:fixed; left:50%; bottom:max(18px,env(safe-area-inset-bottom)); z-index:2000; display:none; transform:translateX(-50%);
+      width:min(520px,calc(100% - 28px)); padding:13px 15px; border:1px solid rgba(52,211,153,.35); border-radius:14px;
+      background:rgba(5,26,23,.97); color:#d1fae5; text-align:center; box-shadow:var(--shadow); font-weight:800; }
+    #toast.active { display:block; }
+    @media (max-width:850px) {
+      .hero,.tracker-layout,.connection-card { grid-template-columns:1fr; }
+      .car-core { min-height:300px; }
+      .flow-grid { grid-template-columns:repeat(2,1fr); }
     }
-
-    .hero {
-      display: grid;
-      grid-template-columns: 1.25fr .75fr;
-      gap: 20px;
-      align-items: stretch;
-      margin-top: 22px;
+    @media (max-width:520px) {
+      .shell { width:min(100% - 18px,1120px); padding-top:9px; }
+      .topbar { top:6px; padding:9px; border-radius:15px; }
+      .brand small { max-width:150px; }
+      .back-link { min-height:39px; padding:0 10px; font-size:13px; }
+      .hero { margin-top:12px; }
+      .hero-copy,.car-core,.section-card,.tracker-card { border-radius:20px; }
+      .flow-grid,.metrics { grid-template-columns:1fr; }
+      .section-heading { display:block; }
+      .section-heading p { margin-top:7px; }
+      #car-map { min-height:300px; }
     }
-
-    .hero-copy, .car-core, .section-card {
-      border: 1px solid var(--line);
-      border-radius: 26px;
-      background: linear-gradient(145deg, rgba(16, 36, 59, .92), rgba(8, 22, 39, .9));
-      box-shadow: var(--shadow);
-    }
-
-    .hero-copy { padding: clamp(24px, 5vw, 52px); }
-    .eyebrow {
-      display: inline-flex;
-      padding: 7px 11px;
-      border: 1px solid rgba(56, 189, 248, .35);
-      border-radius: 999px;
-      background: rgba(56, 189, 248, .08);
-      color: #7dd3fc;
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-    h1 { max-width: 760px; margin: 18px 0 14px; font-size: clamp(36px, 7vw, 70px); line-height: .98; letter-spacing: -.045em; }
-    .hero-copy p { max-width: 720px; margin: 0; color: var(--muted); font-size: clamp(16px, 2.2vw, 20px); line-height: 1.6; }
-
-    .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
-    .primary-button, .secondary-button {
-      min-height: 48px;
-      padding: 0 18px;
-      border-radius: 14px;
-      border: 0;
-      cursor: pointer;
-      font-weight: 900;
-    }
-    .primary-button { background: linear-gradient(135deg, var(--blue), #2563eb); color: #03111d; }
-    .secondary-button { border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--text); }
-
-    .car-core { display: grid; place-items: center; min-height: 340px; padding: 22px; overflow: hidden; }
-    .core-visual { position: relative; display: grid; place-items: center; width: min(280px, 78vw); aspect-ratio: 1; }
-    .ring { position: absolute; inset: 4%; border: 1px solid rgba(56,189,248,.34); border-radius: 50%; animation: spin 18s linear infinite; }
-    .ring::before, .ring::after { content: ''; position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 20px var(--blue); }
-    .ring::before { top: 9%; left: 18%; }
-    .ring::after { right: 3%; bottom: 30%; background: var(--green); box-shadow: 0 0 20px var(--green); }
-    .car-bubble {
-      display: grid;
-      place-items: center;
-      width: 62%;
-      aspect-ratio: 1;
-      border-radius: 36%;
-      background: radial-gradient(circle at 35% 25%, rgba(255,255,255,.3), transparent 22%), linear-gradient(135deg, #0ea5e9, #4f46e5 58%, #7c3aed);
-      font-size: clamp(58px, 11vw, 92px);
-      box-shadow: 0 0 55px rgba(56,189,248,.28);
-    }
-    .core-label { position: absolute; bottom: 4%; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(7,17,31,.88); color: #dbeafe; font-size: 12px; font-weight: 900; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .section { margin-top: 24px; }
-    .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 14px; margin-bottom: 13px; }
-    .section-heading h2 { margin: 0; font-size: clamp(24px, 4vw, 38px); letter-spacing: -.03em; }
-    .section-heading p { max-width: 600px; margin: 0; color: var(--muted); line-height: 1.5; }
-
-    .product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-    .product-card {
-      display: flex;
-      flex-direction: column;
-      min-height: 100%;
-      padding: 20px;
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      background: var(--surface);
-      box-shadow: 0 14px 34px rgba(0,0,0,.22);
-    }
-    .product-card.featured { border-color: rgba(52,211,153,.55); transform: translateY(-5px); }
-    .product-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: var(--surface-2); font-size: 27px; }
-    .product-card h3 { margin: 16px 0 6px; font-size: 21px; }
-    .product-card p { margin: 0; color: var(--muted); line-height: 1.55; }
-    .product-card ul { display: grid; gap: 9px; margin: 18px 0 22px; padding: 0; list-style: none; color: #d8e5f3; }
-    .product-card li::before { content: '✓'; margin-right: 8px; color: var(--green); font-weight: 900; }
-    .product-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; }
-    .price { font-size: 13px; color: var(--muted); }
-    .price strong { display: block; color: var(--text); font-size: 18px; }
-    .order-button { min-height: 42px; padding: 0 14px; border: 0; border-radius: 12px; background: #e2e8f0; color: #0f172a; font-weight: 900; cursor: pointer; }
-
-    .flow-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-    .flow-step { padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.04); }
-    .flow-number { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: rgba(56,189,248,.12); color: var(--blue); font-weight: 950; }
-    .flow-step h3 { margin: 14px 0 7px; font-size: 16px; }
-    .flow-step p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
-
-    .section-card { padding: clamp(20px, 4vw, 34px); }
-    .connection-card { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; }
-    .connection-card h2 { margin: 0 0 8px; font-size: clamp(26px, 4vw, 42px); }
-    .connection-card p { max-width: 760px; margin: 0; color: var(--muted); line-height: 1.6; }
-    .status-pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 8px 11px; border-radius: 999px; background: rgba(52,211,153,.09); color: #86efac; font-size: 13px; font-weight: 850; }
-    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 15px var(--green); }
-
-    .privacy-note { margin-top: 14px; color: #8394aa; font-size: 12px; line-height: 1.5; }
-    #toast {
-      position: fixed;
-      left: 50%;
-      bottom: max(18px, env(safe-area-inset-bottom));
-      z-index: 40;
-      display: none;
-      transform: translateX(-50%);
-      width: min(500px, calc(100% - 28px));
-      padding: 13px 15px;
-      border: 1px solid rgba(52,211,153,.35);
-      border-radius: 14px;
-      background: rgba(5, 26, 23, .96);
-      color: #d1fae5;
-      text-align: center;
-      box-shadow: var(--shadow);
-      font-weight: 800;
-    }
-    #toast.active { display: block; }
-
-    @media (max-width: 850px) {
-      .hero, .connection-card { grid-template-columns: 1fr; }
-      .car-core { min-height: 300px; }
-      .product-grid { grid-template-columns: 1fr; }
-      .product-card.featured { transform: none; }
-      .flow-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-
-    @media (max-width: 520px) {
-      .shell { width: min(100% - 18px, 1120px); padding-top: 9px; }
-      .topbar { top: 6px; padding: 9px; border-radius: 15px; }
-      .brand small { max-width: 150px; }
-      .back-link { min-height: 39px; padding: 0 10px; font-size: 13px; }
-      .hero { margin-top: 12px; }
-      .hero-copy, .car-core, .section-card { border-radius: 20px; }
-      .flow-grid { grid-template-columns: 1fr; }
-      .section-heading { display: block; }
-      .section-heading p { margin-top: 7px; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      html { scroll-behavior: auto; }
-      .ring { animation: none; }
-    }
+    @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } .ring { animation:none; } }
   </style>
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
-      <div class="brand">
-        <div class="brand-icon">🚘</div>
-        <div>
-          <strong>SmartCar</strong>
-          <small>DAVID × ParkEyeRay × твоята кола</small>
-        </div>
-      </div>
+      <div class="brand"><div class="brand-icon">🚘</div><div><strong>SmartCar</strong><small>DAVID × NFC × ParkEyeRay</small></div></div>
       <a class="back-link" href="index.html">← Картата</a>
     </header>
 
     <section class="hero">
       <div class="hero-copy">
         <span class="eyebrow">SoulFlame Smart City</span>
-        <h1>Направи колата си смарт.</h1>
-        <p>SmartCar свързва стойката и модула в автомобила с DAVID и ParkEyeRay, за да получаваш по-умна навигация, намиране на паркинг, позиция на колата и персонални предупреждения.</p>
+        <h1>Колата ти става SmartCar.</h1>
+        <p>Поставяш телефона на SmartCar стойката или докосваш NFC стикера. DAVID включва режима за кола, следи движението чрез GPS и при спиране запазва мястото като „Паркирана кола“ в ParkEyeRay.</p>
+        <div id="nfc-banner" class="nfc-banner">NFC стикерът е разпознат. Натисни „Активирай SmartCar“, за да разрешиш GPS и да започне автоматичното засичане.</div>
         <div class="hero-actions">
-          <button class="primary-button" type="button" data-connect>Свържи DAVID</button>
-          <button class="secondary-button" type="button" onclick="document.getElementById('products').scrollIntoView()">Виж комплектите</button>
+          <button class="primary-button" type="button" data-start-tracking>Активирай SmartCar</button>
+          <button class="secondary-button" type="button" onclick="document.getElementById('products').scrollIntoView()">Виж продуктите</button>
         </div>
       </div>
-
-      <div class="car-core" aria-label="Връзка между колата, DAVID и ParkEyeRay">
-        <div class="core-visual">
-          <div class="ring"></div>
-          <div class="car-bubble">🚗</div>
-          <div class="core-label">Кола ↔ DAVID ↔ ParkEyeRay</div>
-        </div>
+      <div class="car-core" aria-label="Връзка между телефона, DAVID и ParkEyeRay">
+        <div class="core-visual"><div class="ring"></div><div class="car-bubble">📱</div><div class="core-label">NFC → DAVID → GPS → ParkEyeRay</div></div>
       </div>
     </section>
 
     <section id="products" class="section">
       <div class="section-heading">
-        <div><span class="eyebrow">SmartCar Store</span><h2>Комплекти за всяка кола</h2></div>
-        <p>Започваме с лесни за монтаж решения. Първата версия не управлява волан, газ или спирачки — тя прави навигацията, паркирането и информацията в колата по-умни.</p>
+        <div><span class="eyebrow">SmartCar Store</span><h2>Стойка, стикер или пълен комплект</h2></div>
+        <p>Клиентът избира дали да използва стойка, само NFC стикер на удобно място в колата, или двата продукта заедно.</p>
       </div>
-
       <div class="product-grid">
         <article class="product-card">
-          <div class="product-icon">📱</div>
-          <h3>SmartCar Mount</h3>
-          <p>Универсална стойка за телефон с бърз достъп до DAVID и ParkEyeRay.</p>
-          <ul>
-            <li>Стабилно закрепване</li>
-            <li>Режим за навигация</li>
-            <li>Бърз бутон „Паркирай“</li>
-          </ul>
-          <div class="product-footer">
-            <div class="price"><strong>Очаквай скоро</strong>Базов комплект</div>
-            <button class="order-button" type="button" data-order="SmartCar Mount">Заяви интерес</button>
-          </div>
+          <div class="product-icon">◉</div><h3>SmartCar NFC Sticker</h3>
+          <p>Програмируем NFC стикер, който отваря SmartCar режима на телефона с едно докосване.</p>
+          <ul><li>Поставяне на таблото или стойката</li><li>Стартира DAVID Car Mode</li><li>Без батерия и без зареждане</li></ul>
+          <div class="product-footer"><div class="price"><strong>Самостоятелен продукт</strong>NFC стикер</div><button class="order-button" data-order="SmartCar NFC Sticker">Заяви</button></div>
         </article>
-
-        <article class="product-card featured">
-          <div class="product-icon">🔗</div>
-          <h3>SmartCar Connect</h3>
-          <p>Стойка плюс свързващ модул за синхронизация на автомобила, телефона и DAVID.</p>
-          <ul>
-            <li>Позиция и маршрут</li>
-            <li>ParkEyeRay мапинг</li>
-            <li>Персонални известия</li>
-          </ul>
-          <div class="product-footer">
-            <div class="price"><strong>Препоръчан MVP</strong>Основен продукт</div>
-            <button class="order-button" type="button" data-order="SmartCar Connect">Заяви интерес</button>
-          </div>
-        </article>
-
         <article class="product-card">
-          <div class="product-icon">🧠</div>
-          <h3>SmartCar Vision</h3>
-          <p>Бъдещ комплект със сензорен модул за по-богато разбиране на средата около автомобила.</p>
-          <ul>
-            <li>Контекст за DAVID</li>
-            <li>AR насоки</li>
-            <li>Smart City сигнали</li>
-          </ul>
-          <div class="product-footer">
-            <div class="price"><strong>Следващ етап</strong>Разширен комплект</div>
-            <button class="order-button" type="button" data-order="SmartCar Vision">Следи развитието</button>
-          </div>
+          <div class="product-icon">📱</div><h3>SmartCar Mount</h3>
+          <p>Универсална стойка за телефон с удобен достъп до DAVID, картата и навигацията.</p>
+          <ul><li>Стабилно закрепване</li><li>Вертикално и хоризонтално</li><li>Бърз достъп до „Паркирай“</li></ul>
+          <div class="product-footer"><div class="price"><strong>Самостоятелен продукт</strong>Стойка за кола</div><button class="order-button" data-order="SmartCar Mount">Заяви</button></div>
+        </article>
+        <article class="product-card featured">
+          <div class="product-icon">🔗</div><h3>SmartCar Starter Kit</h3>
+          <p>Стойка плюс NFC стикер — най-лесният начин всяка обикновена кола да се свърже с DAVID и ParkEyeRay.</p>
+          <ul><li>Стойка + NFC стикер</li><li>Автоматично засичане на движение</li><li>Запазване на паркираната кола</li></ul>
+          <div class="product-footer"><div class="price"><strong>Препоръчан MVP</strong>Пълен комплект</div><button class="order-button" data-order="SmartCar Starter Kit">Заяви</button></div>
+        </article>
+        <article class="product-card">
+          <div class="product-icon">🧠</div><h3>SmartCar Vision</h3>
+          <p>Следващ етап със сензорен или камерен модул за по-богат контекст и Smart City сигнали.</p>
+          <ul><li>Контекст за DAVID</li><li>AR насоки</li><li>Разпознаване на средата</li></ul>
+          <div class="product-footer"><div class="price"><strong>Следващ етап</strong>Премиум модул</div><button class="order-button" data-order="SmartCar Vision">Следи</button></div>
         </article>
       </div>
+      <div class="privacy-note">Стикерът се поставя на безопасно място, което не пречи на видимостта, въздушните възглавници, предпазния колан или управлението. Той активира режима; движението се определя от GPS на телефона.</div>
     </section>
 
     <section class="section">
-      <div class="section-heading">
-        <div><span class="eyebrow">Как работи</span><h2>Една проста връзка</h2></div>
-      </div>
+      <div class="section-heading"><div><span class="eyebrow">Автоматично паркиране</span><h2>Как DAVID разбира, че колата е паркирана</h2></div></div>
       <div class="flow-grid">
-        <article class="flow-step"><div class="flow-number">1</div><h3>Монтираш</h3><p>Поставяш SmartCar стойката и свързващия модул в автомобила.</p></article>
-        <article class="flow-step"><div class="flow-number">2</div><h3>Свързваш DAVID</h3><p>Даваш еднократно съгласие за нужните функции и данни.</p></article>
-        <article class="flow-step"><div class="flow-number">3</div><h3>ParkEyeRay мапинг</h3><p>Маршрутът и паркинг опциите се обединяват в една карта.</p></article>
-        <article class="flow-step"><div class="flow-number">4</div><h3>Колата става SmartCar</h3><p>DAVID ти помага с паркиране, навигация, местоположение и контекст.</p></article>
+        <article class="flow-step"><div class="flow-number">1</div><h3>Докосваш стикера</h3><p>NFC отваря SmartCar страницата и подготвя DAVID Car Mode.</p></article>
+        <article class="flow-step"><div class="flow-number">2</div><h3>Колата потегля</h3><p>GPS скоростта и промяната на позицията показват, че автомобилът е в движение.</p></article>
+        <article class="flow-step"><div class="flow-number">3</div><h3>Колата спира</h3><p>След движение и поне 60 секунди без значимо местене системата приема, че е паркирана.</p></article>
+        <article class="flow-step"><div class="flow-number">4</div><h3>Мястото се запазва</h3><p>DAVID записва координатите и поставя маркер „Паркирана кола“ върху ParkEyeRay картата.</p></article>
+      </div>
+    </section>
+
+    <section id="tracker" class="section tracker-card">
+      <div class="section-heading">
+        <div><span class="eyebrow">Работещ MVP</span><h2>DAVID Car Mode</h2></div>
+        <p>Тествай със своя телефон. Разреши местоположение и остави страницата отворена по време на теста.</p>
+      </div>
+      <div class="tracker-layout">
+        <div class="status-box">
+          <div class="status-line"><span id="tracker-dot" class="status-dot"></span><div id="tracker-title" class="status-title">SmartCar е изключен</div></div>
+          <p id="tracker-copy" class="status-copy">Докосни NFC стикера или натисни „Активирай SmartCar“.</p>
+          <div class="metrics">
+            <div class="metric"><span>Скорост</span><strong id="speed-value">—</strong></div>
+            <div class="metric"><span>GPS точност</span><strong id="accuracy-value">—</strong></div>
+            <div class="metric"><span>Последен сигнал</span><strong id="time-value">—</strong></div>
+          </div>
+          <div id="saved-place" class="saved-place"><strong>Паркирана кола</strong>Все още няма запазено местоположение.</div>
+          <div class="tracker-actions">
+            <button id="start-button" class="primary-button" type="button">Старт</button>
+            <button id="park-now-button" class="secondary-button" type="button">Запази тук сега</button>
+            <button id="stop-button" class="danger-button" type="button">Стоп</button>
+          </div>
+          <div class="tracker-actions">
+            <a id="navigate-car" class="secondary-button" href="#" target="_blank" rel="noopener noreferrer" style="display:none;text-decoration:none;align-items:center;justify-content:center">Навигирай до колата</a>
+            <a class="secondary-button" href="index.html" style="text-decoration:none;display:inline-flex;align-items:center">Отвори ParkEyeRay</a>
+          </div>
+          <div class="privacy-note">За постоянно автоматично следене във фон е нужна Android версия с изрично разрешение за фоново местоположение. Браузърът може да спре GPS, когато страницата е затворена.</div>
+        </div>
+        <div id="car-map" aria-label="Карта на последно паркираната кола"></div>
       </div>
     </section>
 
     <section class="section section-card connection-card">
-      <div>
-        <span class="eyebrow">DAVID Car Link</span>
-        <h2>Твоята кола става част от AI Twin.</h2>
-        <p>Връзката трябва да е доброволна, прозрачна и изключваема. Потребителят избира кои данни да споделя и може да прекъсне SmartCar по всяко време.</p>
-        <div class="status-pill"><span class="status-dot"></span>Готово за MVP интеграция</div>
-        <div class="privacy-note">SmartCar MVP е помощна система. Не поема контрол над управлението на автомобила.</div>
-      </div>
-      <button class="primary-button" type="button" data-connect>Активирай SmartCar</button>
+      <div><span class="eyebrow">DAVID Car Link</span><h2>Една връзка между човека, телефона и колата.</h2>
+        <p>Потребителят избира кога SmartCar работи и може да го изключи по всяко време. MVP не управлява волан, газ или спирачки — само навигация, позиция и паркинг контекст.</p></div>
+      <button class="primary-button" type="button" data-start-tracking>Активирай SmartCar</button>
     </section>
   </main>
 
   <div id="toast" role="status" aria-live="polite"></div>
-
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
   <script>
     (() => {
+      'use strict';
+      const MOVING_KMH = 8;
+      const PARKED_KMH = 3;
+      const PARK_CONFIRM_MS = 60000;
+      const STORAGE_KEY = 'smartcar-last-parked';
+
       const toast = document.getElementById('toast');
-      let timer;
+      const nfcBanner = document.getElementById('nfc-banner');
+      const trackerDot = document.getElementById('tracker-dot');
+      const trackerTitle = document.getElementById('tracker-title');
+      const trackerCopy = document.getElementById('tracker-copy');
+      const speedValue = document.getElementById('speed-value');
+      const accuracyValue = document.getElementById('accuracy-value');
+      const timeValue = document.getElementById('time-value');
+      const savedPlace = document.getElementById('saved-place');
+      const startButton = document.getElementById('start-button');
+      const stopButton = document.getElementById('stop-button');
+      const parkNowButton = document.getElementById('park-now-button');
+      const navigateCar = document.getElementById('navigate-car');
+
+      let toastTimer;
+      let watchId = null;
+      let wakeLock = null;
+      let lastPosition = null;
+      let lastSpeedSamples = [];
+      let hasDriven = false;
+      let stoppedSince = null;
+      let parkingSavedForStop = false;
+      let currentMarker = null;
+      let parkedMarker = null;
+
+      const map = L.map('car-map', { zoomControl:true, minZoom:5 }).setView([42.7339,25.4858],7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap contributors' }).addTo(map);
 
       function showToast(message) {
-        clearTimeout(timer);
-        toast.textContent = message;
-        toast.classList.add('active');
-        timer = setTimeout(() => toast.classList.remove('active'), 3200);
+        clearTimeout(toastTimer); toast.textContent = message; toast.classList.add('active');
+        toastTimer = setTimeout(() => toast.classList.remove('active'), 3400);
+      }
+      function setState(kind,title,copy) {
+        trackerDot.className = `status-dot ${kind || ''}`.trim();
+        trackerTitle.textContent = title; trackerCopy.textContent = copy;
+      }
+      function radians(value) { return value * Math.PI / 180; }
+      function distanceMeters(a,b) {
+        const earth=6371000,dLat=radians(b.lat-a.lat),dLon=radians(b.lon-a.lon),lat1=radians(a.lat),lat2=radians(b.lat);
+        const h=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+        return earth*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
+      }
+      function estimatedSpeedKmh(position) {
+        const gpsSpeed = Number(position.coords.speed);
+        if (Number.isFinite(gpsSpeed) && gpsSpeed >= 0) return gpsSpeed * 3.6;
+        if (!lastPosition) return 0;
+        const seconds = Math.max(.1,(position.timestamp-lastPosition.timestamp)/1000);
+        return distanceMeters(
+          {lat:lastPosition.coords.latitude,lon:lastPosition.coords.longitude},
+          {lat:position.coords.latitude,lon:position.coords.longitude}
+        ) / seconds * 3.6;
+      }
+      function formatTime(timestamp) {
+        return new Intl.DateTimeFormat('bg-BG',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(timestamp));
+      }
+      function drawCurrent(lat,lon) {
+        if (!currentMarker) currentMarker=L.circleMarker([lat,lon],{radius:8,color:'#fff',weight:3,fillColor:'#2563eb',fillOpacity:1}).addTo(map);
+        else currentMarker.setLatLng([lat,lon]);
+      }
+      function drawParked(data,focus=true) {
+        if (!data || !Number.isFinite(data.lat) || !Number.isFinite(data.lon)) return;
+        if (parkedMarker) parkedMarker.remove();
+        parkedMarker=L.marker([data.lat,data.lon],{title:'Паркирана кола'}).addTo(map).bindPopup(`<strong>🚗 Паркирана кола</strong><br>${new Date(data.timestamp).toLocaleString('bg-BG')}`);
+        if (focus) { map.setView([data.lat,data.lon],17); parkedMarker.openPopup(); }
+        savedPlace.innerHTML=`<strong>🚗 Паркирана кола</strong>${new Date(data.timestamp).toLocaleString('bg-BG')}<br>Точност: ±${Math.round(data.accuracy||0)} м`;
+        navigateCar.style.display='inline-flex';
+        navigateCar.href=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(data.lat)},${encodeURIComponent(data.lon)}&travelmode=walking`;
+      }
+      function saveParking(position,reason='automatic') {
+        if (!position) return;
+        const data={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude),accuracy:Number(position.coords.accuracy||0),timestamp:Date.now(),reason};
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+        drawParked(data,true); parkingSavedForStop=true;
+        setState('parked','Колата е отбелязана като паркирана','DAVID запази последната позиция в ParkEyeRay.');
+        showToast('Местоположението е запазено като „Паркирана кола“.');
+      }
+      async function requestWakeLock() {
+        try { if ('wakeLock' in navigator) wakeLock=await navigator.wakeLock.request('screen'); } catch (_) {}
+      }
+      function handlePosition(position) {
+        const lat=Number(position.coords.latitude),lon=Number(position.coords.longitude),accuracy=Number(position.coords.accuracy||0);
+        const speed=estimatedSpeedKmh(position);
+        lastSpeedSamples.push(speed); if (lastSpeedSamples.length>5) lastSpeedSamples.shift();
+        const average=lastSpeedSamples.reduce((sum,value)=>sum+value,0)/lastSpeedSamples.length;
+        lastPosition=position;
+        drawCurrent(lat,lon);
+        localStorage.setItem('smartcar-current-position',JSON.stringify({lat,lon,accuracy,speed:average,timestamp:position.timestamp}));
+        speedValue.textContent=`${average.toFixed(1)} км/ч`;
+        accuracyValue.textContent=`±${Math.round(accuracy)} м`;
+        timeValue.textContent=formatTime(position.timestamp);
+
+        if (average>=MOVING_KMH) {
+          hasDriven=true; stoppedSince=null; parkingSavedForStop=false;
+          setState('driving','Колата е в движение','DAVID обновява позицията и я свързва с ParkEyeRay мапинга.');
+          map.setView([lat,lon],16);
+        } else if (hasDriven && average<=PARKED_KMH) {
+          if (!stoppedSince) stoppedSince=Date.now();
+          const remaining=Math.max(0,Math.ceil((PARK_CONFIRM_MS-(Date.now()-stoppedSince))/1000));
+          if (!parkingSavedForStop && remaining<=0) saveParking(position,'automatic');
+          else if (!parkingSavedForStop) setState('waiting','Проверявам дали паркираш',`Колата е спряла. DAVID ще запази мястото след ${remaining} сек. без движение.`);
+        } else {
+          stoppedSince=null;
+          setState('waiting','SmartCar е активен','Получавам GPS сигнал и очаквам движение на автомобила.');
+        }
+      }
+      function handleError(error) {
+        const denied=error && error.code===1;
+        setState('','GPS не е достъпен',denied?'Разреши местоположение от настройките на браузъра.':'Провери GPS сигнала и опитай отново.');
+        showToast(denied?'Достъпът до местоположение е отказан.':'GPS сигналът не е достъпен.');
+      }
+      async function startTracking() {
+        document.getElementById('tracker').scrollIntoView({behavior:'smooth',block:'start'});
+        if (watchId!==null) { showToast('SmartCar вече следи движението.'); return; }
+        if (!navigator.geolocation) { handleError(); return; }
+        setState('waiting','Свързвам SmartCar','Изчаквам точен GPS сигнал…');
+        await requestWakeLock();
+        watchId=navigator.geolocation.watchPosition(handlePosition,handleError,{enableHighAccuracy:true,maximumAge:2000,timeout:20000});
+        localStorage.setItem('smartcar-active','true');
+      }
+      function stopTracking() {
+        if (watchId!==null) navigator.geolocation.clearWatch(watchId);
+        watchId=null; stoppedSince=null; hasDriven=false; lastSpeedSamples=[];
+        if (wakeLock) wakeLock.release().catch(()=>{}); wakeLock=null;
+        localStorage.removeItem('smartcar-active');
+        setState('','SmartCar е изключен','Проследяването е спряно. Последното паркирано място остава запазено.');
+        showToast('SmartCar проследяването е спряно.');
       }
 
-      document.querySelectorAll('[data-connect]').forEach((button) => {
-        button.addEventListener('click', () => {
-          localStorage.setItem('smartcar-interest', 'connect');
-          showToast('SmartCar профилът е подготвен. Следва реалната DAVID връзка и регистрация на автомобила.');
-        });
+      document.querySelectorAll('[data-start-tracking]').forEach(button=>button.addEventListener('click',startTracking));
+      startButton.addEventListener('click',startTracking);
+      stopButton.addEventListener('click',stopTracking);
+      parkNowButton.addEventListener('click',()=>{
+        if (lastPosition) saveParking(lastPosition,'manual');
+        else navigator.geolocation?.getCurrentPosition(position=>{ lastPosition=position; handlePosition(position); saveParking(position,'manual'); },handleError,{enableHighAccuracy:true,timeout:15000});
       });
+      document.querySelectorAll('[data-order]').forEach(button=>button.addEventListener('click',()=>{
+        const product=button.getAttribute('data-order'); localStorage.setItem('smartcar-product-interest',product); showToast(`Запазен интерес към ${product}.`);
+      }));
 
-      document.querySelectorAll('[data-order]').forEach((button) => {
-        button.addEventListener('click', () => {
-          const product = button.getAttribute('data-order');
-          localStorage.setItem('smartcar-product-interest', product);
-          showToast(`Запазен интерес към ${product}.`);
-        });
-      });
+      const savedRaw=localStorage.getItem(STORAGE_KEY);
+      if (savedRaw) { try { drawParked(JSON.parse(savedRaw),true); } catch (_) {} }
+      const params=new URLSearchParams(location.search);
+      if (params.get('source')==='nfc') {
+        nfcBanner.classList.add('active'); localStorage.setItem('smartcar-nfc-last-tap',String(Date.now()));
+        showToast('SmartCar NFC стикерът е разпознат.');
+        navigator.permissions?.query({name:'geolocation'}).then(result=>{ if (result.state==='granted') startTracking(); }).catch(()=>{});
+      }
+      window.addEventListener('visibilitychange',()=>{ if (document.visibilityState==='visible' && map) setTimeout(()=>map.invalidateSize(),150); });
     })();
   </script>
 </body>
