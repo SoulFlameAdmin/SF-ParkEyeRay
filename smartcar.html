@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07111f" />
+  <title>SmartCar — направи колата си смарт</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --surface: rgba(15, 29, 48, .88);
+      --surface-2: #10243b;
+      --line: rgba(148, 163, 184, .22);
+      --text: #f8fafc;
+      --muted: #a7b5c7;
+      --blue: #38bdf8;
+      --green: #34d399;
+      --violet: #a78bfa;
+      --shadow: 0 20px 60px rgba(0, 0, 0, .35);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 85% 5%, rgba(56, 189, 248, .20), transparent 32%),
+        radial-gradient(circle at 10% 30%, rgba(167, 139, 250, .14), transparent 30%),
+        var(--bg);
+    }
+
+    button, a { font: inherit; }
+    a { color: inherit; }
+
+    .shell { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding: 18px 0 54px; }
+
+    .topbar {
+      position: sticky;
+      top: 10px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(7, 17, 31, .82);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+    }
+
+    .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .brand-icon {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--blue), var(--violet));
+      font-size: 22px;
+      box-shadow: 0 10px 30px rgba(56, 189, 248, .25);
+    }
+    .brand strong { display: block; font-size: 17px; }
+    .brand small { display: block; margin-top: 2px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,.05);
+      text-decoration: none;
+      font-weight: 800;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.25fr .75fr;
+      gap: 20px;
+      align-items: stretch;
+      margin-top: 22px;
+    }
+
+    .hero-copy, .car-core, .section-card {
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: linear-gradient(145deg, rgba(16, 36, 59, .92), rgba(8, 22, 39, .9));
+      box-shadow: var(--shadow);
+    }
+
+    .hero-copy { padding: clamp(24px, 5vw, 52px); }
+    .eyebrow {
+      display: inline-flex;
+      padding: 7px 11px;
+      border: 1px solid rgba(56, 189, 248, .35);
+      border-radius: 999px;
+      background: rgba(56, 189, 248, .08);
+      color: #7dd3fc;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 { max-width: 760px; margin: 18px 0 14px; font-size: clamp(36px, 7vw, 70px); line-height: .98; letter-spacing: -.045em; }
+    .hero-copy p { max-width: 720px; margin: 0; color: var(--muted); font-size: clamp(16px, 2.2vw, 20px); line-height: 1.6; }
+
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+    .primary-button, .secondary-button {
+      min-height: 48px;
+      padding: 0 18px;
+      border-radius: 14px;
+      border: 0;
+      cursor: pointer;
+      font-weight: 900;
+    }
+    .primary-button { background: linear-gradient(135deg, var(--blue), #2563eb); color: #03111d; }
+    .secondary-button { border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--text); }
+
+    .car-core { display: grid; place-items: center; min-height: 340px; padding: 22px; overflow: hidden; }
+    .core-visual { position: relative; display: grid; place-items: center; width: min(280px, 78vw); aspect-ratio: 1; }
+    .ring { position: absolute; inset: 4%; border: 1px solid rgba(56,189,248,.34); border-radius: 50%; animation: spin 18s linear infinite; }
+    .ring::before, .ring::after { content: ''; position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 20px var(--blue); }
+    .ring::before { top: 9%; left: 18%; }
+    .ring::after { right: 3%; bottom: 30%; background: var(--green); box-shadow: 0 0 20px var(--green); }
+    .car-bubble {
+      display: grid;
+      place-items: center;
+      width: 62%;
+      aspect-ratio: 1;
+      border-radius: 36%;
+      background: radial-gradient(circle at 35% 25%, rgba(255,255,255,.3), transparent 22%), linear-gradient(135deg, #0ea5e9, #4f46e5 58%, #7c3aed);
+      font-size: clamp(58px, 11vw, 92px);
+      box-shadow: 0 0 55px rgba(56,189,248,.28);
+    }
+    .core-label { position: absolute; bottom: 4%; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(7,17,31,.88); color: #dbeafe; font-size: 12px; font-weight: 900; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .section { margin-top: 24px; }
+    .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 14px; margin-bottom: 13px; }
+    .section-heading h2 { margin: 0; font-size: clamp(24px, 4vw, 38px); letter-spacing: -.03em; }
+    .section-heading p { max-width: 600px; margin: 0; color: var(--muted); line-height: 1.5; }
+
+    .product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .product-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--surface);
+      box-shadow: 0 14px 34px rgba(0,0,0,.22);
+    }
+    .product-card.featured { border-color: rgba(52,211,153,.55); transform: translateY(-5px); }
+    .product-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: var(--surface-2); font-size: 27px; }
+    .product-card h3 { margin: 16px 0 6px; font-size: 21px; }
+    .product-card p { margin: 0; color: var(--muted); line-height: 1.55; }
+    .product-card ul { display: grid; gap: 9px; margin: 18px 0 22px; padding: 0; list-style: none; color: #d8e5f3; }
+    .product-card li::before { content: '✓'; margin-right: 8px; color: var(--green); font-weight: 900; }
+    .product-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; }
+    .price { font-size: 13px; color: var(--muted); }
+    .price strong { display: block; color: var(--text); font-size: 18px; }
+    .order-button { min-height: 42px; padding: 0 14px; border: 0; border-radius: 12px; background: #e2e8f0; color: #0f172a; font-weight: 900; cursor: pointer; }
+
+    .flow-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .flow-step { padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.04); }
+    .flow-number { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: rgba(56,189,248,.12); color: var(--blue); font-weight: 950; }
+    .flow-step h3 { margin: 14px 0 7px; font-size: 16px; }
+    .flow-step p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+    .section-card { padding: clamp(20px, 4vw, 34px); }
+    .connection-card { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; }
+    .connection-card h2 { margin: 0 0 8px; font-size: clamp(26px, 4vw, 42px); }
+    .connection-card p { max-width: 760px; margin: 0; color: var(--muted); line-height: 1.6; }
+    .status-pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 8px 11px; border-radius: 999px; background: rgba(52,211,153,.09); color: #86efac; font-size: 13px; font-weight: 850; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 15px var(--green); }
+
+    .privacy-note { margin-top: 14px; color: #8394aa; font-size: 12px; line-height: 1.5; }
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: max(18px, env(safe-area-inset-bottom));
+      z-index: 40;
+      display: none;
+      transform: translateX(-50%);
+      width: min(500px, calc(100% - 28px));
+      padding: 13px 15px;
+      border: 1px solid rgba(52,211,153,.35);
+      border-radius: 14px;
+      background: rgba(5, 26, 23, .96);
+      color: #d1fae5;
+      text-align: center;
+      box-shadow: var(--shadow);
+      font-weight: 800;
+    }
+    #toast.active { display: block; }
+
+    @media (max-width: 850px) {
+      .hero, .connection-card { grid-template-columns: 1fr; }
+      .car-core { min-height: 300px; }
+      .product-grid { grid-template-columns: 1fr; }
+      .product-card.featured { transform: none; }
+      .flow-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 520px) {
+      .shell { width: min(100% - 18px, 1120px); padding-top: 9px; }
+      .topbar { top: 6px; padding: 9px; border-radius: 15px; }
+      .brand small { max-width: 150px; }
+      .back-link { min-height: 39px; padding: 0 10px; font-size: 13px; }
+      .hero { margin-top: 12px; }
+      .hero-copy, .car-core, .section-card { border-radius: 20px; }
+      .flow-grid { grid-template-columns: 1fr; }
+      .section-heading { display: block; }
+      .section-heading p { margin-top: 7px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .ring { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">🚘</div>
+        <div>
+          <strong>SmartCar</strong>
+          <small>DAVID × ParkEyeRay × твоята кола</small>
+        </div>
+      </div>
+      <a class="back-link" href="index.html">← Картата</a>
+    </header>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">SoulFlame Smart City</span>
+        <h1>Направи колата си смарт.</h1>
+        <p>SmartCar свързва стойката и модула в автомобила с DAVID и ParkEyeRay, за да получаваш по-умна навигация, намиране на паркинг, позиция на колата и персонални предупреждения.</p>
+        <div class="hero-actions">
+          <button class="primary-button" type="button" data-connect>Свържи DAVID</button>
+          <button class="secondary-button" type="button" onclick="document.getElementById('products').scrollIntoView()">Виж комплектите</button>
+        </div>
+      </div>
+
+      <div class="car-core" aria-label="Връзка между колата, DAVID и ParkEyeRay">
+        <div class="core-visual">
+          <div class="ring"></div>
+          <div class="car-bubble">🚗</div>
+          <div class="core-label">Кола ↔ DAVID ↔ ParkEyeRay</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="products" class="section">
+      <div class="section-heading">
+        <div><span class="eyebrow">SmartCar Store</span><h2>Комплекти за всяка кола</h2></div>
+        <p>Започваме с лесни за монтаж решения. Първата версия не управлява волан, газ или спирачки — тя прави навигацията, паркирането и информацията в колата по-умни.</p>
+      </div>
+
+      <div class="product-grid">
+        <article class="product-card">
+          <div class="product-icon">📱</div>
+          <h3>SmartCar Mount</h3>
+          <p>Универсална стойка за телефон с бърз достъп до DAVID и ParkEyeRay.</p>
+          <ul>
+            <li>Стабилно закрепване</li>
+            <li>Режим за навигация</li>
+            <li>Бърз бутон „Паркирай“</li>
+          </ul>
+          <div class="product-footer">
+            <div class="price"><strong>Очаквай скоро</strong>Базов комплект</div>
+            <button class="order-button" type="button" data-order="SmartCar Mount">Заяви интерес</button>
+          </div>
+        </article>
+
+        <article class="product-card featured">
+          <div class="product-icon">🔗</div>
+          <h3>SmartCar Connect</h3>
+          <p>Стойка плюс свързващ модул за синхронизация на автомобила, телефона и DAVID.</p>
+          <ul>
+            <li>Позиция и маршрут</li>
+            <li>ParkEyeRay мапинг</li>
+            <li>Персонални известия</li>
+          </ul>
+          <div class="product-footer">
+            <div class="price"><strong>Препоръчан MVP</strong>Основен продукт</div>
+            <button class="order-button" type="button" data-order="SmartCar Connect">Заяви интерес</button>
+          </div>
+        </article>
+
+        <article class="product-card">
+          <div class="product-icon">🧠</div>
+          <h3>SmartCar Vision</h3>
+          <p>Бъдещ комплект със сензорен модул за по-богато разбиране на средата около автомобила.</p>
+          <ul>
+            <li>Контекст за DAVID</li>
+            <li>AR насоки</li>
+            <li>Smart City сигнали</li>
+          </ul>
+          <div class="product-footer">
+            <div class="price"><strong>Следващ етап</strong>Разширен комплект</div>
+            <button class="order-button" type="button" data-order="SmartCar Vision">Следи развитието</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-heading">
+        <div><span class="eyebrow">Как работи</span><h2>Една проста връзка</h2></div>
+      </div>
+      <div class="flow-grid">
+        <article class="flow-step"><div class="flow-number">1</div><h3>Монтираш</h3><p>Поставяш SmartCar стойката и свързващия модул в автомобила.</p></article>
+        <article class="flow-step"><div class="flow-number">2</div><h3>Свързваш DAVID</h3><p>Даваш еднократно съгласие за нужните функции и данни.</p></article>
+        <article class="flow-step"><div class="flow-number">3</div><h3>ParkEyeRay мапинг</h3><p>Маршрутът и паркинг опциите се обединяват в една карта.</p></article>
+        <article class="flow-step"><div class="flow-number">4</div><h3>Колата става SmartCar</h3><p>DAVID ти помага с паркиране, навигация, местоположение и контекст.</p></article>
+      </div>
+    </section>
+
+    <section class="section section-card connection-card">
+      <div>
+        <span class="eyebrow">DAVID Car Link</span>
+        <h2>Твоята кола става част от AI Twin.</h2>
+        <p>Връзката трябва да е доброволна, прозрачна и изключваема. Потребителят избира кои данни да споделя и може да прекъсне SmartCar по всяко време.</p>
+        <div class="status-pill"><span class="status-dot"></span>Готово за MVP интеграция</div>
+        <div class="privacy-note">SmartCar MVP е помощна система. Не поема контрол над управлението на автомобила.</div>
+      </div>
+      <button class="primary-button" type="button" data-connect>Активирай SmartCar</button>
+    </section>
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      const toast = document.getElementById('toast');
+      let timer;
+
+      function showToast(message) {
+        clearTimeout(timer);
+        toast.textContent = message;
+        toast.classList.add('active');
+        timer = setTimeout(() => toast.classList.remove('active'), 3200);
+      }
+
+      document.querySelectorAll('[data-connect]').forEach((button) => {
+        button.addEventListener('click', () => {
+          localStorage.setItem('smartcar-interest', 'connect');
+          showToast('SmartCar профилът е подготвен. Следва реалната DAVID връзка и регистрация на автомобила.');
+        });
+      });
+
+      document.querySelectorAll('[data-order]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const product = button.getAttribute('data-order');
+          localStorage.setItem('smartcar-product-interest', product);
+          showToast(`Запазен интерес към ${product}.`);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
