@@ -4,13 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#07111f" />
-  <title>SmartCar — DAVID, NFC и ParkEyeRay</title>
+  <title>SmartCar — NFC, DAVID, ParkEyeRay и AI Twin</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
   <style>
     :root {
-      --bg:#07111f; --surface:rgba(15,29,48,.9); --surface-2:#10243b;
+      --bg:#07111f; --surface:rgba(15,29,48,.92); --surface2:#10243b;
       --line:rgba(148,163,184,.23); --text:#f8fafc; --muted:#a7b5c7;
-      --blue:#38bdf8; --green:#34d399; --violet:#a78bfa; --amber:#fbbf24;
+      --blue:#38bdf8; --green:#34d399; --violet:#a78bfa; --amber:#fbbf24; --red:#fb7185;
       --shadow:0 20px 60px rgba(0,0,0,.35);
     }
     * { box-sizing:border-box; }
@@ -18,118 +18,125 @@
     body {
       margin:0; min-height:100vh; color:var(--text);
       font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:radial-gradient(circle at 85% 5%,rgba(56,189,248,.2),transparent 32%),
-                 radial-gradient(circle at 10% 30%,rgba(167,139,250,.14),transparent 30%),var(--bg);
+      background:radial-gradient(circle at 88% 3%,rgba(56,189,248,.20),transparent 31%),
+                 radial-gradient(circle at 9% 34%,rgba(167,139,250,.14),transparent 30%),var(--bg);
     }
     button,a { font:inherit; }
     a { color:inherit; }
-    .shell { width:min(1120px,calc(100% - 28px)); margin:0 auto; padding:18px 0 54px; }
+    button { cursor:pointer; }
+    .shell { width:min(1160px,calc(100% - 28px)); margin:0 auto; padding:18px 0 56px; }
     .topbar {
-      position:sticky; top:10px; z-index:1000; display:flex; align-items:center;
-      justify-content:space-between; gap:12px; padding:12px 14px; border:1px solid var(--line);
-      border-radius:18px; background:rgba(7,17,31,.84); backdrop-filter:blur(18px); box-shadow:var(--shadow);
+      position:sticky; top:10px; z-index:1000; display:flex; align-items:center; justify-content:space-between;
+      gap:12px; padding:12px 14px; border:1px solid var(--line); border-radius:18px;
+      background:rgba(7,17,31,.86); backdrop-filter:blur(18px); box-shadow:var(--shadow);
     }
     .brand { display:flex; align-items:center; gap:11px; min-width:0; }
-    .brand-icon { display:grid; place-items:center; width:42px; height:42px; flex:0 0 auto; border-radius:14px;
+    .brand-icon { display:grid; place-items:center; width:43px; height:43px; flex:0 0 auto; border-radius:14px;
       background:linear-gradient(135deg,var(--blue),var(--violet)); font-size:22px; box-shadow:0 10px 30px rgba(56,189,248,.25); }
-    .brand strong { display:block; font-size:17px; }
+    .brand strong { display:block; }
     .brand small { display:block; margin-top:2px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .back-link { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:0 14px;
-      border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.05); text-decoration:none; font-weight:800; }
-    .hero { display:grid; grid-template-columns:1.25fr .75fr; gap:20px; align-items:stretch; margin-top:22px; }
-    .hero-copy,.car-core,.section-card,.tracker-card { border:1px solid var(--line); border-radius:26px;
-      background:linear-gradient(145deg,rgba(16,36,59,.94),rgba(8,22,39,.92)); box-shadow:var(--shadow); }
+    .back-link,.ghost-button { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:0 14px;
+      border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.05); text-decoration:none; color:var(--text); font-weight:850; }
+    .hero { display:grid; grid-template-columns:1.22fr .78fr; gap:18px; margin-top:20px; }
+    .card { border:1px solid var(--line); border-radius:25px; background:linear-gradient(145deg,rgba(16,36,59,.95),rgba(8,22,39,.93)); box-shadow:var(--shadow); }
     .hero-copy { padding:clamp(24px,5vw,52px); }
     .eyebrow { display:inline-flex; padding:7px 11px; border:1px solid rgba(56,189,248,.35); border-radius:999px;
       background:rgba(56,189,248,.08); color:#7dd3fc; font-size:12px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
-    h1 { max-width:760px; margin:18px 0 14px; font-size:clamp(36px,7vw,70px); line-height:.98; letter-spacing:-.045em; }
-    .hero-copy p { max-width:720px; margin:0; color:var(--muted); font-size:clamp(16px,2.2vw,20px); line-height:1.6; }
-    .hero-actions,.tracker-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:24px; }
-    .primary-button,.secondary-button,.danger-button,.order-button {
-      min-height:46px; padding:0 17px; border-radius:14px; border:0; cursor:pointer; font-weight:900;
+    h1 { margin:18px 0 14px; font-size:clamp(35px,6.7vw,68px); line-height:.99; letter-spacing:-.045em; }
+    h2 { margin:0; font-size:clamp(25px,4vw,39px); letter-spacing:-.03em; }
+    h3 { margin:0; }
+    p { line-height:1.58; }
+    .hero-copy p,.muted { color:var(--muted); }
+    .hero-actions,.actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:22px; }
+    .primary,.secondary,.danger,.choice,.product-button {
+      min-height:45px; padding:0 16px; border:0; border-radius:13px; font-weight:900;
     }
-    .primary-button { background:linear-gradient(135deg,var(--blue),#2563eb); color:#03111d; }
-    .secondary-button { border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--text); }
-    .danger-button { border:1px solid rgba(248,113,113,.35); background:rgba(127,29,29,.22); color:#fecaca; }
-    .car-core { display:grid; place-items:center; min-height:340px; padding:22px; overflow:hidden; }
-    .core-visual { position:relative; display:grid; place-items:center; width:min(280px,78vw); aspect-ratio:1; }
-    .ring { position:absolute; inset:4%; border:1px solid rgba(56,189,248,.34); border-radius:50%; animation:spin 18s linear infinite; }
-    .ring::before,.ring::after { content:''; position:absolute; width:10px; height:10px; border-radius:50%; background:var(--blue); box-shadow:0 0 20px var(--blue); }
-    .ring::before { top:9%; left:18%; }
+    .primary { background:linear-gradient(135deg,var(--blue),#2563eb); color:#03111d; }
+    .secondary { border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--text); }
+    .danger { border:1px solid rgba(251,113,133,.34); background:rgba(127,29,29,.22); color:#fecdd3; }
+    .car-core { display:grid; place-items:center; min-height:350px; padding:22px; overflow:hidden; }
+    .core { position:relative; display:grid; place-items:center; width:min(285px,79vw); aspect-ratio:1; }
+    .ring { position:absolute; inset:3%; border:1px solid rgba(56,189,248,.35); border-radius:50%; animation:spin 18s linear infinite; }
+    .ring::before,.ring::after { content:""; position:absolute; width:11px; height:11px; border-radius:50%; background:var(--blue); box-shadow:0 0 20px var(--blue); }
+    .ring::before { top:8%; left:19%; }
     .ring::after { right:3%; bottom:30%; background:var(--green); box-shadow:0 0 20px var(--green); }
-    .car-bubble { display:grid; place-items:center; width:62%; aspect-ratio:1; border-radius:36%;
-      background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.3),transparent 22%),linear-gradient(135deg,#0ea5e9,#4f46e5 58%,#7c3aed);
-      font-size:clamp(58px,11vw,92px); box-shadow:0 0 55px rgba(56,189,248,.28); }
-    .core-label { position:absolute; bottom:4%; padding:7px 12px; border:1px solid var(--line); border-radius:999px;
-      background:rgba(7,17,31,.88); color:#dbeafe; font-size:12px; font-weight:900; }
+    .car-bubble { display:grid; place-items:center; width:62%; aspect-ratio:1; border-radius:36%; font-size:clamp(58px,11vw,92px);
+      background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.3),transparent 22%),linear-gradient(135deg,#0ea5e9,#4f46e5 58%,#7c3aed); }
+    .core-label { position:absolute; bottom:3%; padding:7px 12px; border:1px solid var(--line); border-radius:999px; background:rgba(7,17,31,.9); font-size:12px; font-weight:900; }
     @keyframes spin { to { transform:rotate(360deg); } }
-    .nfc-banner { display:none; margin-top:16px; padding:12px 14px; border:1px solid rgba(52,211,153,.4); border-radius:15px;
-      background:rgba(6,78,59,.22); color:#d1fae5; font-weight:800; line-height:1.45; }
+    .nfc-banner { display:none; margin-top:15px; padding:13px 14px; border:1px solid rgba(52,211,153,.42); border-radius:15px; background:rgba(6,78,59,.22); color:#d1fae5; font-weight:800; }
     .nfc-banner.active { display:block; }
     .section { margin-top:24px; }
-    .section-heading { display:flex; justify-content:space-between; align-items:end; gap:14px; margin-bottom:13px; }
-    .section-heading h2 { margin:0; font-size:clamp(24px,4vw,38px); letter-spacing:-.03em; }
-    .section-heading p { max-width:620px; margin:0; color:var(--muted); line-height:1.55; }
-    .product-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(235px,1fr)); gap:14px; }
-    .product-card { display:flex; flex-direction:column; min-height:100%; padding:20px; border:1px solid var(--line); border-radius:22px;
-      background:var(--surface); box-shadow:0 14px 34px rgba(0,0,0,.22); }
-    .product-card.featured { border-color:rgba(52,211,153,.6); box-shadow:0 18px 45px rgba(52,211,153,.11); }
-    .product-icon { display:grid; place-items:center; width:52px; height:52px; border-radius:16px; background:var(--surface-2); font-size:27px; }
-    .product-card h3 { margin:16px 0 6px; font-size:21px; }
-    .product-card p { margin:0; color:var(--muted); line-height:1.55; }
-    .product-card ul { display:grid; gap:9px; margin:18px 0 22px; padding:0; list-style:none; color:#d8e5f3; }
-    .product-card li::before { content:'✓'; margin-right:8px; color:var(--green); font-weight:900; }
-    .product-footer { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:auto; }
-    .price { font-size:13px; color:var(--muted); }
-    .price strong { display:block; color:var(--text); font-size:17px; }
-    .order-button { min-height:42px; padding:0 13px; border-radius:12px; background:#e2e8f0; color:#0f172a; }
-    .flow-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
-    .flow-step { padding:18px; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.04); }
-    .flow-number { display:grid; place-items:center; width:34px; height:34px; border-radius:11px; background:rgba(56,189,248,.12); color:var(--blue); font-weight:950; }
-    .flow-step h3 { margin:14px 0 7px; font-size:16px; }
-    .flow-step p { margin:0; color:var(--muted); font-size:14px; line-height:1.5; }
-    .tracker-card { padding:clamp(18px,4vw,30px); }
-    .tracker-layout { display:grid; grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr); gap:18px; align-items:stretch; }
-    .status-box { padding:18px; border:1px solid var(--line); border-radius:20px; background:rgba(255,255,255,.035); }
-    .status-line { display:flex; align-items:center; gap:10px; }
-    .status-dot { width:12px; height:12px; border-radius:50%; background:#64748b; box-shadow:0 0 16px currentColor; }
-    .status-dot.driving { background:var(--blue); }
-    .status-dot.waiting { background:var(--amber); }
-    .status-dot.parked { background:var(--green); }
+    .section-head { display:flex; justify-content:space-between; align-items:end; gap:15px; margin-bottom:13px; }
+    .section-head p { max-width:650px; margin:0; color:var(--muted); }
+    .system-grid { display:grid; grid-template-columns:.82fr 1.18fr; gap:16px; padding:clamp(18px,4vw,30px); }
+    .status-panel { padding:18px; border:1px solid var(--line); border-radius:20px; background:rgba(255,255,255,.035); }
+    .status-row { display:flex; align-items:center; gap:10px; }
+    .dot { width:12px; height:12px; border-radius:50%; background:#64748b; box-shadow:0 0 17px currentColor; }
+    .dot.armed { background:var(--amber); }
+    .dot.driving { background:var(--blue); }
+    .dot.parked { background:var(--green); }
     .status-title { font-size:20px; font-weight:950; }
-    .status-copy { margin:9px 0 0; color:var(--muted); line-height:1.55; }
-    .metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:16px; }
-    .metric { padding:12px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.035); }
-    .metric span { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
-    .metric strong { display:block; margin-top:5px; font-size:17px; }
-    .saved-place { margin-top:14px; padding:13px; border:1px solid rgba(52,211,153,.25); border-radius:14px; background:rgba(6,78,59,.14); color:#d1fae5; line-height:1.5; }
-    .saved-place strong { display:block; margin-bottom:3px; }
-    #car-map { width:100%; min-height:360px; border-radius:20px; overflow:hidden; background:#dbeafe; }
-    .leaflet-container { font-family:inherit; }
-    .connection-card { display:grid; grid-template-columns:1fr auto; gap:20px; align-items:center; padding:clamp(20px,4vw,34px); }
-    .connection-card h2 { margin:0 0 8px; font-size:clamp(26px,4vw,42px); }
-    .connection-card p { max-width:760px; margin:0; color:var(--muted); line-height:1.6; }
-    .privacy-note { margin-top:14px; color:#93a4ba; font-size:12px; line-height:1.55; }
-    #toast { position:fixed; left:50%; bottom:max(18px,env(safe-area-inset-bottom)); z-index:2000; display:none; transform:translateX(-50%);
-      width:min(520px,calc(100% - 28px)); padding:13px 15px; border:1px solid rgba(52,211,153,.35); border-radius:14px;
-      background:rgba(5,26,23,.97); color:#d1fae5; text-align:center; box-shadow:var(--shadow); font-weight:800; }
+    .status-copy { margin:8px 0 0; color:var(--muted); }
+    .identity { margin-top:14px; padding:13px; border:1px solid var(--line); border-radius:15px; background:rgba(255,255,255,.035); }
+    .identity span { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
+    .identity strong { display:block; margin-top:4px; overflow-wrap:anywhere; }
+    .metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:14px; }
+    .metric { padding:11px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.035); }
+    .metric span { display:block; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.06em; }
+    .metric strong { display:block; margin-top:5px; font-size:16px; }
+    #car-map { width:100%; min-height:465px; border-radius:20px; overflow:hidden; background:#dbeafe; }
+    .question-card { display:none; margin-top:14px; padding:16px; border:1px solid rgba(167,139,250,.42); border-radius:18px; background:rgba(76,29,149,.16); }
+    .question-card.active { display:block; }
+    .question-card p { margin:7px 0 0; color:#ddd6fe; }
+    .choice { background:#ede9fe; color:#2e1065; }
+    .choice.secondary-choice { background:rgba(255,255,255,.07); color:#f5f3ff; border:1px solid var(--line); }
+    .saved { margin-top:14px; padding:14px; border:1px solid rgba(52,211,153,.28); border-radius:15px; background:rgba(6,78,59,.14); color:#d1fae5; }
+    .saved strong { display:block; margin-bottom:4px; }
+    .parking-confirm { display:none; margin-top:12px; padding:14px; border:1px solid rgba(251,191,36,.36); border-radius:15px; background:rgba(120,53,15,.15); }
+    .parking-confirm.active { display:block; }
+    .flow-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    .flow { padding:18px; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.04); }
+    .flow-number { display:grid; place-items:center; width:34px; height:34px; border-radius:11px; background:rgba(56,189,248,.12); color:var(--blue); font-weight:950; }
+    .flow h3 { margin-top:13px; font-size:16px; }
+    .flow p { margin:7px 0 0; color:var(--muted); font-size:14px; }
+    .two-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .inner { padding:20px; }
+    .trip-list { display:grid; gap:10px; margin-top:15px; }
+    .trip { padding:13px; border:1px solid var(--line); border-radius:15px; background:rgba(255,255,255,.035); }
+    .trip strong { display:block; }
+    .trip small { display:block; margin-top:5px; color:var(--muted); line-height:1.5; }
+    .echo-options { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .echo-options button { min-height:39px; padding:0 12px; border:1px solid var(--line); border-radius:11px; background:rgba(255,255,255,.06); color:var(--text); font-weight:800; }
+    .sync-pill { display:inline-flex; margin-top:12px; padding:7px 10px; border-radius:999px; background:rgba(56,189,248,.1); color:#bae6fd; font-size:12px; font-weight:850; }
+    .product-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:13px; }
+    .product { display:flex; flex-direction:column; padding:19px; border:1px solid var(--line); border-radius:20px; background:var(--surface); }
+    .product.featured { border-color:rgba(52,211,153,.52); }
+    .product-icon { display:grid; place-items:center; width:50px; height:50px; border-radius:15px; background:var(--surface2); font-size:26px; }
+    .product h3 { margin-top:14px; }
+    .product p { color:var(--muted); }
+    .product ul { display:grid; gap:8px; padding:0; list-style:none; color:#dbe7f4; }
+    .product li::before { content:"✓"; margin-right:7px; color:var(--green); font-weight:900; }
+    .product-button { margin-top:auto; background:#e2e8f0; color:#0f172a; }
+    .note { margin-top:13px; color:#93a4ba; font-size:12px; line-height:1.55; }
+    #toast { position:fixed; left:50%; bottom:max(18px,env(safe-area-inset-bottom)); z-index:3000; display:none; transform:translateX(-50%);
+      width:min(540px,calc(100% - 28px)); padding:13px 15px; border:1px solid rgba(52,211,153,.35); border-radius:14px;
+      background:rgba(5,26,23,.98); color:#d1fae5; text-align:center; box-shadow:var(--shadow); font-weight:850; }
     #toast.active { display:block; }
-    @media (max-width:850px) {
-      .hero,.tracker-layout,.connection-card { grid-template-columns:1fr; }
-      .car-core { min-height:300px; }
+    @media (max-width:880px) {
+      .hero,.system-grid,.two-grid { grid-template-columns:1fr; }
       .flow-grid { grid-template-columns:repeat(2,1fr); }
+      .metrics { grid-template-columns:repeat(2,1fr); }
+      .car-core { min-height:300px; }
     }
     @media (max-width:520px) {
-      .shell { width:min(100% - 18px,1120px); padding-top:9px; }
-      .topbar { top:6px; padding:9px; border-radius:15px; }
-      .brand small { max-width:150px; }
-      .back-link { min-height:39px; padding:0 10px; font-size:13px; }
-      .hero { margin-top:12px; }
-      .hero-copy,.car-core,.section-card,.tracker-card { border-radius:20px; }
+      .shell { width:calc(100% - 18px); padding-top:9px; }
+      .topbar { top:6px; padding:9px; }
+      .brand small { max-width:155px; }
       .flow-grid,.metrics { grid-template-columns:1fr; }
-      .section-heading { display:block; }
-      .section-heading p { margin-top:7px; }
-      #car-map { min-height:300px; }
+      .section-head { display:block; }
+      .section-head p { margin-top:7px; }
+      #car-map { min-height:330px; }
     }
     @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } .ring { animation:none; } }
   </style>
@@ -137,104 +144,122 @@
 <body>
   <main class="shell">
     <header class="topbar">
-      <div class="brand"><div class="brand-icon">🚘</div><div><strong>SmartCar</strong><small>DAVID × NFC × ParkEyeRay</small></div></div>
+      <div class="brand"><div class="brand-icon">🚘</div><div><strong>SmartCar</strong><small>NFC × DAVID × ParkEyeRay × AI Twin</small></div></div>
       <a class="back-link" href="index.html">← Картата</a>
     </header>
 
     <section class="hero">
-      <div class="hero-copy">
+      <div class="card hero-copy">
         <span class="eyebrow">SoulFlame Smart City</span>
-        <h1>Колата ти става SmartCar.</h1>
-        <p>Поставяш телефона на SmartCar стойката или докосваш NFC стикера. DAVID включва режима за кола, следи движението чрез GPS и при спиране запазва мястото като „Паркирана кола“ в ParkEyeRay.</p>
-        <div id="nfc-banner" class="nfc-banner">NFC стикерът е разпознат. Натисни „Активирай SmartCar“, за да разрешиш GPS и да започне автоматичното засичане.</div>
+        <h1>Колата се разпознава. Пътуването става памет.</h1>
+        <p>NFC идентифицира конкретната кола. Когато телефонът засече движение, DAVID пита „Караш или се возиш?“. След спиране се записват маршрутът, паркирането и разрешените Echo сигнали към AI Twin.</p>
+        <div id="nfc-banner" class="nfc-banner">NFC автомобилът е разпознат. SmartCar е въоръжен и очаква движение.</div>
         <div class="hero-actions">
-          <button class="primary-button" type="button" data-start-tracking>Активирай SmartCar</button>
-          <button class="secondary-button" type="button" onclick="document.getElementById('products').scrollIntoView()">Виж продуктите</button>
+          <button class="primary" type="button" data-start>Активирай GPS тест</button>
+          <button class="secondary" type="button" id="simulate-button">Симулирай пътуване</button>
+          <a class="ghost-button" href="SMARTCAR_PROTOCOL_V1.md" target="_blank" rel="noopener">Протокол v1</a>
         </div>
+        <div class="note">Пълната работа при затворено приложение изисква Android приложение с Activity Recognition и видима foreground нотификация. Тази страница е работещ демонстратор на логиката.</div>
       </div>
-      <div class="car-core" aria-label="Връзка между телефона, DAVID и ParkEyeRay">
-        <div class="core-visual"><div class="ring"></div><div class="car-bubble">📱</div><div class="core-label">NFC → DAVID → GPS → ParkEyeRay</div></div>
+      <div class="card car-core">
+        <div class="core"><div class="ring"></div><div class="car-bubble">🚗</div><div class="core-label">NFC → движение → въпрос → пътуване → Twin</div></div>
       </div>
     </section>
 
-    <section id="products" class="section">
-      <div class="section-heading">
-        <div><span class="eyebrow">SmartCar Store</span><h2>Стойка, стикер или пълен комплект</h2></div>
-        <p>Клиентът избира дали да използва стойка, само NFC стикер на удобно място в колата, или двата продукта заедно.</p>
+    <section class="section card system-grid" id="system">
+      <div class="status-panel">
+        <div class="status-row"><span id="status-dot" class="dot"></span><div id="status-title" class="status-title">SmartCar е изключен</div></div>
+        <p id="status-copy" class="status-copy">Докосни автомобилния NFC или активирай GPS теста.</p>
+
+        <div class="identity"><span>Разпозната кола</span><strong id="vehicle-value">Няма NFC идентичност</strong></div>
+        <div class="identity"><span>Паркинг NFC код</span><strong id="parking-code-value">Няма засечен код на паркомясто</strong></div>
+
+        <div class="metrics">
+          <div class="metric"><span>Скорост</span><strong id="speed-value">—</strong></div>
+          <div class="metric"><span>Дистанция</span><strong id="distance-value">—</strong></div>
+          <div class="metric"><span>Време</span><strong id="duration-value">—</strong></div>
+          <div class="metric"><span>Роля</span><strong id="role-value">Неизвестна</strong></div>
+        </div>
+
+        <div id="role-question" class="question-card">
+          <h3>DAVID: Караш или се возиш в момента?</h3>
+          <p>Пътуването ще бъде записано и без отговор, но ролята ще остане неизвестна.</p>
+          <div class="actions">
+            <button class="choice" data-role="driver">Карам</button>
+            <button class="choice" data-role="passenger">Возят ме</button>
+            <button class="choice secondary-choice" data-role="unknown">Не отговарям</button>
+          </div>
+        </div>
+
+        <div id="saved-place" class="saved"><strong>Паркирана кола</strong>Все още няма завършено пътуване.</div>
+        <div id="parking-confirm" class="parking-confirm">
+          <strong>DAVID: Това място да се запази ли като паркирана кола?</strong>
+          <div class="actions">
+            <button id="confirm-parking" class="primary">Да, запази</button>
+            <button id="reject-parking" class="secondary">Не</button>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="primary" type="button" data-start>Старт</button>
+          <button id="park-now" class="secondary" type="button">Завърши и паркирай тук</button>
+          <button id="stop-button" class="danger" type="button">Стоп</button>
+        </div>
+        <div class="actions">
+          <a id="navigate-car" class="ghost-button" href="#" target="_blank" rel="noopener" style="display:none">Навигирай до колата</a>
+        </div>
       </div>
-      <div class="product-grid">
-        <article class="product-card">
-          <div class="product-icon">◉</div><h3>SmartCar NFC Sticker</h3>
-          <p>Програмируем NFC стикер, който отваря SmartCar режима на телефона с едно докосване.</p>
-          <ul><li>Поставяне на таблото или стойката</li><li>Стартира DAVID Car Mode</li><li>Без батерия и без зареждане</li></ul>
-          <div class="product-footer"><div class="price"><strong>Самостоятелен продукт</strong>NFC стикер</div><button class="order-button" data-order="SmartCar NFC Sticker">Заяви</button></div>
-        </article>
-        <article class="product-card">
-          <div class="product-icon">📱</div><h3>SmartCar Mount</h3>
-          <p>Универсална стойка за телефон с удобен достъп до DAVID, картата и навигацията.</p>
-          <ul><li>Стабилно закрепване</li><li>Вертикално и хоризонтално</li><li>Бърз достъп до „Паркирай“</li></ul>
-          <div class="product-footer"><div class="price"><strong>Самостоятелен продукт</strong>Стойка за кола</div><button class="order-button" data-order="SmartCar Mount">Заяви</button></div>
-        </article>
-        <article class="product-card featured">
-          <div class="product-icon">🔗</div><h3>SmartCar Starter Kit</h3>
-          <p>Стойка плюс NFC стикер — най-лесният начин всяка обикновена кола да се свърже с DAVID и ParkEyeRay.</p>
-          <ul><li>Стойка + NFC стикер</li><li>Автоматично засичане на движение</li><li>Запазване на паркираната кола</li></ul>
-          <div class="product-footer"><div class="price"><strong>Препоръчан MVP</strong>Пълен комплект</div><button class="order-button" data-order="SmartCar Starter Kit">Заяви</button></div>
-        </article>
-        <article class="product-card">
-          <div class="product-icon">🧠</div><h3>SmartCar Vision</h3>
-          <p>Следващ етап със сензорен или камерен модул за по-богат контекст и Smart City сигнали.</p>
-          <ul><li>Контекст за DAVID</li><li>AR насоки</li><li>Разпознаване на средата</li></ul>
-          <div class="product-footer"><div class="price"><strong>Следващ етап</strong>Премиум модул</div><button class="order-button" data-order="SmartCar Vision">Следи</button></div>
-        </article>
-      </div>
-      <div class="privacy-note">Стикерът се поставя на безопасно място, което не пречи на видимостта, въздушните възглавници, предпазния колан или управлението. Той активира режима; движението се определя от GPS на телефона.</div>
+      <div id="car-map" aria-label="SmartCar карта"></div>
     </section>
 
     <section class="section">
-      <div class="section-heading"><div><span class="eyebrow">Автоматично паркиране</span><h2>Как DAVID разбира, че колата е паркирана</h2></div></div>
+      <div class="section-head"><div><span class="eyebrow">Автоматичен поток</span><h2>Как системата работи</h2></div></div>
       <div class="flow-grid">
-        <article class="flow-step"><div class="flow-number">1</div><h3>Докосваш стикера</h3><p>NFC отваря SmartCar страницата и подготвя DAVID Car Mode.</p></article>
-        <article class="flow-step"><div class="flow-number">2</div><h3>Колата потегля</h3><p>GPS скоростта и промяната на позицията показват, че автомобилът е в движение.</p></article>
-        <article class="flow-step"><div class="flow-number">3</div><h3>Колата спира</h3><p>След движение и поне 60 секунди без значимо местене системата приема, че е паркирана.</p></article>
-        <article class="flow-step"><div class="flow-number">4</div><h3>Мястото се запазва</h3><p>DAVID записва координатите и поставя маркер „Паркирана кола“ върху ParkEyeRay картата.</p></article>
+        <article class="flow"><div class="flow-number">1</div><h3>NFC разпознава колата</h3><p>Уникален `vehicle_id` свързва стикера с профила на конкретния автомобил.</p></article>
+        <article class="flow"><div class="flow-number">2</div><h3>Засича IN_VEHICLE</h3><p>Android комбинира Activity Recognition, GPS и по избор автомобилен Bluetooth.</p></article>
+        <article class="flow"><div class="flow-number">3</div><h3>DAVID пита ролята</h3><p>„Караш или се возиш?“ Отговорът става контекст, не предположение.</p></article>
+        <article class="flow"><div class="flow-number">4</div><h3>Паркиране и Twin</h3><p>При спиране се създават trip, parking и memory събития за ParkEyeRay и AI Twin.</p></article>
       </div>
     </section>
 
-    <section id="tracker" class="section tracker-card">
-      <div class="section-heading">
-        <div><span class="eyebrow">Работещ MVP</span><h2>DAVID Car Mode</h2></div>
-        <p>Тествай със своя телефон. Разреши местоположение и остави страницата отворена по време на теста.</p>
-      </div>
-      <div class="tracker-layout">
-        <div class="status-box">
-          <div class="status-line"><span id="tracker-dot" class="status-dot"></span><div id="tracker-title" class="status-title">SmartCar е изключен</div></div>
-          <p id="tracker-copy" class="status-copy">Докосни NFC стикера или натисни „Активирай SmartCar“.</p>
-          <div class="metrics">
-            <div class="metric"><span>Скорост</span><strong id="speed-value">—</strong></div>
-            <div class="metric"><span>GPS точност</span><strong id="accuracy-value">—</strong></div>
-            <div class="metric"><span>Последен сигнал</span><strong id="time-value">—</strong></div>
+    <section class="section two-grid">
+      <article class="card inner">
+        <span class="eyebrow">Trip Memory</span>
+        <h2>Последни пътувания</h2>
+        <div id="trip-list" class="trip-list"><div class="trip"><strong>Няма записани пътувания</strong><small>Завърши GPS тест или използвай симулацията.</small></div></div>
+      </article>
+      <article class="card inner">
+        <span class="eyebrow">Echo → AI Twin</span>
+        <h2>Контекст след пътуването</h2>
+        <p class="muted">DAVID задава кратки доброволни въпроси. Всеки отговор се пази като сигнал с дата и контекст, а не като абсолютна истина.</p>
+        <div id="echo-panel" style="display:none">
+          <h3>Това пътуване беше:</h3>
+          <div class="echo-options">
+            <button data-echo="purpose:work">По работа</button>
+            <button data-echo="purpose:personal">Лично</button>
+            <button data-echo="purpose:other">Друго</button>
           </div>
-          <div id="saved-place" class="saved-place"><strong>Паркирана кола</strong>Все още няма запазено местоположение.</div>
-          <div class="tracker-actions">
-            <button id="start-button" class="primary-button" type="button">Старт</button>
-            <button id="park-now-button" class="secondary-button" type="button">Запази тук сега</button>
-            <button id="stop-button" class="danger-button" type="button">Стоп</button>
+          <h3 style="margin-top:17px">Маршрутът беше удобен?</h3>
+          <div class="echo-options">
+            <button data-echo="route:good">Да</button>
+            <button data-echo="route:bad">Не</button>
+            <button data-echo="route:skip">Без отговор</button>
           </div>
-          <div class="tracker-actions">
-            <a id="navigate-car" class="secondary-button" href="#" target="_blank" rel="noopener noreferrer" style="display:none;text-decoration:none;align-items:center;justify-content:center">Навигирай до колата</a>
-            <a class="secondary-button" href="index.html" style="text-decoration:none;display:inline-flex;align-items:center">Отвори ParkEyeRay</a>
-          </div>
-          <div class="privacy-note">За постоянно автоматично следене във фон е нужна Android версия с изрично разрешение за фоново местоположение. Браузърът може да спре GPS, когато страницата е затворена.</div>
         </div>
-        <div id="car-map" aria-label="Карта на последно паркираната кола"></div>
-      </div>
+        <div id="sync-pill" class="sync-pill">0 събития чакат синхронизация към Twin</div>
+      </article>
     </section>
 
-    <section class="section section-card connection-card">
-      <div><span class="eyebrow">DAVID Car Link</span><h2>Една връзка между човека, телефона и колата.</h2>
-        <p>Потребителят избира кога SmartCar работи и може да го изключи по всяко време. MVP не управлява волан, газ или спирачки — само навигация, позиция и паркинг контекст.</p></div>
-      <button class="primary-button" type="button" data-start-tracking>Активирай SmartCar</button>
+    <section class="section">
+      <div class="section-head">
+        <div><span class="eyebrow">SmartCar Store</span><h2>Физическите продукти</h2></div>
+        <p>Продаваемият MVP е стойка + програмиран NFC стикер. Android приложението е интелигентният слой.</p>
+      </div>
+      <div class="product-grid">
+        <article class="product"><div class="product-icon">◉</div><h3>SmartCar NFC Sticker</h3><p>Уникален стикер за идентификация на автомобила.</p><ul><li>Без батерия</li><li>Уникален vehicle token</li><li>Стартира DAVID Car Mode</li></ul><button class="product-button" data-order="SmartCar NFC Sticker">Заяви</button></article>
+        <article class="product"><div class="product-icon">📱</div><h3>SmartCar Mount</h3><p>Стойка за сигурен достъп до DAVID и ParkEyeRay.</p><ul><li>Универсална</li><li>Вертикално/хоризонтално</li><li>Бързо поставяне</li></ul><button class="product-button" data-order="SmartCar Mount">Заяви</button></article>
+        <article class="product featured"><div class="product-icon">🔗</div><h3>SmartCar Starter Kit</h3><p>Стойка, автомобилен NFC и DAVID Car Mode.</p><ul><li>Разпознава колата</li><li>Trip + parking логика</li><li>AI Twin синхронизация</li></ul><button class="product-button" data-order="SmartCar Starter Kit">Заяви</button></article>
+      </div>
+      <div class="note">NFC стикерът не трябва да съдържа регистрационен номер или лични данни. Публичната ParkEyeRay карта получава анонимно състояние на мястото, не самоличност или маршрут.</div>
     </section>
   </main>
 
@@ -246,156 +271,239 @@
       const MOVING_KMH = 8;
       const PARKED_KMH = 3;
       const PARK_CONFIRM_MS = 60000;
-      const STORAGE_KEY = 'smartcar-last-parked';
+      const HISTORY_KEY = 'smartcar-trip-history-v1';
+      const PARKED_KEY = 'smartcar-last-parked';
+      const QUEUE_KEY = 'smartcar-sync-queue-v1';
+      const params = new URLSearchParams(location.search);
+      const source = params.get('source') || 'web';
+      const vehicleId = params.get('vehicle_id');
+      const parkingCode = params.get('parking_code');
 
-      const toast = document.getElementById('toast');
-      const nfcBanner = document.getElementById('nfc-banner');
-      const trackerDot = document.getElementById('tracker-dot');
-      const trackerTitle = document.getElementById('tracker-title');
-      const trackerCopy = document.getElementById('tracker-copy');
-      const speedValue = document.getElementById('speed-value');
-      const accuracyValue = document.getElementById('accuracy-value');
-      const timeValue = document.getElementById('time-value');
-      const savedPlace = document.getElementById('saved-place');
-      const startButton = document.getElementById('start-button');
-      const stopButton = document.getElementById('stop-button');
-      const parkNowButton = document.getElementById('park-now-button');
-      const navigateCar = document.getElementById('navigate-car');
-
+      const el = id => document.getElementById(id);
+      const statusDot = el('status-dot');
+      const statusTitle = el('status-title');
+      const statusCopy = el('status-copy');
+      const roleQuestion = el('role-question');
+      const parkingConfirm = el('parking-confirm');
+      const echoPanel = el('echo-panel');
+      const toast = el('toast');
       let toastTimer;
       let watchId = null;
-      let wakeLock = null;
       let lastPosition = null;
-      let lastSpeedSamples = [];
-      let hasDriven = false;
+      let speedSamples = [];
+      let trip = null;
       let stoppedSince = null;
-      let parkingSavedForStop = false;
+      let parkingCandidate = null;
       let currentMarker = null;
       let parkedMarker = null;
+      let simulatedTimer = null;
 
-      const map = L.map('car-map', { zoomControl:true, minZoom:5 }).setView([42.7339,25.4858],7);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap contributors' }).addTo(map);
+      const map = L.map('car-map',{zoomControl:true,minZoom:5}).setView([42.7339,25.4858],7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
 
+      function uid(prefix) {
+        return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,9)}`;
+      }
       function showToast(message) {
-        clearTimeout(toastTimer); toast.textContent = message; toast.classList.add('active');
-        toastTimer = setTimeout(() => toast.classList.remove('active'), 3400);
+        clearTimeout(toastTimer); toast.textContent=message; toast.classList.add('active');
+        toastTimer=setTimeout(()=>toast.classList.remove('active'),3500);
       }
       function setState(kind,title,copy) {
-        trackerDot.className = `status-dot ${kind || ''}`.trim();
-        trackerTitle.textContent = title; trackerCopy.textContent = copy;
+        statusDot.className=`dot ${kind||''}`.trim(); statusTitle.textContent=title; statusCopy.textContent=copy;
       }
-      function radians(value) { return value * Math.PI / 180; }
-      function distanceMeters(a,b) {
+      function radians(value){ return value*Math.PI/180; }
+      function distanceMeters(a,b){
         const earth=6371000,dLat=radians(b.lat-a.lat),dLon=radians(b.lon-a.lon),lat1=radians(a.lat),lat2=radians(b.lat);
         const h=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
         return earth*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
       }
-      function estimatedSpeedKmh(position) {
-        const gpsSpeed = Number(position.coords.speed);
-        if (Number.isFinite(gpsSpeed) && gpsSpeed >= 0) return gpsSpeed * 3.6;
-        if (!lastPosition) return 0;
-        const seconds = Math.max(.1,(position.timestamp-lastPosition.timestamp)/1000);
-        return distanceMeters(
-          {lat:lastPosition.coords.latitude,lon:lastPosition.coords.longitude},
-          {lat:position.coords.latitude,lon:position.coords.longitude}
-        ) / seconds * 3.6;
+      function point(position){
+        return {lat:Number(position.coords.latitude),lon:Number(position.coords.longitude),accuracy:Number(position.coords.accuracy||0),timestamp:Number(position.timestamp||Date.now())};
       }
-      function formatTime(timestamp) {
-        return new Intl.DateTimeFormat('bg-BG',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(timestamp));
+      function roleLabel(role){ return role==='driver'?'Шофьор':role==='passenger'?'Пътник':'Неизвестна'; }
+      function formatDistance(m){ return m<1000?`${Math.round(m)} м`:`${(m/1000).toFixed(1)} км`; }
+      function formatDuration(ms){ const total=Math.max(0,Math.round(ms/1000)); return `${Math.floor(total/60)}:${String(total%60).padStart(2,'0')}`; }
+      function coords(p){ return `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`; }
+      function getQueue(){ try{return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]')}catch{return[]} }
+      function queueEvent(eventType,payload={}){
+        const queue=getQueue();
+        queue.push({event_id:uid('evt'),event_type:eventType,occurred_at:new Date().toISOString(),user_id:'local-demo-user',vehicle_id:vehicleId||null,trip_id:trip?.id||payload.trip_id||null,consent_version:'demo-v1',source:[source==='nfc'?'nfc':'manual','gps','david'],payload});
+        localStorage.setItem(QUEUE_KEY,JSON.stringify(queue.slice(-100)));
+        renderQueue();
       }
-      function drawCurrent(lat,lon) {
-        if (!currentMarker) currentMarker=L.circleMarker([lat,lon],{radius:8,color:'#fff',weight:3,fillColor:'#2563eb',fillOpacity:1}).addTo(map);
-        else currentMarker.setLatLng([lat,lon]);
+      function renderQueue(){ el('sync-pill').textContent=`${getQueue().length} събития чакат синхронизация към Twin`; }
+      function drawCurrent(p){
+        if(!currentMarker) currentMarker=L.circleMarker([p.lat,p.lon],{radius:8,color:'#fff',weight:3,fillColor:'#2563eb',fillOpacity:1}).addTo(map);
+        else currentMarker.setLatLng([p.lat,p.lon]);
       }
-      function drawParked(data,focus=true) {
-        if (!data || !Number.isFinite(data.lat) || !Number.isFinite(data.lon)) return;
-        if (parkedMarker) parkedMarker.remove();
+      function drawParked(data,focus=true){
+        if(!data) return;
+        if(parkedMarker) parkedMarker.remove();
         parkedMarker=L.marker([data.lat,data.lon],{title:'Паркирана кола'}).addTo(map).bindPopup(`<strong>🚗 Паркирана кола</strong><br>${new Date(data.timestamp).toLocaleString('bg-BG')}`);
-        if (focus) { map.setView([data.lat,data.lon],17); parkedMarker.openPopup(); }
-        savedPlace.innerHTML=`<strong>🚗 Паркирана кола</strong>${new Date(data.timestamp).toLocaleString('bg-BG')}<br>Точност: ±${Math.round(data.accuracy||0)} м`;
-        navigateCar.style.display='inline-flex';
-        navigateCar.href=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(data.lat)},${encodeURIComponent(data.lon)}&travelmode=walking`;
+        if(focus){ map.setView([data.lat,data.lon],17); parkedMarker.openPopup(); }
+        const publicState=data.public_occupied?'ParkEyeRay: мястото е отбелязано като заето.':'Лична позиция — не е публикувана като заето място.';
+        el('saved-place').innerHTML=`<strong>🚗 Паркирана кола</strong>${coords(data)}<br>${publicState}`;
+        el('navigate-car').style.display='inline-flex';
+        el('navigate-car').href=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(data.lat)},${encodeURIComponent(data.lon)}&travelmode=walking`;
       }
-      function saveParking(position,reason='automatic') {
-        if (!position) return;
-        const data={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude),accuracy:Number(position.coords.accuracy||0),timestamp:Date.now(),reason};
-        localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
-        drawParked(data,true); parkingSavedForStop=true;
-        setState('parked','Колата е отбелязана като паркирана','DAVID запази последната позиция в ParkEyeRay.');
-        showToast('Местоположението е запазено като „Паркирана кола“.');
+      function estimatedSpeed(position){
+        const native=Number(position.coords.speed);
+        if(Number.isFinite(native)&&native>=0) return native*3.6;
+        if(!lastPosition) return 0;
+        const seconds=Math.max(.1,(position.timestamp-lastPosition.timestamp)/1000);
+        return distanceMeters(point(lastPosition),point(position))/seconds*3.6;
       }
-      async function requestWakeLock() {
-        try { if ('wakeLock' in navigator) wakeLock=await navigator.wakeLock.request('screen'); } catch (_) {}
+      function startTrip(position){
+        const p=point(position);
+        trip={id:uid('trip'),started_at:Date.now(),start:p,end:null,distance_m:0,role:'unknown',role_answered:false,vehicle_id:vehicleId||null,parking_code:parkingCode||null};
+        stoppedSince=null;
+        roleQuestion.classList.add('active');
+        echoPanel.style.display='none';
+        queueEvent('TRIP_STARTED',{lat:p.lat,lon:p.lon,accuracy_m:p.accuracy,role:'unknown'});
+        queueEvent('ROLE_QUESTION_SENT',{question:'Караш или се возиш в момента?'});
+        setState('driving','Пътуването започна','DAVID следи маршрута и чака отговор за ролята ти.');
       }
-      function handlePosition(position) {
-        const lat=Number(position.coords.latitude),lon=Number(position.coords.longitude),accuracy=Number(position.coords.accuracy||0);
-        const speed=estimatedSpeedKmh(position);
-        lastSpeedSamples.push(speed); if (lastSpeedSamples.length>5) lastSpeedSamples.shift();
-        const average=lastSpeedSamples.reduce((sum,value)=>sum+value,0)/lastSpeedSamples.length;
-        lastPosition=position;
-        drawCurrent(lat,lon);
-        localStorage.setItem('smartcar-current-position',JSON.stringify({lat,lon,accuracy,speed:average,timestamp:position.timestamp}));
-        speedValue.textContent=`${average.toFixed(1)} км/ч`;
-        accuracyValue.textContent=`±${Math.round(accuracy)} м`;
-        timeValue.textContent=formatTime(position.timestamp);
-
-        if (average>=MOVING_KMH) {
-          hasDriven=true; stoppedSince=null; parkingSavedForStop=false;
-          setState('driving','Колата е в движение','DAVID обновява позицията и я свързва с ParkEyeRay мапинга.');
-          map.setView([lat,lon],16);
-        } else if (hasDriven && average<=PARKED_KMH) {
-          if (!stoppedSince) stoppedSince=Date.now();
-          const remaining=Math.max(0,Math.ceil((PARK_CONFIRM_MS-(Date.now()-stoppedSince))/1000));
-          if (!parkingSavedForStop && remaining<=0) saveParking(position,'automatic');
-          else if (!parkingSavedForStop) setState('waiting','Проверявам дали паркираш',`Колата е спряла. DAVID ще запази мястото след ${remaining} сек. без движение.`);
-        } else {
-          stoppedSince=null;
-          setState('waiting','SmartCar е активен','Получавам GPS сигнал и очаквам движение на автомобила.');
+      function updateTrip(position,speed){
+        const p=point(position);
+        if(lastPosition&&trip){
+          const delta=distanceMeters(point(lastPosition),p);
+          if(delta<1000) trip.distance_m+=delta;
+        }
+        el('speed-value').textContent=`${speed.toFixed(1)} км/ч`;
+        el('distance-value').textContent=trip?formatDistance(trip.distance_m):'—';
+        el('duration-value').textContent=trip?formatDuration(Date.now()-trip.started_at):'—';
+        drawCurrent(p);
+        map.setView([p.lat,p.lon],16);
+      }
+      function createParking(end,automatic=true){
+        const hasCarNfc=source==='nfc'&&Boolean(vehicleId);
+        const publicOccupied=hasCarNfc&&Boolean(parkingCode);
+        const parked={lat:end.lat,lon:end.lon,accuracy:end.accuracy,timestamp:Date.now(),vehicle_id:vehicleId||null,parking_code:parkingCode||null,public_occupied:publicOccupied};
+        parkingCandidate=parked;
+        if(hasCarNfc){
+          localStorage.setItem(PARKED_KEY,JSON.stringify(parked)); drawParked(parked,true);
+          queueEvent(publicOccupied?'PARKING_OCCUPIED':'PARKING_CANDIDATE',{lat:end.lat,lon:end.lon,accuracy_m:end.accuracy,parking_code:parkingCode||null,parking_state:publicOccupied?'occupied':'candidate',confidence:publicOccupied?.92:.76});
+          showToast(publicOccupied?'Паркомястото е отбелязано като заето.':'Позицията на колата е запазена.');
+        }else{
+          parkingConfirm.classList.add('active');
+          showToast('DAVID чака потвърждение дали това е паркирана кола.');
         }
       }
-      function handleError(error) {
-        const denied=error && error.code===1;
-        setState('','GPS не е достъпен',denied?'Разреши местоположение от настройките на браузъра.':'Провери GPS сигнала и опитай отново.');
+      function finishTrip(position,automatic=true){
+        if(!trip||!position) return;
+        const end=point(position);
+        trip.end=end; trip.ended_at=Date.now();
+        const finished={...trip,duration_s:Math.round((trip.ended_at-trip.started_at)/1000)};
+        const history=getHistory(); history.unshift(finished); localStorage.setItem(HISTORY_KEY,JSON.stringify(history.slice(0,15)));
+        queueEvent('TRIP_ENDED',{role:trip.role,distance_m:Math.round(trip.distance_m),duration_s:finished.duration_s,start:trip.start,end:trip.end});
+        queueEvent('TWIN_MEMORY_QUEUED',{role:trip.role,memory_summary:`Пътуване от ${coords(trip.start)} до ${coords(trip.end)}, ${formatDistance(trip.distance_m)}, роля: ${roleLabel(trip.role)}.`});
+        createParking(end,automatic);
+        setState('parked','Пътуването приключи','Маршрутът е обобщен и е подготвен за AI Twin.');
+        roleQuestion.classList.remove('active');
+        echoPanel.style.display='block';
+        renderHistory();
+        trip=null; stoppedSince=null; speedSamples=[];
+        el('speed-value').textContent='0.0 км/ч';
+      }
+      function handlePosition(position){
+        const speed=estimatedSpeed(position);
+        speedSamples.push(speed); if(speedSamples.length>5) speedSamples.shift();
+        const average=speedSamples.reduce((s,v)=>s+v,0)/speedSamples.length;
+        if(!trip&&average>=MOVING_KMH) startTrip(position);
+        if(trip) updateTrip(position,average); else drawCurrent(point(position));
+        if(trip&&average<=PARKED_KMH){
+          if(!stoppedSince) stoppedSince=Date.now();
+          const remaining=Math.max(0,Math.ceil((PARK_CONFIRM_MS-(Date.now()-stoppedSince))/1000));
+          if(remaining===0) finishTrip(position,true);
+          else setState('armed','Проверявам дали пътуването приключи',`Няма движение. Потвърждение след ${remaining} сек.`);
+        }else if(trip){
+          stoppedSince=null; setState('driving','Колата е в движение','DAVID обновява маршрута и ParkEyeRay контекста.');
+        }else{
+          setState('armed','SmartCar е активен','Очаквам надежден сигнал за движение.');
+        }
+        lastPosition=position;
+      }
+      function handleError(error){
+        const denied=error&&error.code===1;
+        setState('','GPS не е достъпен',denied?'Разреши местоположение от настройките.':'Провери GPS сигнала.');
         showToast(denied?'Достъпът до местоположение е отказан.':'GPS сигналът не е достъпен.');
       }
-      async function startTracking() {
-        document.getElementById('tracker').scrollIntoView({behavior:'smooth',block:'start'});
-        if (watchId!==null) { showToast('SmartCar вече следи движението.'); return; }
-        if (!navigator.geolocation) { handleError(); return; }
-        setState('waiting','Свързвам SmartCar','Изчаквам точен GPS сигнал…');
-        await requestWakeLock();
+      function startTracking(){
+        el('system').scrollIntoView({behavior:'smooth',block:'start'});
+        if(watchId!==null){ showToast('SmartCar вече следи движението.'); return; }
+        if(!navigator.geolocation){ handleError(); return; }
+        setState('armed','SmartCar се активира','Изчаквам GPS сигнал…');
         watchId=navigator.geolocation.watchPosition(handlePosition,handleError,{enableHighAccuracy:true,maximumAge:2000,timeout:20000});
-        localStorage.setItem('smartcar-active','true');
+        queueEvent('VEHICLE_VERIFIED',{vehicle_id:vehicleId||null,verified:Boolean(vehicleId)});
       }
-      function stopTracking() {
-        if (watchId!==null) navigator.geolocation.clearWatch(watchId);
-        watchId=null; stoppedSince=null; hasDriven=false; lastSpeedSamples=[];
-        if (wakeLock) wakeLock.release().catch(()=>{}); wakeLock=null;
-        localStorage.removeItem('smartcar-active');
-        setState('','SmartCar е изключен','Проследяването е спряно. Последното паркирано място остава запазено.');
-        showToast('SmartCar проследяването е спряно.');
+      function stopTracking(){
+        if(watchId!==null) navigator.geolocation.clearWatch(watchId);
+        watchId=null; stoppedSince=null; speedSamples=[];
+        setState('','SmartCar е изключен','Фоновото следене е спряно. Запазената история остава.');
+        showToast('SmartCar е спрян.');
+      }
+      function getHistory(){ try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]')}catch{return[]} }
+      function renderHistory(){
+        const history=getHistory();
+        el('trip-list').innerHTML=history.length?history.map(item=>`<div class="trip"><strong>${coords(item.start)} → ${coords(item.end)}</strong><small>${new Date(item.started_at).toLocaleString('bg-BG')} · ${formatDistance(item.distance_m||0)} · ${Math.round((item.duration_s||0)/60)} мин · ${roleLabel(item.role)}</small></div>`).join(''):'<div class="trip"><strong>Няма записани пътувания</strong><small>Завърши GPS тест или използвай симулацията.</small></div>';
+      }
+      function answerRole(role){
+        if(!trip) return;
+        trip.role=role; trip.role_answered=role!=='unknown';
+        el('role-value').textContent=roleLabel(role);
+        roleQuestion.classList.remove('active');
+        queueEvent('ROLE_ANSWERED',{role});
+        showToast(`Ролята е записана: ${roleLabel(role)}.`);
+      }
+      function simulateTrip(){
+        if(simulatedTimer){ showToast('Симулацията вече работи.'); return; }
+        const points=[
+          [42.6818,26.3229,0],[42.6833,26.3199,34],[42.6856,26.3165,39],[42.6882,26.3129,42],[42.6902,26.3100,30],[42.6915,26.3084,0]
+        ];
+        let i=0;
+        const emit=()=>{
+          const [lat,lon,kmh]=points[i];
+          const fake={coords:{latitude:lat,longitude:lon,accuracy:8,speed:kmh/3.6},timestamp:Date.now()};
+          handlePosition(fake); i++;
+          if(i<points.length) simulatedTimer=setTimeout(emit,1400);
+          else simulatedTimer=setTimeout(()=>{ if(trip) finishTrip(fake,true); simulatedTimer=null; },1700);
+        };
+        showToast('Стартира демонстрационно пътуване.'); emit();
       }
 
-      document.querySelectorAll('[data-start-tracking]').forEach(button=>button.addEventListener('click',startTracking));
-      startButton.addEventListener('click',startTracking);
-      stopButton.addEventListener('click',stopTracking);
-      parkNowButton.addEventListener('click',()=>{
-        if (lastPosition) saveParking(lastPosition,'manual');
-        else navigator.geolocation?.getCurrentPosition(position=>{ lastPosition=position; handlePosition(position); saveParking(position,'manual'); },handleError,{enableHighAccuracy:true,timeout:15000});
-      });
-      document.querySelectorAll('[data-order]').forEach(button=>button.addEventListener('click',()=>{
-        const product=button.getAttribute('data-order'); localStorage.setItem('smartcar-product-interest',product); showToast(`Запазен интерес към ${product}.`);
+      document.querySelectorAll('[data-start]').forEach(button=>button.addEventListener('click',startTracking));
+      document.querySelectorAll('[data-role]').forEach(button=>button.addEventListener('click',()=>answerRole(button.dataset.role)));
+      document.querySelectorAll('[data-echo]').forEach(button=>button.addEventListener('click',()=>{
+        queueEvent('ECHO_ANSWERED',{answer:button.dataset.echo}); button.disabled=true; showToast('Echo отговорът е добавен към контекста на Twin.');
       }));
+      document.querySelectorAll('[data-order]').forEach(button=>button.addEventListener('click',()=>{
+        localStorage.setItem('smartcar-product-interest',button.dataset.order); showToast(`Запазен интерес към ${button.dataset.order}.`);
+      }));
+      el('simulate-button').addEventListener('click',simulateTrip);
+      el('stop-button').addEventListener('click',stopTracking);
+      el('park-now').addEventListener('click',()=>{
+        if(trip&&lastPosition) finishTrip(lastPosition,false);
+        else if(lastPosition){ startTrip(lastPosition); finishTrip(lastPosition,false); }
+        else navigator.geolocation?.getCurrentPosition(position=>{ lastPosition=position; startTrip(position); finishTrip(position,false); },handleError,{enableHighAccuracy:true,timeout:15000});
+      });
+      el('confirm-parking').addEventListener('click',()=>{
+        if(!parkingCandidate) return;
+        localStorage.setItem(PARKED_KEY,JSON.stringify(parkingCandidate)); drawParked(parkingCandidate,true);
+        queueEvent('PARKING_CANDIDATE',{lat:parkingCandidate.lat,lon:parkingCandidate.lon,parking_state:'candidate',confidence:.55});
+        parkingConfirm.classList.remove('active'); showToast('Личната позиция на колата е запазена.');
+      });
+      el('reject-parking').addEventListener('click',()=>{ parkingCandidate=null; parkingConfirm.classList.remove('active'); showToast('Мястото не беше записано като паркирана кола.'); });
 
-      const savedRaw=localStorage.getItem(STORAGE_KEY);
-      if (savedRaw) { try { drawParked(JSON.parse(savedRaw),true); } catch (_) {} }
-      const params=new URLSearchParams(location.search);
-      if (params.get('source')==='nfc') {
-        nfcBanner.classList.add('active'); localStorage.setItem('smartcar-nfc-last-tap',String(Date.now()));
-        showToast('SmartCar NFC стикерът е разпознат.');
-        navigator.permissions?.query({name:'geolocation'}).then(result=>{ if (result.state==='granted') startTracking(); }).catch(()=>{});
+      el('vehicle-value').textContent=vehicleId?vehicleId:'Няма NFC идентичност — обикновен режим';
+      el('parking-code-value').textContent=parkingCode||'Няма засечен код на паркомясто';
+      if(source==='nfc'){
+        el('nfc-banner').classList.add('active');
+        queueEvent('NFC_DETECTED',{vehicle_id:vehicleId||null,parking_code:parkingCode||null});
+        setState('armed','NFC колата е разпозната','DAVID очаква движение. За истинска фонова работа е нужна Android версия.');
       }
-      window.addEventListener('visibilitychange',()=>{ if (document.visibilityState==='visible' && map) setTimeout(()=>map.invalidateSize(),150); });
+      const saved=localStorage.getItem(PARKED_KEY); if(saved){ try{drawParked(JSON.parse(saved),true)}catch{} }
+      renderHistory(); renderQueue();
+      window.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') setTimeout(()=>map.invalidateSize(),150); });
     })();
   </script>
 </body>
