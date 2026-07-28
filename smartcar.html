@@ -382,7 +382,7 @@
         parkingCandidate=parked;
         if(hasCarNfc){
           localStorage.setItem(PARKED_KEY,JSON.stringify(parked)); drawParked(parked,true);
-          queueEvent(publicOccupied?'PARKING_OCCUPIED':'PARKING_CANDIDATE',{lat:end.lat,lon:end.lon,accuracy_m:end.accuracy,parking_code:parkingCode||null,parking_state:publicOccupied?'occupied':'candidate',confidence:publicOccupied?.92:.76});
+          queueEvent(publicOccupied?'PARKING_OCCUPIED':'PARKING_CANDIDATE',{lat:end.lat,lon:end.lon,accuracy_m:end.accuracy,parking_code:parkingCode||null,parking_state:publicOccupied?'occupied':'candidate',confidence:publicOccupied ? .92 : .76});
           showToast(publicOccupied?'Паркомястото е отбелязано като заето.':'Позицията на колата е запазена.');
         }else{
           parkingConfirm.classList.add('active');
