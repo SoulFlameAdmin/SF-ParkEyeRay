@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sf-parkeyeray.vercel.app/schemas/smartcar-event.schema.json",
+  "title": "SmartCar Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "event_type", "occurred_at", "user_id", "payload", "consent_version"],
+  "properties": {
+    "event_id": { "type": "string", "minLength": 8 },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "NFC_DETECTED",
+        "VEHICLE_VERIFIED",
+        "IN_VEHICLE_ENTER",
+        "ROLE_QUESTION_SENT",
+        "ROLE_ANSWERED",
+        "TRIP_STARTED",
+        "LOCATION_SAMPLE",
+        "IN_VEHICLE_EXIT",
+        "TRIP_ENDED",
+        "PARKING_CANDIDATE",
+        "PARKING_OCCUPIED",
+        "PARKING_RELEASED",
+        "ECHO_QUESTION_SENT",
+        "ECHO_ANSWERED",
+        "TWIN_MEMORY_QUEUED",
+        "TWIN_MEMORY_COMMITTED"
+      ]
+    },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "user_id": { "type": "string", "minLength": 1 },
+    "vehicle_id": { "type": ["string", "null"] },
+    "trip_id": { "type": ["string", "null"] },
+    "consent_version": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["nfc", "gps", "activity_recognition", "bluetooth", "manual", "parking_nfc", "david"]
+      },
+      "uniqueItems": true
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "role": { "type": "string", "enum": ["driver", "passenger", "unknown"] },
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+        "accuracy_m": { "type": "number", "minimum": 0 },
+        "speed_kmh": { "type": "number", "minimum": 0 },
+        "distance_m": { "type": "number", "minimum": 0 },
+        "duration_s": { "type": "number", "minimum": 0 },
+        "parking_spot_id": { "type": ["string", "null"] },
+        "parking_code": { "type": ["string", "null"] },
+        "parking_state": { "type": "string", "enum": ["candidate", "occupied", "released"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "question_id": { "type": ["string", "null"] },
+        "answer": { "type": ["string", "null"] },
+        "memory_summary": { "type": ["string", "null"], "maxLength": 2000 }
+      }
+    }
+  }
+}
