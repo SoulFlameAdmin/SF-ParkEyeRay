@@ -2,8 +2,13 @@
   'use strict';
   const app=window.SFV2,s=app.state;
   const NEARBY_RADII=[1200,2500,5000];
+  const FUEL_RADII=[3000,7000,12000];
+  const FUEL_MIN_RESULTS=8;
+  const FUEL_REFRESH_DISTANCE=500;
+  const AUTO_FUEL_MIGRATION_KEY='sf_v2_auto_fuel_v2';
 
   app.layerCenter=()=>s.user||{lat:s.map.getCenter().lat,lon:s.map.getCenter().lng};
+  app.fuelCenter=()=>s.user||app.layerCenter();
   app.viewportParkingQuery=()=>{
     const bounds=s.map.getBounds(),center=s.map.getCenter();
     const corners=[bounds.getNorthWest(),bounds.getNorthEast(),bounds.getSouthWest(),bounds.getSouthEast()];
@@ -32,11 +37,35 @@
   app.toggleMapMenu=()=>app.$('map-menu').classList.contains('open')?app.closeMapMenu():app.openMapMenu();
 
   app.fetchNearbyFuel=async(center,radius,signal)=>{
-    const params=new URLSearchParams({type:'fuel',lat:String(center.lat),lon:String(center.lon),radius:String(radius),limit:'100'});
+    const params=new URLSearchParams({type:'fuel',lat:String(center.lat),lon:String(center.lon),radius:String(radius),limit:'120'});
     const response=await fetch(`/api/v2/nearby?${params}`,{signal});
     const data=await response.json();
     if(!response.ok||!Array.isArray(data.places))throw new Error(data.error||'fuel_layer_failed');
     return data;
+  };
+
+  const genericFuelName=value=>{
+    const name=String(value||'').trim().toLowerCase();
+    return !name||name==='бензиностанция'||name==='fuel'||name==='gas station';
+  };
+
+  app.dedupeFuelStations=(stations,center)=>{
+    const result=[];
+    const score=station=>(station.brand?4:0)+(station.openingHours?2:0)+(station.phone?1:0)+(station.website?1:0)+(genericFuelName(station.name)?0:3);
+    [...stations].sort((a,b)=>(Number(a.distance)||app.distance(center,a.point))-(Number(b.distance)||app.distance(center,b.point))).forEach(station=>{
+      if(!station?.point||!Number.isFinite(Number(station.point.lat))||!Number.isFinite(Number(station.point.lon)))return;
+      station.distance=Number(station.distance)||app.distance(center,station.point);
+      const normalizedName=String(station.name||'').trim().toLowerCase();
+      const duplicateIndex=result.findIndex(existing=>{
+        const close=app.distance(existing.point,station.point)<=35;
+        if(!close)return false;
+        const existingName=String(existing.name||'').trim().toLowerCase();
+        return normalizedName===existingName||genericFuelName(normalizedName)||genericFuelName(existingName);
+      });
+      if(duplicateIndex<0){result.push(station);return}
+      if(score(station)>score(result[duplicateIndex]))result[duplicateIndex]=station;
+    });
+    return result.sort((a,b)=>a.distance-b.distance);
   };
 
   app.renderFuelStations=()=>{
@@ -44,25 +73,36 @@
     s.fuelStations.forEach(station=>{
       const nav=`https://www.google.com/maps/dir/?api=1${s.user?`&origin=${s.user.lat},${s.user.lon}`:''}&destination=${station.point.lat},${station.point.lon}&travelmode=driving`;
       const details=[station.brand,station.openingHours,station.selfService?'Самообслужване':null].filter(Boolean).map(app.safe).join(' · ');
-      const marker=L.marker([station.point.lat,station.point.lon],{icon:app.fuelIcon,title:station.name}).addTo(s.fuelLayer);
-      marker.bindPopup(`<b>${app.safe(station.name)}</b><br>${details||'OSM бензиностанция'}<br>${app.formatDistance(station.distance)} от центъра на търсенето<br><a href="${nav}" target="_blank" rel="noopener">Навигация</a>`);
+      const marker=L.marker([station.point.lat,station.point.lon],{icon:app.fuelIcon,title:station.name,zIndexOffset:500}).addTo(s.fuelLayer);
+      marker.bindPopup(`<b>${app.safe(station.name)}</b><br>${details||'OpenStreetMap бензиностанция'}<br>${app.formatDistance(station.distance)} от ${s.user?'теб':'центъра на картата'}<br><a href="${nav}" target="_blank" rel="noopener">Навигация</a>`);
     });
     const count=app.$('fuel-layer-count');if(count)count.textContent=String(s.fuelStations.length);
   };
 
-  app.loadFuelStations=async(center=app.layerCenter(),options={})=>{
-    if(!s.layers.fuel||!app.inBulgaria(center.lat,center.lon)||!s.ui.online)return;
+  app.loadFuelStations=async(center=app.fuelCenter(),options={})=>{
+    if(!s.layers.fuel||!app.inBulgaria(center.lat,center.lon)||!s.ui?.online)return;
     const controller=app.newRequest('fuelLayer');
     try{
-      const data=await app.fetchNearbyFuel(center,7000,controller.signal);
+      let data={places:[],meta:{}},usedRadius=FUEL_RADII.at(-1);
+      for(const radius of FUEL_RADII){
+        data=await app.fetchNearbyFuel(center,radius,controller.signal);
+        usedRadius=radius;
+        if(controller.signal.aborted)return;
+        if(data.places.length>=FUEL_MIN_RESULTS||radius===FUEL_RADII.at(-1))break;
+      }
       if(controller.signal.aborted)return;
-      s.fuelStations=data.places;s.fuelStations.forEach(item=>item.distance=Number(item.distance)||app.distance(center,item.point));
+      s.lastFuelCenter={lat:Number(center.lat),lon:Number(center.lon)};
+      s.fuelStations=app.dedupeFuelStations(data.places,center);
       app.renderFuelStations();
-      if(options.announce!==false)app.setStatus(`Показани са ${s.fuelStations.length} бензиностанции около теб.`,'success');
+      if(options.announce!==false){
+        const area=s.user?'около теб':'около картата';
+        app.setStatus(`Показвам ${s.fuelStations.length} бензиностанции ${area} · до ${app.formatDistance(usedRadius)}.`,'success');
+      }
     }catch(error){
       if(error.name==='AbortError')return;
-      console.error(error);s.fuelStations=[];s.fuelLayer.clearLayers();
-      if(options.announce!==false)app.setStatus('Бензиностанциите временно не се заредиха.','error');
+      console.error(error);
+      if(!s.fuelStations.length)s.fuelLayer.clearLayers();
+      if(options.announce!==false)app.setStatus('Бензиностанциите временно не се заредиха. Картата остава активна.','error');
     }finally{if(s.requests.fuelLayer===controller)delete s.requests.fuelLayer}
   };
 
@@ -121,8 +161,9 @@
     if(!app.inBulgaria(center.lat,center.lon))return;
     if(s.layers.parking&&s.map.getZoom()>=13&&!(s.destination&&s.parkingContext==='destination'))app.loadViewportParkings({announce:options.announce,force:options.force,keepSelection:options.keepSelection});
     if(s.layers.fuel){
-      const moved=!s.lastLayerCenter||app.distance(center,s.lastLayerCenter)>=Number(options.minimumMove||280);
-      if(moved||options.force){s.lastLayerCenter={lat:center.lat,lon:center.lon};app.loadFuelStations(center,{announce:options.announce})}
+      const fuelCenter=s.user||center;
+      const moved=!s.lastFuelCenter||app.distance(fuelCenter,s.lastFuelCenter)>=Number(options.minimumMove||FUEL_REFRESH_DISTANCE);
+      if(moved||options.force)app.loadFuelStations(fuelCenter,{announce:options.announce});
     }
   };
 
@@ -135,31 +176,66 @@
       else app.loadViewportParkings({announce:true,force:true});
     }
     if(name==='fuel'){
-      if(!s.layers.fuel){app.abortRequest('fuelLayer');s.fuelStations=[];s.fuelLayer.clearLayers();const count=app.$('fuel-layer-count');if(count)count.textContent='0';app.setStatus('Слоят „Бензиностанции“ е изключен.','info')}
-      else app.loadFuelStations(app.layerCenter(),{announce:true});
+      if(!s.layers.fuel){app.abortRequest('fuelLayer');clearTimeout(s.fuelTimer);s.fuelStations=[];s.lastFuelCenter=null;s.fuelLayer.clearLayers();const count=app.$('fuel-layer-count');if(count)count.textContent='0';app.setStatus('Слоят „Бензиностанции“ е изключен.','info')}
+      else app.loadFuelStations(app.fuelCenter(),{announce:true});
     }
     if(options.closeMenu!==false)app.closeMapMenu();
   };
   app.toggleLayer=name=>app.setLayer(name,!s.layers[name]);
 
-  app.onUserPosition=(user,options={})=>{if(!s.locationWatchId)app.startLocationWatch();if((s.followUser||options.center===true)&&s.layers.parking&&s.map.getZoom()>=13&&!(s.destination&&s.parkingContext==='destination')){clearTimeout(s.layerTimer);s.layerTimer=setTimeout(()=>app.loadViewportParkings({announce:false,keepSelection:true}),300)}};
+  app.onUserPosition=(user,options={})=>{
+    if(!s.locationWatchId)app.startLocationWatch();
+    if((s.followUser||options.center===true)&&s.layers.parking&&s.map.getZoom()>=13&&!(s.destination&&s.parkingContext==='destination')){
+      clearTimeout(s.layerTimer);s.layerTimer=setTimeout(()=>app.loadViewportParkings({announce:false,keepSelection:true}),300);
+    }
+    if(s.layers.fuel){
+      const moved=!s.lastFuelCenter||app.distance(user,s.lastFuelCenter)>=FUEL_REFRESH_DISTANCE;
+      if(moved||options.reason==='initial'||options.center===true){
+        clearTimeout(s.fuelTimer);
+        s.fuelTimer=setTimeout(()=>app.loadFuelStations(user,{announce:options.reason==='initial'}),220);
+      }
+    }
+  };
 
   app.startLocationWatch=()=>{
     if(s.locationWatchId!=null||!navigator.geolocation)return;
-    s.locationWatchId=navigator.geolocation.watchPosition(position=>{const user={lat:Number(position.coords.latitude),lon:Number(position.coords.longitude),accuracy:Number(position.coords.accuracy||0)};app.applyUserPosition(user,{center:false,reason:'watch'})},()=>{}, {enableHighAccuracy:false,timeout:25000,maximumAge:20000});
+    s.locationWatchId=navigator.geolocation.watchPosition(position=>{
+      const user={
+        lat:Number(position.coords.latitude),
+        lon:Number(position.coords.longitude),
+        accuracy:Number(position.coords.accuracy||0),
+        speed:Number.isFinite(position.coords.speed)?Math.round(position.coords.speed*3.6):Number(s.user?.speed||0),
+        heading:Number.isFinite(position.coords.heading)?Number(position.coords.heading):s.user?.heading
+      };
+      app.applyUserPosition(user,{center:false,reason:'watch'});
+    },()=>{}, {enableHighAccuracy:true,timeout:25000,maximumAge:10000});
   };
 
   app.initLayers=()=>{
+    try{
+      if(localStorage.getItem(AUTO_FUEL_MIGRATION_KEY)!=='1'){
+        s.layers.fuel=true;
+        app.write(app.STORAGE.layers,s.layers);
+        localStorage.setItem(AUTO_FUEL_MIGRATION_KEY,'1');
+      }
+    }catch{}
     app.syncLayerControls();app.setSheetCollapsed(true);
     app.$('menu-btn').addEventListener('click',app.toggleMapMenu);
     app.$('parking-layer-btn').addEventListener('click',()=>app.toggleLayer('parking'));
     app.$('fuel-layer-btn').addEventListener('click',()=>app.toggleLayer('fuel'));
     s.map.on('dragstart',()=>{s.followUser=false});
     s.map.on('moveend zoomend',()=>{
+      if(!s.user&&s.layers.fuel){
+        clearTimeout(s.fuelTimer);
+        s.fuelTimer=setTimeout(()=>app.loadFuelStations(app.layerCenter(),{announce:false}),420);
+      }
       if(s.drawing||s.map.getZoom()<13||!s.layers.parking||s.destination&&s.parkingContext==='destination')return;
       clearTimeout(s.layerTimer);s.layerTimer=setTimeout(()=>app.loadViewportParkings({announce:false,keepSelection:true}),260);
     });
     document.addEventListener('click',event=>{if(!event.target.closest('#map-menu')&&!event.target.closest('#menu-btn'))app.closeMapMenu()});
-    window.setTimeout(()=>{if(s.layers.parking&&s.map.getZoom()>=13&&!(s.destination&&s.parkingContext==='destination'))app.loadViewportParkings({announce:false,force:true})},1800);
+    window.setTimeout(()=>{
+      if(s.layers.parking&&s.map.getZoom()>=13&&!(s.destination&&s.parkingContext==='destination'))app.loadViewportParkings({announce:false,force:true});
+      if(s.layers.fuel&&!s.user)app.loadFuelStations(app.layerCenter(),{announce:false});
+    },1800);
   };
 })();
