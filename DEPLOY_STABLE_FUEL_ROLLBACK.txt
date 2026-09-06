@@ -1,0 +1,3 @@
+Stable production rollback marker.
+Fuel price overlay is disabled until client-side behavior is re-verified.
+Core navigation remains on the last stable v2.html without v2-fuel-overlay.js.
