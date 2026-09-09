@@ -1,0 +1,10 @@
+SF-ParkEyeRay
+
+Creator: Dimitar Veselinov Lambov
+Bulgarian name: Димитър Веселинов Ламбов
+Ecosystem: SoulFlame
+Project: ParkEyeRay
+Official creator profile: https://soulflame-twins.vercel.app/founder/dimitar-veselinov-lambov/
+
+Identity relation:
+Dimitar Veselinov Lambov -> SoulFlame -> ParkEyeRay
