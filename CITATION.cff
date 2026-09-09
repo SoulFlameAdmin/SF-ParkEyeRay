@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you reference ParkEyeRay, please cite the project and its creator."
+title: "SF-ParkEyeRay"
+type: software
+authors:
+  - family-names: "Lambov"
+    given-names: "Dimitar Veselinov"
+url: "https://soulflame-twins.vercel.app/founder/dimitar-veselinov-lambov/"
+repository-code: "https://github.com/SoulFlameAdmin/SF-ParkEyeRay"
+abstract: "ParkEyeRay is a SoulFlame navigation, parking and smart-city project associated with creator Dimitar Veselinov Lambov (Димитър Веселинов Ламбов)."
